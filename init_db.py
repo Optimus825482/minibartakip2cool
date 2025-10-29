@@ -16,24 +16,24 @@ load_dotenv()
 def create_database():
     """MySQL veritabanını oluştur"""
     
-    # Veritabanı bilgileri (Railway DATABASE_URL öncelikli)
+    # Railway'de DATABASE_URL varsa, tabloları oluşturmak yeterli (veritabanı zaten var)
     database_url = os.getenv('DATABASE_URL')
     
     if database_url and database_url.startswith('mysql://'):
-        # Railway MySQL URL'sini parse et
-        import re
-        match = re.match(r'mysql://([^:]+):([^@]+)@([^:]+):(\d+)/(.+)', database_url)
-        if match:
-            mysql_user, mysql_password, mysql_host, mysql_port, mysql_db = match.groups()
-        else:
-            print("❌ DATABASE_URL formatı hatalı")
-            return False
-    else:
-        # Local development için .env'den oku
-        mysql_host = os.getenv('DB_HOST', 'localhost')
-        mysql_user = os.getenv('DB_USER', 'root')
-        mysql_password = os.getenv('DB_PASSWORD', '')
-        mysql_db = os.getenv('DB_NAME', 'minibar_takip')
+        print("=" * 60)
+        print("RAILWAY DEPLOYMENT - DATABASE SETUP")
+        print("=" * 60)
+        print("✅ Railway MySQL detected - DATABASE_URL found")
+        print("ℹ️  Database already exists, skipping database creation")
+        print("📊 Proceeding to table creation...")
+        print()
+        return True
+    
+    # Local development için MySQL'e bağlan ve veritabanı oluştur
+    mysql_host = os.getenv('DB_HOST', 'localhost')
+    mysql_user = os.getenv('DB_USER', 'root')
+    mysql_password = os.getenv('DB_PASSWORD', '')
+    mysql_db = os.getenv('DB_NAME', 'minibar_takip')
     
     print("=" * 60)
     print("OTEL MİNİBAR TAKİP SİSTEMİ - VERİTABANI KURULUM")
