@@ -5,14 +5,14 @@ Bu script şunları SİLER:
 - Tüm stok hareketleri (giriş/çıkış kayıtları)
 - Tüm zimmet kayıtları (zimmet_detay dahil)
 - Tüm minibar işlemleri (minibar_islem_detay dahil)
+- Tüm ürünler
+- Tüm ürün grupları
 
 Bu script şunları KORUR:
 - Kullanıcılar (sistem yöneticisi, admin, depo sorumlusu, kat sorumlusu)
 - Oteller
 - Katlar
 - Odalar
-- Ürün grupları
-- Ürünler
 - Personel tanımları
 
 UYARI: Bu işlem geri alınamaz!
@@ -25,7 +25,8 @@ from models import (
     PersonelZimmetDetay,
     MinibarIslem,
     MinibarIslemDetay,
-    Urun
+    Urun,
+    UrunGrup
 )
 
 def temizle_islem_verileri():
@@ -56,11 +57,13 @@ def temizle_islem_verileri():
             stok_hareket_count = StokHareket.query.delete()
             print(f"✅ {stok_hareket_count} adet stok hareketi silindi")
             
-            # 6. Ürün Stoklarını Sıfırla
-            urunler = Urun.query.all()
-            for urun in urunler:
-                urun.stok = 0
-            print(f"✅ {len(urunler)} adet ürünün stoku sıfırlandı")
+            # 6. Ürünleri Sil
+            urun_count = Urun.query.delete()
+            print(f"✅ {urun_count} adet ürün silindi")
+            
+            # 7. Ürün Gruplarını Sil
+            grup_count = UrunGrup.query.delete()
+            print(f"✅ {grup_count} adet ürün grubu silindi")
             
             # Değişiklikleri kaydet
             db.session.commit()
@@ -73,14 +76,14 @@ def temizle_islem_verileri():
             print("   - Otel tanımları")
             print("   - Kat tanımları")
             print("   - Oda tanımları")
-            print("   - Ürün grup tanımları")
-            print("   - Ürün tanımları (stoklar sıfırlandı)")
             print("   - Personel tanımları")
             print()
             print("🎯 Şimdi yapabilirsiniz:")
-            print("   1. Stok girişi yapabilirsiniz")
-            print("   2. Personele zimmet atayabilirsiniz")
-            print("   3. Minibar işlemlerini başlatabilirsiniz")
+            print("   1. Ürün grupları tanımlayabilirsiniz")
+            print("   2. Ürünler tanımlayabilirsiniz")
+            print("   3. Stok girişi yapabilirsiniz")
+            print("   4. Personele zimmet atayabilirsiniz")
+            print("   5. Minibar işlemlerini başlatabilirsiniz")
             
         except Exception as e:
             db.session.rollback()
@@ -89,8 +92,13 @@ def temizle_islem_verileri():
             raise
 
 if __name__ == '__main__':
-    print("⚠️  UYARI: Bu işlem tüm işlem kayıtlarını silecek!")
-    print("⚠️  Tanımlar (ürünler, odalar, personel) korunacak.")
+    print("⚠️  UYARI: Bu işlem şunları silecek:")
+    print("   - Tüm işlem kayıtları (stok, zimmet, minibar)")
+    print("   - Tüm ürünler")
+    print("   - Tüm ürün grupları")
+    print()
+    print("✅ Korunacaklar:")
+    print("   - Kullanıcılar, Oteller, Katlar, Odalar, Personel")
     print()
     onay = input("Devam etmek istiyor musunuz? (EVET yazın): ")
     
