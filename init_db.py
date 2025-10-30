@@ -16,14 +16,16 @@ load_dotenv()
 def create_database():
     """MySQL veritabanını oluştur"""
     
-    # Railway'de DATABASE_URL varsa, tabloları oluşturmak yeterli (veritabanı zaten var)
+    # Railway veya production ortamında çalıştırma - veritabanı zaten var
     database_url = os.getenv('DATABASE_URL')
+    mysqlhost = os.getenv('MYSQLHOST')
+    railway_env = os.getenv('RAILWAY_ENVIRONMENT')
     
-    if database_url and database_url.startswith('mysql://'):
+    if database_url or mysqlhost or railway_env:
         print("=" * 60)
-        print("RAILWAY DEPLOYMENT - DATABASE SETUP")
+        print("PRODUCTION/RAILWAY DEPLOYMENT - DATABASE SETUP")
         print("=" * 60)
-        print("✅ Railway MySQL detected - DATABASE_URL found")
+        print("✅ Production MySQL detected (DATABASE_URL or MYSQLHOST found)")
         print("ℹ️  Database already exists, skipping database creation")
         print("📊 Proceeding to table creation...")
         print()
