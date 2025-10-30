@@ -1800,7 +1800,10 @@ def minibar_kontrol():
                     detay = MinibarIslemDetay(
                         islem_id=islem.id,
                         urun_id=urun_id,
-                        eklenen_miktar=miktar
+                        baslangic_stok=0,
+                        eklenen_miktar=miktar,
+                        bitis_stok=miktar,
+                        tuketim=0
                     )
                     db.session.add(detay)
                         
@@ -1914,7 +1917,7 @@ def api_minibar_icerigi(oda_id):
     """Odanın mevcut minibar içeriğini döndür (son işleme göre)"""
     try:
         # Son minibar işlemini bul
-        son_islem = MinibarIslem.query.filter_by(oda_id=oda_id).order_by(MinibarIslemDetay.id.desc()).first()
+        son_islem = MinibarIslem.query.filter_by(oda_id=oda_id).order_by(MinibarIslem.id.desc()).first()
         
         if not son_islem:
             return jsonify({'success': True, 'urunler': [], 'ilk_dolum': True})
@@ -1924,8 +1927,13 @@ def api_minibar_icerigi(oda_id):
         for detay in son_islem.detaylar:
             urun = Urun.query.get(detay.urun_id)
             if urun:
-                # Mevcut stok = son bitiş stoku veya başlangıç + eklenen - tüketim
-                mevcut_stok = detay.bitis_stok if detay.bitis_stok > 0 else (detay.baslangic_stok + detay.eklenen_miktar - detay.tuketim)
+                # Mevcut stok hesaplama:
+                # - Eğer bitis_stok girilmişse onu kullan (kontrol/doldurma işlemlerinde)
+                # - Yoksa: baslangic_stok + eklenen_miktar - tuketim (ilk dolumda)
+                if detay.bitis_stok is not None and detay.bitis_stok >= 0:
+                    mevcut_stok = detay.bitis_stok
+                else:
+                    mevcut_stok = (detay.baslangic_stok or 0) + (detay.eklenen_miktar or 0) - (detay.tuketim or 0)
                 
                 urunler.append({
                     'urun_id': urun.id,
