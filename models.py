@@ -225,6 +225,10 @@ class MinibarIslemDetay(db.Model):
     bitis_stok = db.Column(db.Integer, default=0)
     tuketim = db.Column(db.Integer, default=0)
     eklenen_miktar = db.Column(db.Integer, default=0)
+    zimmet_detay_id = db.Column(db.Integer, db.ForeignKey('personel_zimmet_detay.id'), nullable=True)  # Hangi zimmetten kullanıldığı
+    
+    # İlişkiler
+    zimmet_detay = db.relationship('PersonelZimmetDetay', foreign_keys=[zimmet_detay_id])
     
     def __repr__(self):
         return f'<MinibarIslemDetay #{self.id}>'

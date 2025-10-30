@@ -1907,6 +1907,149 @@ def minibar_urunler():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
+@app.route('/api/minibar-icerigi/<int:oda_id>')
+@login_required
+@role_required('kat_sorumlusu')
+def api_minibar_icerigi(oda_id):
+    """Odanın mevcut minibar içeriğini döndür (son işleme göre)"""
+    try:
+        # Son minibar işlemini bul
+        son_islem = MinibarIslem.query.filter_by(oda_id=oda_id).order_by(MinibarIslemDetay.id.desc()).first()
+        
+        if not son_islem:
+            return jsonify({'success': True, 'urunler': [], 'ilk_dolum': True})
+        
+        # Son işlemdeki ürünleri ve miktarlarını getir
+        urunler = []
+        for detay in son_islem.detaylar:
+            urun = Urun.query.get(detay.urun_id)
+            if urun:
+                # Mevcut stok = son bitiş stoku veya başlangıç + eklenen - tüketim
+                mevcut_stok = detay.bitis_stok if detay.bitis_stok > 0 else (detay.baslangic_stok + detay.eklenen_miktar - detay.tuketim)
+                
+                urunler.append({
+                    'urun_id': urun.id,
+                    'urun_adi': urun.urun_adi,
+                    'grup_adi': urun.grup.grup_adi if urun.grup else '',
+                    'birim': urun.birim,
+                    'mevcut_stok': mevcut_stok,
+                    'son_islem_tarihi': son_islem.islem_tarihi.strftime('%d.%m.%Y %H:%M')
+                })
+        
+        return jsonify({
+            'success': True,
+            'urunler': urunler,
+            'ilk_dolum': False,
+            'son_islem_tipi': son_islem.islem_tipi
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/api/minibar-doldur', methods=['POST'])
+@login_required
+@role_required('kat_sorumlusu')
+def api_minibar_doldur():
+    """Tek bir ürünü minibar'a doldur"""
+    try:
+        data = request.get_json()
+        oda_id = data.get('oda_id')
+        urun_id = data.get('urun_id')
+        miktar = int(data.get('miktar', 0))
+        islem_tipi = data.get('islem_tipi', 'doldurma')
+        kullanici_id = session['kullanici_id']
+        
+        if not oda_id or not urun_id or miktar <= 0:
+            return jsonify({'success': False, 'error': 'Geçersiz parametreler'})
+        
+        urun = Urun.query.get(urun_id)
+        if not urun:
+            return jsonify({'success': False, 'error': 'Ürün bulunamadı'})
+        
+        # Zimmet kontrolü
+        zimmet_detaylar = db.session.query(PersonelZimmetDetay).join(
+            PersonelZimmet, PersonelZimmetDetay.zimmet_id == PersonelZimmet.id
+        ).filter(
+            PersonelZimmet.personel_id == kullanici_id,
+            PersonelZimmet.durum == 'aktif',
+            PersonelZimmetDetay.urun_id == urun_id
+        ).all()
+        
+        if not zimmet_detaylar:
+            return jsonify({'success': False, 'error': f'Zimmetinizde {urun.urun_adi} bulunmuyor'})
+        
+        toplam_kalan = sum(d.miktar - d.kullanilan_miktar for d in zimmet_detaylar)
+        if toplam_kalan < miktar:
+            return jsonify({'success': False, 'error': f'Yetersiz zimmet! Kalan: {toplam_kalan} {urun.birim}'})
+        
+        # Son işlemi bul
+        son_islem = MinibarIslem.query.filter_by(oda_id=oda_id).order_by(MinibarIslem.id.desc()).first()
+        
+        if son_islem:
+            # Son işlemdeki bu ürünün stoğunu bul
+            son_detay = MinibarIslemDetay.query.filter_by(
+                islem_id=son_islem.id,
+                urun_id=urun_id
+            ).first()
+            
+            if son_detay:
+                baslangic_stok = son_detay.bitis_stok if son_detay.bitis_stok > 0 else (son_detay.baslangic_stok + son_detay.eklenen_miktar - son_detay.tuketim)
+            else:
+                baslangic_stok = 0
+        else:
+            baslangic_stok = 0
+        
+        # Yeni işlem oluştur
+        islem = MinibarIslem(
+            oda_id=oda_id,
+            personel_id=kullanici_id,
+            islem_tipi=islem_tipi,
+            aciklama=f'{miktar} {urun.birim} {urun.urun_adi} eklendi'
+        )
+        db.session.add(islem)
+        db.session.flush()
+        
+        # Zimmetten düş (FIFO)
+        kalan_miktar = miktar
+        kullanilan_zimmet_id = None
+        
+        for zimmet_detay in zimmet_detaylar:
+            if kalan_miktar <= 0:
+                break
+            
+            detay_kalan = zimmet_detay.miktar - zimmet_detay.kullanilan_miktar
+            if detay_kalan > 0:
+                kullanilacak = min(detay_kalan, kalan_miktar)
+                zimmet_detay.kullanilan_miktar += kullanilacak
+                zimmet_detay.kalan_miktar = zimmet_detay.miktar - zimmet_detay.kullanilan_miktar
+                kalan_miktar -= kullanilacak
+                
+                if not kullanilan_zimmet_id:
+                    kullanilan_zimmet_id = zimmet_detay.id
+        
+        # Minibar detayı kaydet
+        detay = MinibarIslemDetay(
+            islem_id=islem.id,
+            urun_id=urun_id,
+            baslangic_stok=baslangic_stok,
+            bitis_stok=baslangic_stok + miktar,
+            tuketim=0,
+            eklenen_miktar=miktar,
+            zimmet_detay_id=kullanilan_zimmet_id
+        )
+        db.session.add(detay)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'{miktar} {urun.birim} {urun.urun_adi} başarıyla eklendi',
+            'yeni_stok': baslangic_stok + miktar
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
 @app.route('/zimmetim')
 @login_required
 @role_required('kat_sorumlusu')
