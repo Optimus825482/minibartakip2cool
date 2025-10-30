@@ -1759,36 +1759,42 @@ def minibar_kontrol():
                     urun_id = int(key.split('_')[1])
                     miktar = int(value)
                     
-                    # Tüm işlem tipleri için zimmetten düş (ilk_dolum, doldurma)
-                    # Kat sorumlusunun aktif zimmetini bul
-                    aktif_zimmet = PersonelZimmet.query.filter_by(
-                        personel_id=kullanici_id,
-                        durum='aktif'
-                    ).first()
-                    
-                    if not aktif_zimmet:
-                        raise Exception('Aktif zimmetiniz bulunmuyor. Lütfen depo sorumlusundan zimmet talep edin.')
-                    
-                    # Zimmetten ürünü bul
-                    zimmet_detay = PersonelZimmetDetay.query.filter_by(
-                        zimmet_id=aktif_zimmet.id,
-                        urun_id=urun_id
-                    ).first()
-                    
-                    if not zimmet_detay:
-                        urun = Urun.query.get(urun_id)
-                        urun_adi = urun.urun_adi if urun else 'Bilinmeyen ürün'
-                        raise Exception(f'Zimmetinizde bu ürün bulunmuyor: {urun_adi}')
-                    
-                    kalan = (zimmet_detay.miktar - zimmet_detay.kullanilan_miktar)
-                    if kalan < miktar:
-                        urun = Urun.query.get(urun_id)
-                        urun_adi = urun.urun_adi if urun else 'Bilinmeyen ürün'
-                        raise Exception(f'Zimmetinizde yeterli ürün yok: {urun_adi}. Kalan: {kalan}')
-                    
-                    # Zimmetten düş
-                    zimmet_detay.kullanilan_miktar += miktar
-                    zimmet_detay.kalan_miktar = zimmet_detay.miktar - zimmet_detay.kullanilan_miktar
+                    # Sadece ilk_dolum ve doldurma işlemlerinde zimmetten düş
+                    if islem_tipi in ['ilk_dolum', 'doldurma']:
+                        # Kat sorumlusunun aktif zimmetlerindeki bu ürünü bul (tüm aktif zimmetlerde ara)
+                        zimmet_detaylar = db.session.query(PersonelZimmetDetay).join(
+                            PersonelZimmet, PersonelZimmetDetay.zimmet_id == PersonelZimmet.id
+                        ).filter(
+                            PersonelZimmet.personel_id == kullanici_id,
+                            PersonelZimmet.durum == 'aktif',
+                            PersonelZimmetDetay.urun_id == urun_id
+                        ).all()
+                        
+                        if not zimmet_detaylar:
+                            urun = Urun.query.get(urun_id)
+                            urun_adi = urun.urun_adi if urun else 'Bilinmeyen ürün'
+                            raise Exception(f'Zimmetinizde bu ürün bulunmuyor: {urun_adi}')
+                        
+                        # Toplam kalan miktarı hesapla
+                        toplam_kalan = sum(detay.miktar - detay.kullanilan_miktar for detay in zimmet_detaylar)
+                        
+                        if toplam_kalan < miktar:
+                            urun = Urun.query.get(urun_id)
+                            urun_adi = urun.urun_adi if urun else 'Bilinmeyen ürün'
+                            raise Exception(f'Zimmetinizde yeterli ürün yok: {urun_adi}. Kalan: {toplam_kalan}')
+                        
+                        # Zimmetlerden sırayla düş (FIFO mantığı)
+                        kalan_miktar = miktar
+                        for zimmet_detay in zimmet_detaylar:
+                            if kalan_miktar <= 0:
+                                break
+                            
+                            detay_kalan = zimmet_detay.miktar - zimmet_detay.kullanilan_miktar
+                            if detay_kalan > 0:
+                                kullanilacak = min(detay_kalan, kalan_miktar)
+                                zimmet_detay.kullanilan_miktar += kullanilacak
+                                zimmet_detay.kalan_miktar = zimmet_detay.miktar - zimmet_detay.kullanilan_miktar
+                                kalan_miktar -= kullanilacak
                     
                     # Minibar detayı kaydet
                     detay = MinibarIslemDetay(
@@ -1804,35 +1810,44 @@ def minibar_kontrol():
                     bitis = int(request.form.get(f'bitis_{urun_id}', 0))
                     tuketim = max(0, baslangic - bitis)
                     
-                    if tuketim > 0:
-                        # Sarfiyat oluştur
-                        detay = MinibarIslemDetay(
-                            islem_id=islem.id,
-                            urun_id=urun_id,
-                            baslangic_stok=baslangic,
-                            bitis_stok=bitis,
-                            tuketim=tuketim
-                        )
-                        db.session.add(detay)
+                    # Sarfiyat oluştur (kontrol ve doldurma işlemlerinde)
+                    detay = MinibarIslemDetay(
+                        islem_id=islem.id,
+                        urun_id=urun_id,
+                        baslangic_stok=baslangic,
+                        bitis_stok=bitis,
+                        tuketim=tuketim
+                    )
+                    db.session.add(detay)
+                    
+                    # Doldurma işleminde tüketimi zimmetten düş
+                    if islem_tipi == 'doldurma' and tuketim > 0:
+                        # Tüm aktif zimmetlerde bu ürünü ara
+                        zimmet_detaylar = db.session.query(PersonelZimmetDetay).join(
+                            PersonelZimmet, PersonelZimmetDetay.zimmet_id == PersonelZimmet.id
+                        ).filter(
+                            PersonelZimmet.personel_id == kullanici_id,
+                            PersonelZimmet.durum == 'aktif',
+                            PersonelZimmetDetay.urun_id == urun_id
+                        ).all()
                         
-                        # Eksiği zimmetten tamamla
-                        if tuketim > 0:
-                            aktif_zimmet = PersonelZimmet.query.filter_by(
-                                personel_id=kullanici_id,
-                                durum='aktif'
-                            ).first()
+                        if zimmet_detaylar:
+                            # Toplam kalan miktarı hesapla
+                            toplam_kalan = sum(d.miktar - d.kullanilan_miktar for d in zimmet_detaylar)
                             
-                            if aktif_zimmet:
-                                zimmet_detay = PersonelZimmetDetay.query.filter_by(
-                                    zimmet_id=aktif_zimmet.id,
-                                    urun_id=urun_id
-                                ).first()
-                                
-                                if zimmet_detay:
-                                    kalan = (zimmet_detay.miktar - zimmet_detay.kullanilan_miktar)
-                                    if kalan >= tuketim:
-                                        zimmet_detay.kullanilan_miktar += tuketim
+                            if toplam_kalan >= tuketim:
+                                # Zimmetlerden sırayla düş (FIFO mantığı)
+                                kalan_tuketim = tuketim
+                                for zimmet_detay in zimmet_detaylar:
+                                    if kalan_tuketim <= 0:
+                                        break
+                                    
+                                    detay_kalan = zimmet_detay.miktar - zimmet_detay.kullanilan_miktar
+                                    if detay_kalan > 0:
+                                        kullanilacak = min(detay_kalan, kalan_tuketim)
+                                        zimmet_detay.kullanilan_miktar += kullanilacak
                                         zimmet_detay.kalan_miktar = zimmet_detay.miktar - zimmet_detay.kullanilan_miktar
+                                        kalan_tuketim -= kullanilacak
             
             db.session.commit()
             flash('Minibar işlemi başarıyla kaydedildi. Zimmetinizden düşürülen ürünler güncellendi.', 'success')
