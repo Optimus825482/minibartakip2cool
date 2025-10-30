@@ -186,7 +186,7 @@ Otel Minibar Takip Sistemi, otellerde minibar işlemlerini, stok yönetimini ve 
    • Stok < Kritik Seviye ise UYARI
 ```
 
-### 🛏️ Minibar İşlem Akışı
+### 🛏️ Minibar İşlem Akışı ⭐ YENİ SİSTEM
 
 ```
 YENİ ODA (İlk Dolum)
@@ -195,39 +195,88 @@ YENİ ODA (İlk Dolum)
    • Kat seç → Oda seç
    • İşlem Tipi: İlk Dolum
    ↓
-2. Ürün Seçimi
-   • Her ürün için miktar gir
-   • Açıklama ekle (opsiyonel)
+2. Ürün Seçimi (Toplu)
+   • Ürün Grubu → Ürün → Miktar
+   • Zimmet kontrolü gösterilir
+   • Listeye Ekle
+   • Tüm ürünler eklendikten sonra Kaydet
    ↓
 3. Zimmet Kullanımı
-   • Zimmetli ürünler otomatik düşer
+   • Zimmetli ürünler FIFO mantığı ile düşer
+   • Hangi zimmetten kullanıldığı kaydedilir
    ↓
 4. Sistem Kaydı
-   • Minibar işlemi oluştur
-   • Stok güncelle
-   • Zimmet düşür
+   • Minibar işlemi oluştur (tarih, saat, kullanıcı)
+   • Zimmet-Tüketim ilişkisi kur
+   • Zimmet miktarları güncelle
 
 ────────────────────────────
 
-ODA TEMİZLİK (Kontrol/Doldurma)
+ODA KONTROLÜ ⭐ YENİ
    ↓
 1. Kat Sorumlusu: Minibar Kontrol
    • Kat seç → Oda seç
-   • İşlem Tipi: Kontrol veya Doldurma
+   • İşlem Tipi: Kontrol
    ↓
-2. Mevcut Durum Gösterimi
-   • Son işlemdeki ürünler listenir
-   • Başlangıç stokları gösterilir
+2. Minibar İçeriği Listesi
+   • Tüm ürünler ve mevcut stokları gösterilir
+   • Ürün Adı | Grup | Mevcut Stok | Birim
+   • SADECE GÖRÜNTÜLEME (işlem yapılmaz)
    ↓
-3. Tüketim Girişi
-   • Bitiş stoku gir (kaç adet kaldı)
-   • Sistem otomatik tüketimi hesaplar
-   • Eklenen miktar gir (doldurma ise)
+3. Bilgilendirme
+   • Oda durumu kontrol edilir
+   • Hangi ürünler ne kadar var görülür
+   • İşlem kaydı OLUŞTURULMAZ
+
+────────────────────────────
+
+ODA DOLDURMA ⭐ YENİ SİSTEM
    ↓
-4. Zimmet ve Stok Güncelleme
-   • Eklenen miktar zimmetden düşer
-   • Tüketim stoktan düşer
-   • Kayıt oluştur
+1. Kat Sorumlusu: Minibar Kontrol
+   • Kat seç → Oda seç
+   • İşlem Tipi: Doldurma
+   ↓
+2. Minibar İçeriği Listesi
+   • Tüm ürünler ve mevcut stokları gösterilir
+   • Her satırda "EKLE" butonu
+   ↓
+3. TEK ÜRÜN DOLDURMA
+   • "Ekle" butonuna tıkla
+   • Modal açılır:
+     - Ürün bilgisi
+     - Mevcut stok
+     - Zimmet durumu
+   • Miktar gir
+   ↓
+4. ONAY MESAJI
+   • "X adet Y ürünü eklenecek"
+   • "Zimmetinizden düşülecek"
+   • "Tüketim olarak kaydedilecek"
+   • Kullanıcı ONAYLAR
+   ↓
+5. İŞLEM KAYDI (Her ürün için ayrı)
+   • Minibar işlemi oluştur
+     - Tarih/Saat
+     - Kullanıcı
+     - Oda
+   • Minibar detay kaydet
+     - Ürün
+     - Eklenen miktar
+     - Zimmetten hangi zimmet_detay_id kullanıldı
+   • Zimmetten düş (FIFO)
+     - PersonelZimmetDetay.kullanilan_miktar += miktar
+     - PersonelZimmetDetay.kalan_miktar güncelle
+   ↓
+6. ZIMMET-TUKETIM ILIŞKISI
+   • MinibarIslemDetay.zimmet_detay_id = kullanılan zimmet ID
+   • Hangi zimmetten ne kadar kullanıldığı izlenebilir
+   • Raporlarda zimmet-tüketim ilişkisi görünür
+   ↓
+7. LİSTE GÜNCELLEME
+   • Modal kapanır
+   • Minibar içeriği listesi yenilenir
+   • Yeni stok miktarları gösterilir
+   • Bir sonraki ürün için tekrar edilebilir
 ```
 
 ### 📋 Zimmet Akışı
@@ -509,42 +558,68 @@ ODA TEMİZLİK (Kontrol/Doldurma)
    - Ürün listesi
    - Kullanım geçmişi
 
-#### Minibar Kontrol
-1. **İşlem Tipi Seçimi**
+#### Minibar Kontrol ⭐ YENİ SİSTEM
+1. **Kat, Oda ve İşlem Tipi Seçimi**
    - Sol menü → Minibar Kontrol
-   - Kat seç (sadece kendi katı)
-   - Oda seç
-   - İşlem Tipi seç:
+   - **Kat Seç** (sadece kendi katı görünür)
+   - **Oda Seç** (seçilen kattaki odalar)
+   - **İşlem Tipi Seç:**
      - **İlk Dolum**: Yeni oda ilk doldurma
-     - **Kontrol**: Oda temizliği kontrolü
-     - **Doldurma**: Tüketim sonrası doldurma
+     - **Kontrol**: Minibar içeriğini görüntüleme
+     - **Doldurma**: Tek tek ürün ekleme
 
-2. **İlk Dolum İşlemi**
+2. **İlk Dolum İşlemi** (Eski Sistem)
    - Oda daha önce doldurulmamış olmalı
-   - Ürün listesi gösterilir
-   - Her ürün için miktar gir
-   - Başlangıç = Eklenen miktar
+   - **Ürün Grubu Seç** → **Ürün Seç** → **Miktar Gir**
+   - **Zimmet Bilgisi** otomatik gösterilir
+   - **Listeye Ekle** butonu ile ürünleri ekle
+   - Tüm ürünler eklendikten sonra **Kaydet**
    - Zimmetli ürünler otomatik düşer
-   - Kaydet
 
-3. **Kontrol İşlemi**
-   - Son işlem bilgileri gösterilir
-   - Her ürün için:
-     - Başlangıç stoku
-     - Bitiş stoku gir (kaç adet kaldı)
-     - Tüketim otomatik hesaplanır
-   - Eklenen miktar: 0 (sadece kontrol)
-   - Kaydet
+3. **Kontrol İşlemi** ⭐ YENİ
+   - Oda seçilince **minibar içeriği** otomatik gösterilir
+   - Liste halinde:
+     - Ürün Adı
+     - Grup
+     - Mevcut Stok
+     - Birim
+   - **Sadece görüntüleme modu** (işlem yapılmaz)
+   - Mevcut durumu kontrol etmek için kullanılır
 
-4. **Doldurma İşlemi**
-   - Son işlem bilgileri gösterilir
-   - Her ürün için:
-     - Başlangıç stoku
-     - Bitiş stoku gir
-     - Tüketim hesaplanır
-     - Eklenen miktar gir (kaç adet ekledin)
-   - Zimmetli ürünler düşer
-   - Kaydet
+4. **Doldurma İşlemi** ⭐ YENİ SİSTEM
+   - Oda seçilince **minibar içeriği listesi** gösterilir
+   - Her ürün satırında **"Ekle"** butonu var
+   
+   **Tek Ürün Doldurma Adımları:**
+   1. **Ekle** butonuna tıkla
+   2. **Modal pencere** açılır:
+      - Ürün adı
+      - Mevcut stok
+      - Zimmetinizde kalan miktar
+   3. **Eklenecek miktarı gir**
+   4. **Onayla ve Ekle** butonuna tıkla
+   5. **Onay Mesajı** gösterilir:
+      ```
+      X adet Y ürünü minibar'a eklenecek.
+      
+      Bu işlem sonucunda:
+      • X adet ürün minibar'a eklenecek
+      • Zimmetinizden X adet düşülecek
+      • Tüketim olarak kaydedilecek
+      
+      Onaylıyor musunuz?
+      ```
+   6. **Evet** derseniz:
+      - Ürün minibar'a eklenir
+      - Zimmetten düşülür (FIFO mantığı)
+      - Tarih, saat, kullanıcı bilgisi ile kaydedilir
+      - Zimmet-Tüketim ilişkisi kurulur
+   
+   **Önemli:**
+   - Her ürün için ayrı ayrı işlem yapılır
+   - Anlık zimmet kontrolü yapılır
+   - Her işlem anında kaydedilir
+   - Liste otomatik güncellenir
 
 #### Raporlar
 1. **Tüketim Raporu**
