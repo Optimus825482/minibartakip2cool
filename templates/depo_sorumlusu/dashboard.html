@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}Depo Sorumlusu Dashboard - Minibar Takip Sistemi{% endblock %}
-{% block page_title %}Depo Sorumlusu Dashboard{% endblock %}
+{% block title %}Depo Sorumlusu Panel - Minibar Takip Sistemi{% endblock %}
+{% block page_title %}Depo Sorumlusu Panel{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -93,81 +93,6 @@
             </div>
         </div>
     </div>
-
-    <!-- Zimmet İade İstatistikleri -->
-    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <div
-            class="bg-gradient-to-br from-purple-50 to-purple-100 overflow-hidden shadow rounded-lg border border-purple-200">
-            <div class="p-5">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-purple-600 mb-1">Toplam İade Edilen Ürün</p>
-                        <p class="text-3xl font-bold text-purple-900">{{ toplam_iade_edilen }}</p>
-                        <p class="text-xs text-purple-600 mt-1">Tüm zamanlar</p>
-                    </div>
-                    <div class="flex-shrink-0">
-                        <div class="w-12 h-12 bg-purple-500 rounded-full flex items-center justify-center">
-                            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"></path>
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div
-            class="bg-gradient-to-br from-orange-50 to-orange-100 overflow-hidden shadow rounded-lg border border-orange-200">
-            <div class="p-5">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <p class="text-sm font-medium text-orange-600 mb-1">İptal Edilen Zimmetler</p>
-                        <p class="text-3xl font-bold text-orange-900">{{ iptal_zimmetler }}</p>
-                        <p class="text-xs text-orange-600 mt-1">Tüm zamanlar</p>
-                    </div>
-                    <div class="flex-shrink-0">
-                        <div class="w-12 h-12 bg-orange-500 rounded-full flex items-center justify-center">
-                            <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M6 18L18 6M6 6l12 12"></path>
-                            </svg>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Kritik Stok Uyarıları -->
-    {% if kritik_urunler %}
-    <div class="bg-white shadow rounded-lg">
-        <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">⚠️ Kritik Stok Uyarıları</h3>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {% for item in kritik_urunler %}
-                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <svg class="h-5 w-5 text-red-400" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd"
-                                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                                    clip-rule="evenodd"></path>
-                            </svg>
-                        </div>
-                        <div class="ml-3">
-                            <h4 class="text-sm font-medium text-red-800">{{ item.urun.urun_adi }}</h4>
-                            <p class="text-sm text-red-600">Mevcut: {{ item.mevcut_stok }} / Kritik: {{
-                                item.kritik_seviye }}</p>
-                        </div>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
     <!-- Hızlı İşlemler -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
@@ -235,57 +160,238 @@
         </div>
     </div>
 
+    <!-- Gelişmiş Stok Uyarıları - Kategorize Edilmiş -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg leading-6 font-medium text-slate-900">📊 Stok Durumu İstatistikleri</h3>
+                <div class="flex space-x-4 text-sm">
+                    <div class="flex items-center">
+                        <span class="inline-block w-3 h-3 bg-red-500 rounded-full mr-2"></span>
+                        <span class="text-slate-600">Kritik: <strong>{{ stok_durumlari.istatistik.kritik_sayi
+                                }}</strong></span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="inline-block w-3 h-3 bg-yellow-500 rounded-full mr-2"></span>
+                        <span class="text-slate-600">Dikkat: <strong>{{ stok_durumlari.istatistik.dikkat_sayi
+                                }}</strong></span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="inline-block w-3 h-3 bg-green-500 rounded-full mr-2"></span>
+                        <span class="text-slate-600">Normal: <strong>{{ stok_durumlari.istatistik.normal_sayi
+                                }}</strong></span>
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- Kritik Stok Uyarıları -->
+            {% if stok_durumlari.kritik %}
+            <div class="mb-6">
+                <h4 class="text-md font-medium text-red-700 mb-3 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Kritik Stok Uyarıları ({{ stok_durumlari.kritik|length }})
+                </h4>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {% for item in stok_durumlari.kritik %}
+                    <div class="bg-red-50 border-2 border-red-300 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-2">
+                                    <span
+                                        class="inline-flex px-2.5 py-1 text-xs font-bold rounded-full {{ item.badge_class }}">
+                                        {{ item.badge_text }}
+                                    </span>
+                                </div>
+                                <h5 class="text-sm font-semibold text-slate-900 mb-1">{{ item.urun.urun_adi }}</h5>
+                                <p class="text-xs text-slate-600">Grup: {{ item.urun.grup.grup_adi }}</p>
+                                <div class="mt-3 space-y-1">
+                                    <div class="flex justify-between text-xs">
+                                        <span class="text-slate-500">Mevcut Stok:</span>
+                                        <span class="font-bold text-red-700">{{ item.mevcut_stok }} {{ item.urun.birim
+                                            }}</span>
+                                    </div>
+                                    <div class="flex justify-between text-xs">
+                                        <span class="text-slate-500">Kritik Seviye:</span>
+                                        <span class="font-medium text-slate-700">{{ item.kritik_seviye }} {{
+                                            item.urun.birim }}</span>
+                                    </div>
+                                    <!-- Progress bar -->
+                                    <div class="mt-2">
+                                        <div class="w-full bg-red-200 rounded-full h-2">
+                                            <div class="bg-red-600 h-2 rounded-full"
+                                                style="width: {{ [item.yuzde, 100]|min }}%"></div>
+                                        </div>
+                                        <span class="text-xs text-slate-500 mt-1 block">%{{ "%.0f"|format(item.yuzde)
+                                            }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Dikkat Gerektiren Ürünler -->
+            {% if stok_durumlari.dikkat %}
+            <div class="mb-6">
+                <h4 class="text-md font-medium text-yellow-700 mb-3 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Dikkat Gerektiren Ürünler ({{ stok_durumlari.dikkat|length }})
+                </h4>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {% for item in stok_durumlari.dikkat %}
+                    <div class="bg-yellow-50 border border-yellow-300 rounded-lg p-3 hover:shadow-md transition-shadow">
+                        <div class="flex items-center mb-2">
+                            <span
+                                class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full {{ item.badge_class }}">
+                                {{ item.badge_text }}
+                            </span>
+                        </div>
+                        <h5 class="text-sm font-semibold text-slate-900 mb-1">{{ item.urun.urun_adi }}</h5>
+                        <div class="flex justify-between text-xs text-slate-600 mt-2">
+                            <span>Mevcut:</span>
+                            <span class="font-bold text-yellow-700">{{ item.mevcut_stok }}</span>
+                        </div>
+                        <div class="mt-1">
+                            <div class="w-full bg-yellow-200 rounded-full h-1.5">
+                                <div class="bg-yellow-500 h-1.5 rounded-full"
+                                    style="width: {{ [item.yuzde, 100]|min }}%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Yeterli Stok - Özet -->
+            {% if stok_durumlari.normal %}
+            <div>
+                <h4 class="text-md font-medium text-green-700 mb-2 flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Yeterli Stokta ({{ stok_durumlari.normal|length }})
+                </h4>
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <p class="text-sm text-green-800">
+                        <strong>{{ stok_durumlari.normal|length }}</strong> ürün normal stok seviyesindedir.
+                        <span class="text-green-600">✓ Stok yönetimi iyi durumda.</span>
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!-- Ürün Bazlı Tüketim Grafiği -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg leading-6 font-medium text-slate-900">📈 Ürün Bazlı Tüketim (Son 30 Gün)</h3>
+                <span class="text-xs text-slate-500">En çok tüketilen 10 ürün</span>
+            </div>
+            {% if urun_labels %}
+            <div class="h-80">
+                <canvas id="urunTuketimChart"></canvas>
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                    </path>
+                </svg>
+                <p class="mt-2 text-sm text-slate-500">Son 30 günde tüketim verisi bulunmuyor</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+
+
     <!-- Son Stok Hareketleri -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">Son Stok Hareketleri</h3>
             {% if son_hareketler %}
             <div class="overflow-hidden">
-                <table class="min-w-full divide-y divide-slate-200">
+                <table id="son-stok-hareketler-table" class="min-w-full divide-y divide-slate-200">
                     <thead class="bg-slate-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                Ürün</th>
+                                Ürün
+                                <span
+                                    class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+                                    {{ son_hareketler|length }} hareket
+                                </span>
+                            </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 Hareket Tipi</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 Miktar</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">
                                 Tarih</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">
                                 İşlem Yapan</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden xl:table-cell">
                                 İşlemler</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-slate-200">
                         {% for hareket in son_hareketler %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{
-                                hareket.urun.urun_adi }}</td>
+                        <tr class="hover:bg-slate-50 transition-colors duration-150">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                📦 {{ hareket.urun.urun_adi }}
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full
                                         {% if hareket.hareket_tipi == 'giris' %}bg-green-100 text-green-800
                                         {% elif hareket.hareket_tipi == 'cikis' %}bg-red-100 text-red-800
                                         {% elif hareket.hareket_tipi == 'devir' %}bg-blue-100 text-blue-800
                                         {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {% if hareket.hareket_tipi == 'giris' %}🟢{% elif hareket.hareket_tipi == 'cikis'
+                                    %}🔴{% elif hareket.hareket_tipi == 'devir' %}🔵{% else %}🟡{% endif %}
                                     {{ hareket.hareket_tipi.title() }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ hareket.miktar }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{
-                                hareket.islem_tarihi.strftime('%d.%m.%Y %H:%M') }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                    {{ hareket.miktar }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden lg:table-cell">
+                                📅 {{ hareket.islem_tarihi.strftime('%d.%m.%Y %H:%M') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
                                 {% if hareket.islem_yapan %}
-                                {{ hareket.islem_yapan.ad }} {{ hareket.islem_yapan.soyad }}
+                                👤 {{ hareket.islem_yapan.ad }} {{ hareket.islem_yapan.soyad }}
                                 {% else %}
                                 -
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden xl:table-cell">
                                 <a href="{{ url_for('stok_duzenle', hareket_id=hareket.id) }}"
                                     class="text-blue-600 hover:text-blue-900 font-medium">
-                                    Düzenle
+                                    ✏️ Düzenle
                                 </a>
                             </td>
                         </tr>
@@ -299,4 +405,113 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    // Ürün Bazlı Tüketim Grafiği
+    {% if urun_labels %}
+    const urunTuketimCtx = document.getElementById( 'urunTuketimChart' );
+    if ( urunTuketimCtx ) {
+        // Gradient oluştur
+        const gradient = urunTuketimCtx.getContext( '2d' ).createLinearGradient( 0, 0, 0, 400 );
+        gradient.addColorStop( 0, 'rgba(59, 130, 246, 0.8)' );
+        gradient.addColorStop( 0.5, 'rgba(99, 102, 241, 0.6)' );
+        gradient.addColorStop( 1, 'rgba(139, 92, 246, 0.4)' );
+
+        new Chart( urunTuketimCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ urun_labels | tojson }},
+    datasets: [{
+        label: 'Tüketim Miktarı',
+        data: {{ urun_tuketim_miktarlari | tojson }},
+        backgroundColor: gradient,
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false,
+                }]
+            },
+    options: {
+        responsive: true,
+            maintainAspectRatio: false,
+                plugins: {
+            legend: {
+                display: false
+            },
+            title: {
+                display: false
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                        titleFont: {
+                    size: 14,
+                        weight: 'bold'
+                },
+                bodyFont: {
+                    size: 13
+                },
+                callbacks: {
+                    label: function( context ) {
+                        return ' Tüketim: ' + context.parsed.y + ' adet';
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                    grid: {
+                    color: 'rgba(0, 0, 0, 0.05)',
+                        drawBorder: false
+                },
+                ticks: {
+                    font: {
+                        size: 11
+                    },
+                    color: '#64748b',
+                        precision: 0
+                }
+            },
+            x: {
+                grid: {
+                    display: false
+                },
+                ticks: {
+                    font: {
+                        size: 11
+                    },
+                    color: '#64748b',
+                        maxRotation: 45,
+                            minRotation: 45
+                }
+            }
+        },
+        animation: {
+            duration: 1000,
+                easing: 'easeInOutQuart'
+        }
+    }
+        });
+    }
+    {% endif %}
+
+    // TableSearchFilter - Son Stok Hareketleri
+    {% if son_hareketler %}
+    new TableSearchFilter( 'son-stok-hareketler-table', {
+        searchPlaceholder: 'Stok hareketlerinde ara (ürün, işlem yapan)...',
+        filters: [
+            {
+                column: 1, // Hareket Tipi
+                label: 'Hareket Tipi',
+                type: 'badge'
+            }
+        ],
+        defaultItemsPerPage: 10
+    } );
+    {% endif %}
+</script>
 {% endblock %}

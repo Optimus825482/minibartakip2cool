@@ -9,8 +9,9 @@
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-6">Yeni Admin Kullanıcısı Ekle</h3>
-            
+
             <form method="POST" class="space-y-6">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
                         <label for="kullanici_adi" class="block text-sm font-medium text-slate-700">
@@ -18,8 +19,8 @@
                         </label>
                         <div class="mt-1">
                             <input id="kullanici_adi" name="kullanici_adi" type="text" required
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Kullanıcı adı">
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="Kullanıcı adı">
                         </div>
                     </div>
 
@@ -29,8 +30,8 @@
                         </label>
                         <div class="mt-1">
                             <input id="sifre" name="sifre" type="password" required
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Şifre">
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="Şifre">
                         </div>
                     </div>
 
@@ -40,8 +41,8 @@
                         </label>
                         <div class="mt-1">
                             <input id="ad" name="ad" type="text" required
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Ad">
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="Ad">
                         </div>
                     </div>
 
@@ -51,8 +52,8 @@
                         </label>
                         <div class="mt-1">
                             <input id="soyad" name="soyad" type="text" required
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Soyad">
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="Soyad">
                         </div>
                     </div>
 
@@ -62,8 +63,8 @@
                         </label>
                         <div class="mt-1">
                             <input id="email" name="email" type="email"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="email@example.com">
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="email@example.com">
                         </div>
                     </div>
 
@@ -73,15 +74,15 @@
                         </label>
                         <div class="mt-1">
                             <input id="telefon" name="telefon" type="tel"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Telefon numarası">
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="Telefon numarası">
                         </div>
                     </div>
                 </div>
 
                 <div class="flex justify-end">
                     <button type="submit"
-                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
                         Admin Ekle
                     </button>
                 </div>
@@ -92,72 +93,165 @@
     <!-- Mevcut Admin Kullanıcıları -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">Mevcut Admin Kullanıcıları</h3>
-            
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg leading-6 font-medium text-slate-900">Mevcut Admin Kullanıcıları</h3>
+                <div class="flex items-center gap-2 text-sm text-slate-600">
+                    <span class="font-medium" data-stats-for="adminler-table" data-stat="total">{{ adminler|length
+                        }}</span>
+                    <span>Toplam Admin</span>
+                </div>
+            </div>
+
             {% if adminler %}
-                <div class="overflow-hidden">
-                    <table class="min-w-full divide-y divide-slate-200">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Kullanıcı Adı</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Ad Soyad</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Telefon</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Durum</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Son Giriş</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">İşlemler</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-slate-200">
-                            {% for admin in adminler %}
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{ admin.kullanici_adi }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ admin.ad }} {{ admin.soyad }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ admin.email or '-' }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ admin.telefon or '-' }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
-                                        {% if admin.aktif %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
-                                        {% if admin.aktif %}Aktif{% else %}Pasif{% endif %}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                    {% if admin.son_giris %}
-                                        {{ admin.son_giris.strftime('%d.%m.%Y %H:%M') }}
+            <div class="table-wrapper">
+                <table id="adminler-table" class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Kullanıcı Adı</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Ad Soyad</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">
+                                Email</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">
+                                Telefon</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Durum</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden xl:table-cell">
+                                Son Giriş</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider no-sort">
+                                İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-slate-200">
+                        {% for admin in adminler %}
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                {{ admin.kullanici_adi }}
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500">
+                                {{ admin.ad }} {{ admin.soyad }}
+                            </td>
+                            <td
+                                class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 hidden lg:table-cell">
+                                <span class="inline-flex items-center">
+                                    {% if admin.email %}
+                                    <svg class="w-4 h-4 mr-1 text-slate-400" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z">
+                                        </path>
+                                    </svg>
+                                    {{ admin.email }}
                                     {% else %}
-                                        Hiç giriş yapmamış
+                                    <span class="text-slate-400">-</span>
                                     {% endif %}
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                    <a href="{{ url_for('admin_duzenle', admin_id=admin.id) }}" 
-                                       class="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">
+                                </span>
+                            </td>
+                            <td
+                                class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
+                                <span class="inline-flex items-center">
+                                    {% if admin.telefon %}
+                                    <svg class="w-4 h-4 mr-1 text-slate-400" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z">
+                                        </path>
+                                    </svg>
+                                    {{ admin.telefon }}
+                                    {% else %}
+                                    <span class="text-slate-400">-</span>
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                                <span
+                                    class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                        {% if admin.aktif %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                    {% if admin.aktif %}Aktif{% else %}Pasif{% endif %}
+                                </span>
+                            </td>
+                            <td
+                                class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 hidden xl:table-cell">
+                                {% if admin.son_giris %}
+                                <span class="inline-flex items-center text-xs">
+                                    <svg class="w-4 h-4 mr-1 text-slate-400" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    {{ admin.son_giris.strftime('%d.%m.%Y %H:%M') }}
+                                </span>
+                                {% else %}
+                                <span class="text-xs text-slate-400 italic">Hiç giriş yapmamış</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium">
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <a href="{{ url_for('admin_duzenle', admin_id=admin.id) }}"
+                                        class="text-slate-600 hover:text-slate-900 whitespace-nowrap">
                                         Düzenle
                                     </a>
                                     {% if admin.aktif %}
-                                    <form method="POST" action="{{ url_for('admin_sil', admin_id=admin.id) }}" class="inline">
-                                        <button type="submit" 
-                                                class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                                                onclick="return confirm('Bu admin kullanıcısını silmek istediğinizden emin misiniz?')">
+                                    <form method="POST" action="{{ url_for('admin_sil', admin_id=admin.id) }}"
+                                        class="inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <button type="submit" class="text-red-600 hover:text-red-900 whitespace-nowrap"
+                                            onclick="return confirm('Bu admin kullanıcısını silmek istediğinizden emin misiniz?')">
                                             Sil
                                         </button>
                                     </form>
                                     {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
-                <div class="text-center py-8">
-                    <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"></path>
-                    </svg>
-                    <h3 class="mt-2 text-sm font-medium text-slate-900">Henüz admin kullanıcısı eklenmemiş</h3>
-                    <p class="mt-1 text-sm text-slate-500">Yukarıdaki formu kullanarak ilk admin kullanıcınızı ekleyin.</p>
-                </div>
+            <div class="text-center py-8">
+                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z">
+                    </path>
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-slate-900">Henüz admin kullanıcısı eklenmemiş</h3>
+                <p class="mt-1 text-sm text-slate-500">Yukarıdaki formu kullanarak ilk admin kullanıcınızı ekleyin.</p>
+            </div>
             {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener( 'DOMContentLoaded', function () {
+        const adminlerTable = document.getElementById( 'adminler-table' );
+        if ( adminlerTable ) {
+            new TableSearchFilter( 'adminler-table', {
+                searchPlaceholder: 'Kullanıcı adı, ad, soyad, email veya telefon ile ara...',
+                filters: [
+                    {
+                        columnIndex: 4, // Durum sütunu
+                        label: 'Durum',
+                        options: [
+                            { value: 'Aktif', label: 'Aktif' },
+                            { value: 'Pasif', label: 'Pasif' }
+                        ]
+                    }
+                ],
+                defaultItemsPerPage: 25 // Admin sayısı genelde sınırlı
+            } );
+        }
+    } );
+</script>
 {% endblock %}

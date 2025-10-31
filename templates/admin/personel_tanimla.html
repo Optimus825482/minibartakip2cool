@@ -1,74 +1,30 @@
 {% extends "base.html" %}
+{% from "_form_helpers.html" import render_field, render_select, render_submit, flash_messages %}
 
 {% block title %}Kullanıcı Yönetimi - Minibar Takip Sistemi{% endblock %}
 {% block page_title %}Kullanıcı Yönetimi{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
+    <!-- Flash Messages -->
+    {{ flash_messages() }}
+
     <!-- Personel Ekleme Formu -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-6">Yeni Kullanıcı Ekle</h3>
-            
+
             <form method="POST" class="space-y-6">
+                {{ form.csrf_token }}
+
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                        <label for="kullanici_adi" class="block text-sm font-medium text-slate-700">
-                            Kullanıcı Adı <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <input id="kullanici_adi" name="kullanici_adi" type="text" required
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Kullanıcı adı">
-                        </div>
-                    </div>
+                    {{ render_field(form.kullanici_adi, placeholder="Kullanıcı adı") }}
+                    {{ render_field(form.sifre, placeholder="Güçlü şifre") }}
+                    {{ render_field(form.ad, placeholder="Ad") }}
+                    {{ render_field(form.soyad, placeholder="Soyad") }}
 
                     <div>
-                        <label for="sifre" class="block text-sm font-medium text-slate-700">
-                            Şifre <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <input id="sifre" name="sifre" type="password" required
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Şifre">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="ad" class="block text-sm font-medium text-slate-700">
-                            Ad <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <input id="ad" name="ad" type="text" required
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Ad">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="soyad" class="block text-sm font-medium text-slate-700">
-                            Soyad <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <input id="soyad" name="soyad" type="text" required
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Soyad">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="rol" class="block text-sm font-medium text-slate-700">
-                            Rol <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <select id="rol" name="rol" required
-                                    class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
-                                <option value="">Rol seçiniz...</option>
-                                <option value="admin">Admin</option>
-                                <option value="depo_sorumlusu">Depo Sorumlusu</option>
-                                <option value="kat_sorumlusu">Kat Sorumlusu</option>
-                            </select>
-                        </div>
+                        {{ render_select(form.rol) }}
                         <p class="mt-2 text-sm text-slate-500">
                             <strong>Admin:</strong> Tüm sistem yetkileri<br>
                             <strong>Depo Sorumlusu:</strong> Stok yönetimi ve zimmet atama<br>
@@ -76,35 +32,11 @@
                         </p>
                     </div>
 
-                    <div>
-                        <label for="email" class="block text-sm font-medium text-slate-700">
-                            Email
-                        </label>
-                        <div class="mt-1">
-                            <input id="email" name="email" type="email"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="email@example.com">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="telefon" class="block text-sm font-medium text-slate-700">
-                            Telefon
-                        </label>
-                        <div class="mt-1">
-                            <input id="telefon" name="telefon" type="tel"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Telefon numarası">
-                        </div>
-                    </div>
+                    {{ render_field(form.email, placeholder="email@example.com") }}
+                    {{ render_field(form.telefon, placeholder="Telefon numarası") }}
                 </div>
 
-                <div class="flex justify-end">
-                    <button type="submit"
-                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
-                        Kullanıcı Ekle
-                    </button>
-                </div>
+                {{ render_submit("Kullanıcı Ekle", class="flex justify-end") }}
             </form>
         </div>
     </div>
@@ -112,78 +44,207 @@
     <!-- Mevcut Personeller Listesi -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">Mevcut Kullanıcılar</h3>
-            
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg leading-6 font-medium text-slate-900">Mevcut Kullanıcılar</h3>
+                <div class="flex items-center gap-2 text-sm text-slate-600">
+                    <span class="font-medium" data-stats-for="personel-table" data-stat="total">{{ personeller|length
+                        }}</span>
+                    <span>Toplam Kullanıcı</span>
+                </div>
+            </div>
+
             {% if personeller %}
-                <div class="overflow-hidden">
-                    <table class="min-w-full divide-y divide-slate-200">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Ad Soyad</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Kullanıcı Adı</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Rol</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Email</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Telefon</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Durum</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">İşlemler</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-slate-200">
-                            {% for personel in personeller %}
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{ personel.ad }} {{ personel.soyad }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ personel.kullanici_adi }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+            <div class="table-wrapper">
+                <table id="personel-table" class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Ad Soyad</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">
+                                Kullanıcı Adı</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Rol</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">
+                                Email</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden xl:table-cell">
+                                Telefon</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Durum</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider no-sort">
+                                İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-slate-200">
+                        {% for personel in personeller %}
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-slate-900">
+                                {{ personel.ad }} {{ personel.soyad }}
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-slate-500 hidden md:table-cell">
+                                {{ personel.kullanici_adi }}
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
                                         {% if personel.rol == 'admin' %}bg-purple-100 text-purple-800
                                         {% elif personel.rol == 'depo_sorumlusu' %}bg-blue-100 text-blue-800
                                         {% else %}bg-green-100 text-green-800{% endif %}">
-                                        {{ personel.rol.replace('_', ' ').title() }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ personel.email or '-' }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ personel.telefon or '-' }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                    {{ personel.rol.replace('_', ' ').title() }}
+                                </span>
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-slate-500 hidden lg:table-cell">
+                                {{ personel.email or '-' }}
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-slate-500 hidden xl:table-cell">
+                                {{ personel.telefon or '-' }}
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                                <span
+                                    class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
                                         {% if personel.aktif %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
-                                        {% if personel.aktif %}Aktif{% else %}Pasif{% endif %}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                    <a href="{{ url_for('personel_duzenle', personel_id=personel.id) }}" 
-                                       class="text-slate-600 hover:text-slate-900">Düzenle</a>
+                                    {% if personel.aktif %}Aktif{% else %}Pasif{% endif %}
+                                </span>
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium">
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <a href="{{ url_for('personel_duzenle', personel_id=personel.id) }}"
+                                        class="text-slate-600 hover:text-slate-900 whitespace-nowrap">Düzenle</a>
                                     {% if personel.aktif %}
-                                    <form method="POST" action="{{ url_for('personel_pasif_yap', personel_id=personel.id) }}" class="inline">
-                                        <button type="submit" 
-                                                class="text-red-600 hover:text-red-900"
-                                                onclick="return confirm('Bu kullanıcıyı pasif yapmak istediğinizden emin misiniz?')">
+                                    <form method="POST"
+                                        action="{{ url_for('personel_pasif_yap', personel_id=personel.id) }}"
+                                        class="inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <button type="submit" class="text-red-600 hover:text-red-900 whitespace-nowrap"
+                                            onclick="return confirm('Bu kullanıcıyı pasif yapmak istediğinizden emin misiniz?')">
                                             Pasif Yap
                                         </button>
                                     </form>
                                     {% else %}
-                                    <form method="POST" action="{{ url_for('personel_aktif_yap', personel_id=personel.id) }}" class="inline">
-                                        <button type="submit" 
-                                                class="text-green-600 hover:text-green-900">
+                                    <form method="POST"
+                                        action="{{ url_for('personel_aktif_yap', personel_id=personel.id) }}"
+                                        class="inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <button type="submit"
+                                            class="text-green-600 hover:text-green-900 whitespace-nowrap">
                                             Aktif Yap
                                         </button>
                                     </form>
                                     {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
-                <div class="text-center py-8">
-                    <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                    </svg>
-                    <h3 class="mt-2 text-sm font-medium text-slate-900">Henüz kullanıcı eklenmemiş</h3>
-                    <p class="mt-1 text-sm text-slate-500">Yukarıdaki formu kullanarak ilk kullanıcınızı ekleyin.</p>
-                </div>
+            <div class="text-center py-8">
+                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z">
+                    </path>
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-slate-900">Henüz kullanıcı eklenmemiş</h3>
+                <p class="mt-1 text-sm text-slate-500">Yukarıdaki formu kullanarak ilk kullanıcınızı ekleyin.</p>
+            </div>
             {% endif %}
         </div>
     </div>
 </div>
+
+<!-- JavaScript for Personel Form Validation -->
+<script>
+    document.addEventListener( 'DOMContentLoaded', function () {
+        // Initialize form validator
+        const form = document.getElementById( 'personelForm' );
+        const validator = new FormValidator( form, {
+            showSuccessIcons: true,
+            showErrorIcons: true,
+            showHelpText: true,
+            validateOnInput: true,
+            validateOnBlur: true,
+            scrollToError: true,
+            focusFirstError: true
+        } );
+
+        // Custom validation rules for personel form
+        const personelValidationRules = {
+            kullanici_adi: VALIDATION_RULES.username,
+            sifre: VALIDATION_RULES.strongPassword,
+            ad: VALIDATION_RULES.name,
+            soyad: VALIDATION_RULES.surname,
+            rol: {
+                required: true,
+                messages: {
+                    required: 'Rol seçimi zorunludur.'
+                }
+            },
+            email: VALIDATION_RULES.email,
+            telefon: VALIDATION_RULES.phone
+        };
+
+        // Set validation rules
+        validator.setRules( personelValidationRules );
+
+        // Initialize password toggle
+        FormValidationHelpers.togglePassword(
+            document.getElementById( 'togglePassword' ),
+            document.getElementById( 'sifre' )
+        );
+
+        // Phone number mask
+        const phoneInput = document.getElementById( 'telefon' );
+        if ( phoneInput ) {
+            FormValidationHelpers.numberMask( phoneInput, false, 0 );
+        }
+
+        // Update submit button text with original value
+        const submitText = document.getElementById( 'submitText' );
+        if ( submitText ) {
+            submitText.dataset.originalText = submitText.textContent;
+        }
+    } );
+</script>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // Personel tablosu için gelişmiş arama ve filtreleme
+    document.addEventListener( 'DOMContentLoaded', function () {
+        window.tableSearchFilter_personel = new TableSearchFilter( {
+            tableId: 'personel-table',
+            searchInputId: 'personel-search',
+            searchPlaceholder: 'Ad, soyad, kullanıcı adı, email veya telefon ara...',
+            defaultItemsPerPage: 25,
+            itemsPerPageOptions: [10, 25, 50, 100],
+            noResultsMessage: 'Aradığınız kriterlere uygun kullanıcı bulunamadı',
+            filters: [
+                {
+                    column: 2,
+                    label: 'Rol',
+                    options: [
+                        { value: 'Admin', label: 'Admin' },
+                        { value: 'Depo Sorumlusu', label: 'Depo Sorumlusu' },
+                        { value: 'Kat Sorumlusu', label: 'Kat Sorumlusu' }
+                    ]
+                },
+                {
+                    column: 5,
+                    label: 'Durum',
+                    options: [
+                        { value: 'Aktif', label: 'Aktif' },
+                        { value: 'Pasif', label: 'Pasif' }
+                    ]
+                }
+            ],
+            sortable: true
+        } );
+    } );
+</script>
 {% endblock %}

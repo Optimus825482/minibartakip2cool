@@ -62,12 +62,36 @@
     <!-- Aktif Zimmetler -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">Aktif Zimmetlerim</h3>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg leading-6 font-medium text-slate-900">Aktif Zimmetlerim</h3>
+                <div class="flex items-center gap-2 text-sm text-slate-600">
+                    <span class="font-medium" id="zimmet-count">{{ aktif_zimmetler|length }}</span>
+                    <span>Aktif Zimmet</span>
+                </div>
+            </div>
 
             {% if aktif_zimmetler %}
-            <div class="space-y-4">
+            <!-- Arama Çubuğu -->
+            <div class="mb-4">
+                <div class="relative">
+                    <input type="text" id="zimmet-search" placeholder="Zimmet no, tarih veya ürün adı ile ara..."
+                        class="block w-full pl-10 pr-3 py-2 border border-slate-300 rounded-md leading-5 bg-white placeholder-slate-500 focus:outline-none focus:placeholder-slate-400 focus:ring-1 focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
+                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <svg class="h-5 w-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <p class="mt-2 text-xs text-slate-500" id="search-info">
+                    <span id="visible-count">{{ aktif_zimmetler|length }}</span> zimmet gösteriliyor
+                </p>
+            </div>
+
+            <div id="zimmet-container" class="space-y-4">
                 {% for zimmet in aktif_zimmetler %}
-                <div class="border border-slate-200 rounded-lg p-4">
+                <div class="zimmet-card border border-slate-200 rounded-lg p-4" data-zimmet-id="{{ zimmet.id }}"
+                    data-zimmet-date="{{ zimmet.zimmet_tarihi.strftime('%d.%m.%Y %H:%M') }}">
                     <div class="flex items-center justify-between mb-3">
                         <div>
                             <h4 class="text-sm font-medium text-slate-900">Zimmet #{{ zimmet.id }}</h4>
@@ -103,7 +127,7 @@
                             </thead>
                             <tbody class="bg-white divide-y divide-slate-200">
                                 {% for detay in zimmet.detaylar %}
-                                <tr>
+                                <tr class="zimmet-product" data-product-name="{{ detay.urun.urun_adi }}">
                                     <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-slate-900">{{
                                         detay.urun.urun_adi }}</td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-500">{{ detay.miktar }}
@@ -133,4 +157,72 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener( 'DOMContentLoaded', function () {
+        const searchInput = document.getElementById( 'zimmet-search' );
+        const zimmetContainer = document.getElementById( 'zimmet-container' );
+        const zimmetCards = document.querySelectorAll( '.zimmet-card' );
+        const visibleCount = document.getElementById( 'visible-count' );
+
+        if ( searchInput && zimmetCards.length > 0 ) {
+            searchInput.addEventListener( 'input', function () {
+                const searchTerm = this.value.toLowerCase().trim();
+                let visibleCardCount = 0;
+
+                zimmetCards.forEach( card => {
+                    const zimmetId = card.dataset.zimmetId;
+                    const zimmetDate = card.dataset.zimmetDate.toLowerCase();
+
+                    // Kart içindeki tüm ürün isimlerini al
+                    const products = card.querySelectorAll( '.zimmet-product' );
+                    const productNames = Array.from( products )
+                        .map( p => p.dataset.productName.toLowerCase() )
+                        .join( ' ' );
+
+                    // Zimmet açıklaması varsa onu da ara
+                    const description = card.querySelector( 'p.text-sm.text-slate-600' );
+                    const descriptionText = description ? description.textContent.toLowerCase() : '';
+
+                    // Arama: zimmet ID, tarih, ürün isimleri veya açıklama
+                    const searchableText = `${zimmetId} ${zimmetDate} ${productNames} ${descriptionText}`;
+
+                    if ( !searchTerm || searchableText.includes( searchTerm ) ) {
+                        card.style.display = '';
+                        visibleCardCount++;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                } );
+
+                // Görünen zimmet sayısını güncelle
+                visibleCount.textContent = visibleCardCount;
+
+                // Hiç sonuç yoksa mesaj göster
+                if ( visibleCardCount === 0 && searchTerm ) {
+                    if ( !document.getElementById( 'no-results-message' ) ) {
+                        const noResultsDiv = document.createElement( 'div' );
+                        noResultsDiv.id = 'no-results-message';
+                        noResultsDiv.className = 'text-center py-8';
+                        noResultsDiv.innerHTML = `
+                            <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                            </svg>
+                            <h3 class="mt-2 text-sm font-medium text-slate-900">Sonuç bulunamadı</h3>
+                            <p class="mt-1 text-sm text-slate-500">"${searchTerm}" için eşleşen zimmet bulunamadı</p>
+                        `;
+                        zimmetContainer.appendChild( noResultsDiv );
+                    }
+                } else {
+                    const noResultsMsg = document.getElementById( 'no-results-message' );
+                    if ( noResultsMsg ) {
+                        noResultsMsg.remove();
+                    }
+                }
+            } );
+        }
+    } );
+</script>
 {% endblock %}

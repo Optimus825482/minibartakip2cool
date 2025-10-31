@@ -10,8 +10,18 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from io import BytesIO
 from flask import session, request
-from models import Kullanici, StokHareket, Urun, SistemLog, db
+from models import Kullanici, StokHareket, Urun, SistemLog, HataLog, db
+from sqlalchemy import case
 import json
+import traceback
+import logging
+
+# Logging yapılandırması
+logging.basicConfig(
+    filename='minibar_errors.log',
+    level=logging.ERROR,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 
 def get_current_user():
@@ -21,28 +31,43 @@ def get_current_user():
     return None
 
 
+def get_stok_toplamlari(urun_ids=None):
+    """Belirtilen ürünler için stok toplamlarını tek sorguda getir."""
+    net_miktar = db.func.sum(
+        case(
+            (StokHareket.hareket_tipi.in_(['giris', 'devir', 'sayim']), StokHareket.miktar),
+            (StokHareket.hareket_tipi == 'cikis', -StokHareket.miktar),
+            else_=0
+        )
+    )
+
+    query = db.session.query(StokHareket.urun_id, net_miktar.label('net'))
+
+    if urun_ids:
+        query = query.filter(StokHareket.urun_id.in_(urun_ids))
+
+    stoklar = {row.urun_id: int(row.net or 0) for row in query.group_by(StokHareket.urun_id)}
+
+    if urun_ids:
+        for uid in urun_ids:
+            stoklar.setdefault(uid, 0)
+
+    return stoklar
+
+
 def get_toplam_stok(urun_id):
     """Ürün için toplam stok miktarını hesapla"""
-    girisler = db.session.query(db.func.sum(StokHareket.miktar)).filter(
-        StokHareket.urun_id == urun_id,
-        StokHareket.hareket_tipi.in_(['giris', 'devir', 'sayim'])
-    ).scalar() or 0
-    
-    cikislar = db.session.query(db.func.sum(StokHareket.miktar)).filter(
-        StokHareket.urun_id == urun_id,
-        StokHareket.hareket_tipi == 'cikis'
-    ).scalar() or 0
-    
-    return girisler - cikislar
+    return get_stok_toplamlari([urun_id]).get(urun_id, 0)
 
 
 def get_kritik_stok_urunler():
     """Kritik stok seviyesinin altındaki ürünleri getir"""
     urunler = Urun.query.filter_by(aktif=True).all()
+    stok_map = get_stok_toplamlari([urun.id for urun in urunler])
     kritik_urunler = []
     
     for urun in urunler:
-        mevcut_stok = get_toplam_stok(urun.id)
+        mevcut_stok = stok_map.get(urun.id, 0)
         if mevcut_stok <= urun.kritik_stok_seviyesi:
             kritik_urunler.append({
                 'urun': urun,
@@ -51,6 +76,126 @@ def get_kritik_stok_urunler():
             })
     
     return kritik_urunler
+
+
+def get_stok_durumu(urun_id, stok_cache=None):
+    """
+    Ürün stok durumunu kategorize et ve badge bilgisi döndür
+    
+    Returns:
+        dict: {
+            'durum': 'kritik' | 'dikkat' | 'normal',
+            'badge_class': Tailwind CSS class,
+            'badge_text': Görünecek metin,
+            'icon': SVG icon HTML,
+            'mevcut_stok': int,
+            'kritik_seviye': int,
+            'yuzde': float (stok doluluk yüzdesi)
+        }
+    """
+    urun = Urun.query.get(urun_id)
+    if not urun:
+        return None
+    
+    if stok_cache is None:
+        mevcut_stok = get_toplam_stok(urun_id)
+    else:
+        mevcut_stok = stok_cache.get(urun_id, 0)
+    kritik_seviye = urun.kritik_stok_seviyesi
+    
+    # Kritik seviyenin %150'si dikkat eşiği
+    dikkat_esigi = kritik_seviye * 1.5
+    
+    # Yüzde hesaplama (kritik seviyeye göre)
+    if kritik_seviye > 0:
+        yuzde = (mevcut_stok / kritik_seviye) * 100
+    else:
+        yuzde = 100 if mevcut_stok > 0 else 0
+    
+    if mevcut_stok <= kritik_seviye:
+        # KRİTİK - Kırmızı
+        return {
+            'durum': 'kritik',
+            'badge_class': 'bg-red-100 text-red-800 border border-red-300',
+            'badge_text': 'Kritik Stok',
+            'icon': '''<svg class="w-5 h-5 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                      </svg>''',
+            'mevcut_stok': mevcut_stok,
+            'kritik_seviye': kritik_seviye,
+            'yuzde': yuzde
+        }
+    elif mevcut_stok <= dikkat_esigi:
+        # DİKKAT - Sarı
+        return {
+            'durum': 'dikkat',
+            'badge_class': 'bg-yellow-100 text-yellow-800 border border-yellow-300',
+            'badge_text': 'Dikkat',
+            'icon': '''<svg class="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                      </svg>''',
+            'mevcut_stok': mevcut_stok,
+            'kritik_seviye': kritik_seviye,
+            'yuzde': yuzde
+        }
+    else:
+        # NORMAL - Yeşil
+        return {
+            'durum': 'normal',
+            'badge_class': 'bg-green-100 text-green-800 border border-green-300',
+            'badge_text': 'Yeterli',
+            'icon': '''<svg class="w-5 h-5 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                      </svg>''',
+            'mevcut_stok': mevcut_stok,
+            'kritik_seviye': kritik_seviye,
+            'yuzde': yuzde
+        }
+
+
+def get_tum_urunler_stok_durumlari():
+    """
+    Tüm aktif ürünlerin stok durumlarını kategorize et
+    
+    Returns:
+        dict: {
+            'kritik': [],    # Kritik stokta olan ürünler
+            'dikkat': [],    # Dikkat gerektiren ürünler
+            'normal': [],    # Normal stokta olan ürünler
+            'istatistik': {
+                'toplam': int,
+                'kritik_sayi': int,
+                'dikkat_sayi': int,
+                'normal_sayi': int
+            }
+        }
+    """
+    urunler = Urun.query.filter_by(aktif=True).all()
+    stok_map = get_stok_toplamlari([urun.id for urun in urunler])
+    
+    kategoriler = {
+        'kritik': [],
+        'dikkat': [],
+        'normal': []
+    }
+    
+    for urun in urunler:
+        durum = get_stok_durumu(urun.id, stok_cache=stok_map)
+        if durum:
+            durum['urun'] = urun
+            kategoriler[durum['durum']].append(durum)
+    
+    return {
+        'kritik': sorted(kategoriler['kritik'], key=lambda x: x['mevcut_stok']),
+        'dikkat': sorted(kategoriler['dikkat'], key=lambda x: x['mevcut_stok']),
+        'normal': sorted(kategoriler['normal'], key=lambda x: x['urun'].urun_adi),
+        'istatistik': {
+            'toplam': len(urunler),
+            'kritik_sayi': len(kategoriler['kritik']),
+            'dikkat_sayi': len(kategoriler['dikkat']),
+            'normal_sayi': len(kategoriler['normal'])
+        }
+    }
 
 
 def excel_export_stok_raporu():
@@ -81,8 +226,10 @@ def excel_export_stok_raporu():
     
     # Veri satırları
     urunler = Urun.query.filter_by(aktif=True).all()
+    stok_map = get_stok_toplamlari([urun.id for urun in urunler])
+
     for row_num, urun in enumerate(urunler, 2):
-        mevcut_stok = get_toplam_stok(urun.id)
+        mevcut_stok = stok_map.get(urun.id, 0)
         durum = 'KRİTİK' if mevcut_stok <= urun.kritik_stok_seviyesi else 'NORMAL'
         
         data = [
@@ -214,8 +361,9 @@ def pdf_export_stok_raporu():
     data = [['Ürün Kodu', 'Ürün Adı', 'Grup', 'Birim', 'Mevcut Stok', 'Kritik Seviye', 'Durum']]
     
     urunler = Urun.query.filter_by(aktif=True).all()
+    stok_map = get_stok_toplamlari([urun.id for urun in urunler]) if urunler else {}
     for urun in urunler:
-        mevcut_stok = get_toplam_stok(urun.id)
+        mevcut_stok = stok_map.get(urun.id, 0)
         durum = 'KRİTİK' if mevcut_stok <= urun.kritik_stok_seviyesi else 'NORMAL'
         
         data.append([
@@ -308,7 +456,7 @@ def log_islem(islem_tipi, modul, islem_detay=None):
         print(f'Log hatası: {str(e)}')
         try:
             db.session.rollback()
-        except:
+        except Exception:
             pass
 
 
@@ -329,4 +477,97 @@ def get_modul_loglari(modul, limit=50):
     return SistemLog.query.filter_by(modul=modul).order_by(
         SistemLog.islem_tarihi.desc()
     ).limit(limit).all()
+
+
+def log_hata(exception, modul=None, extra_info=None):
+    """
+    Hataları hem dosyaya hem de veritabanına logla
+    
+    Args:
+        exception: Exception objesi
+        modul: Hangi modülde oluştu (örn: 'minibar', 'stok', 'zimmet')
+        extra_info: Ek bilgiler (dict)
+    
+    Returns:
+        HataLog objesi
+    """
+    try:
+        kullanici_id = session.get('kullanici_id')
+        
+        # Exception bilgileri
+        hata_tipi = type(exception).__name__
+        hata_mesaji = str(exception)
+        hata_detay = traceback.format_exc()
+        
+        # Request bilgileri
+        url = request.url if request else None
+        method = request.method if request else None
+        ip_adresi = request.remote_addr if request else None
+        tarayici = request.headers.get('User-Agent', '')[:200] if request else None
+        
+        # Ek bilgileri JSON'a çevir
+        if extra_info:
+            hata_detay += f"\n\nEk Bilgiler:\n{json.dumps(extra_info, ensure_ascii=False, indent=2)}"
+        
+        # Dosyaya logla
+        logging.error(
+            f"Hata: {hata_tipi} - {hata_mesaji}\n"
+            f"Modül: {modul}\n"
+            f"URL: {url}\n"
+            f"Kullanıcı: {kullanici_id}\n"
+            f"Detay:\n{hata_detay}"
+        )
+        
+        # Veritabanına logla
+        hata_log = HataLog(
+            kullanici_id=kullanici_id,
+            hata_tipi=hata_tipi,
+            hata_mesaji=hata_mesaji[:500],  # İlk 500 karakter
+            hata_detay=hata_detay,
+            modul=modul,
+            url=url[:500] if url else None,
+            method=method,
+            ip_adresi=ip_adresi,
+            tarayici=tarayici
+        )
+        
+        db.session.add(hata_log)
+        db.session.commit()
+        
+        return hata_log
+        
+    except Exception as e:
+        # Hata loglama hatası uygulamayı durdurmamalı
+        print(f'HATA LOGLAMA HATASI: {str(e)}')
+        logging.error(f'Hata loglama hatası: {str(e)}')
+        try:
+            db.session.rollback()
+        except Exception:
+            pass
+        return None
+
+
+def get_son_hatalar(limit=50):
+    """Son hata kayıtlarını getir"""
+    return HataLog.query.order_by(HataLog.olusturma_tarihi.desc()).limit(limit).all()
+
+
+def get_cozulmemis_hatalar():
+    """Çözülmemiş hataları getir"""
+    return HataLog.query.filter_by(cozuldu=False).order_by(HataLog.olusturma_tarihi.desc()).all()
+
+
+def hata_cozuldu_isaretle(hata_id, cozum_notu=None):
+    """Hatayı çözüldü olarak işaretle"""
+    try:
+        hata = HataLog.query.get(hata_id)
+        if hata:
+            hata.cozuldu = True
+            hata.cozum_notu = cozum_notu
+            db.session.commit()
+            return True
+    except Exception as e:
+        logging.error(f'Hata çözüldü işaretleme hatası: {str(e)}')
+        db.session.rollback()
+    return False
 

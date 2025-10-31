@@ -1,10 +1,13 @@
 {% extends "base.html" %}
+{% from "_form_helpers.html" import render_field, render_select, render_submit, flash_messages %}
 
 {% block title %}Oda Düzenle - Minibar Takip Sistemi{% endblock %}
 {% block page_title %}Oda Düzenle{% endblock %}
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
+    {{ flash_messages() }}
+
     <div class="bg-white dark:bg-slate-800 shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 dark:text-slate-100 mb-6">
@@ -12,52 +15,10 @@
             </h3>
 
             <form method="POST" class="space-y-6">
-                <div>
-                    <label for="kat_id" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Kat <span class="text-red-500">*</span>
-                    </label>
-                    <div class="mt-1">
-                        <select id="kat_id" name="kat_id" required
-                            class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm dark:bg-slate-700 dark:text-slate-100">
-                            {% for kat in katlar %}
-                            <option value="{{ kat.id }}" {% if kat.id==oda.kat_id %}selected{% endif %}>
-                                {{ kat.kat_adi }} ({{ kat.kat_no }}. Kat)
-                            </option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
+                {{ form.csrf_token }}
 
-                <div>
-                    <label for="oda_no" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Oda Numarası <span class="text-red-500">*</span>
-                    </label>
-                    <div class="mt-1">
-                        <input id="oda_no" name="oda_no" type="text" required value="{{ oda.oda_no }}"
-                            class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm dark:bg-slate-700 dark:text-slate-100">
-                    </div>
-                </div>
-
-                <div>
-                    <label for="oda_tipi" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Oda Tipi
-                    </label>
-                    <div class="mt-1">
-                        <input id="oda_tipi" name="oda_tipi" type="text" value="{{ oda.oda_tipi or '' }}"
-                            class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm dark:bg-slate-700 dark:text-slate-100">
-                    </div>
-                </div>
-
-                <div>
-                    <label for="kapasite" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Kapasite
-                    </label>
-                    <div class="mt-1">
-                        <input id="kapasite" name="kapasite" type="number" min="1" value="{{ oda.kapasite or '' }}"
-                            class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm dark:bg-slate-700 dark:text-slate-100">
-                    </div>
-                </div>
-
+                {{ render_select(form.kat_id) }}
+                {{ render_field(form.oda_no) }}
 
                 <div class="flex justify-end space-x-3">
                     <a href="{{ url_for('oda_tanimla') }}"

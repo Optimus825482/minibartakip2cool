@@ -101,25 +101,6 @@
         </div>
     </div>
 
-    <!-- Grafikler - Responsive Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        <!-- Kullanıcı Rol Dağılımı -->
-        <div class="bg-white shadow rounded-lg p-4 md:p-6">
-            <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 mb-4">Kullanıcı Rol Dağılımı</h3>
-            <div class="h-64 md:h-80">
-                <canvas id="rolDagilimChart"></canvas>
-            </div>
-        </div>
-
-        <!-- Kat Bazlı Oda Sayıları -->
-        <div class="bg-white shadow rounded-lg p-4 md:p-6">
-            <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 mb-4">Kat Bazlı Oda Sayıları</h3>
-            <div class="h-64 md:h-80">
-                <canvas id="katOdaChart"></canvas>
-            </div>
-        </div>
-    </div>
-
     <!-- Sistem Yönetimi -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
@@ -206,6 +187,185 @@
         </div>
     </div>
 
+    <!-- YENİ: Dashboard Widget'ları -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <!-- Ürün Bazlı Tüketim Grafiği -->
+        <div class="bg-white shadow rounded-lg p-4 md:p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900">📈 Ürün Bazlı Tüketim</h3>
+                <span class="text-xs text-slate-500">Son 30 gün</span>
+            </div>
+            {% if urun_labels %}
+            <div class="h-64 md:h-80">
+                <canvas id="urunTuketimChart"></canvas>
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                    </path>
+                </svg>
+                <p class="mt-2 text-sm text-slate-500">Tüketim verisi yok</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Kullanıcı Aktivite Widget'ı -->
+        <div class="bg-white shadow rounded-lg p-4 md:p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900">Son Kullanıcı Aktiviteleri</h3>
+                <button onclick="aktiviteleriYenile()" class="text-sm text-slate-600 hover:text-slate-900">
+                    <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+            <div id="aktiviteListesi" class="space-y-3 max-h-80 overflow-y-auto">
+                <!-- Aktiviteler buraya yüklenecek -->
+            </div>
+            <div id="aktiviteLoading" class="text-center py-8">
+                <svg class="animate-spin h-8 w-8 mx-auto text-slate-600" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                    </path>
+                </svg>
+                <p class="text-sm text-slate-600 mt-2">Yükleniyor...</p>
+            </div>
+        </div>
+    </div>
+
+
+
+    <!-- Stok Durumu İstatistikleri - Kompakt Görünüm -->
+    {% if stok_durumlari %}
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900">📊 Stok Durumu Özeti</h3>
+                <a href="{{ url_for('urunler') }}" class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+                    Tüm Ürünler →
+                </a>
+            </div>
+
+            <!-- İstatistik Kartları -->
+            <div class="grid grid-cols-3 gap-4 mb-6">
+                <div class="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 border-2 border-red-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-red-600 font-medium mb-1">Kritik Stok</p>
+                            <p class="text-2xl font-bold text-red-700">{{ stok_durumlari.istatistik.kritik_sayi }}</p>
+                        </div>
+                        <div class="w-10 h-10 bg-red-500 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 rounded-lg p-4 border-2 border-yellow-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-yellow-600 font-medium mb-1">Dikkat</p>
+                            <p class="text-2xl font-bold text-yellow-700">{{ stok_durumlari.istatistik.dikkat_sayi }}
+                            </p>
+                        </div>
+                        <div class="w-10 h-10 bg-yellow-500 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4 border-2 border-green-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs text-green-600 font-medium mb-1">Normal</p>
+                            <p class="text-2xl font-bold text-green-700">{{ stok_durumlari.istatistik.normal_sayi }}</p>
+                        </div>
+                        <div class="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center">
+                            <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd"
+                                    d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                                    clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Kritik Stok Listesi (En Fazla 6 Adet) -->
+            {% if stok_durumlari.kritik %}
+            <div class="border-t border-slate-200 pt-4">
+                <h4 class="text-sm font-semibold text-slate-700 mb-3 flex items-center">
+                    <svg class="w-4 h-4 mr-2 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd"
+                            d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                            clip-rule="evenodd" />
+                    </svg>
+                    Acil Müdahale Gereken Ürünler
+                </h4>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {% for item in stok_durumlari.kritik[:6] %}
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-3 hover:shadow-sm transition-shadow">
+                        <div class="flex items-start justify-between mb-2">
+                            <span class="inline-flex px-2 py-0.5 text-xs font-bold rounded {{ item.badge_class }}">
+                                KRİTİK
+                            </span>
+                        </div>
+                        <h5 class="text-sm font-semibold text-slate-900 mb-1 truncate">{{ item.urun.urun_adi }}</h5>
+                        <div class="flex justify-between text-xs text-slate-600">
+                            <span>Mevcut:</span>
+                            <span class="font-bold text-red-700">{{ item.mevcut_stok }}</span>
+                        </div>
+                        <div class="mt-2">
+                            <div class="w-full bg-red-200 rounded-full h-1.5">
+                                <div class="bg-red-600 h-1.5 rounded-full" style="width: {{ [item.yuzde, 100]|min }}%">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% if stok_durumlari.kritik|length > 6 %}
+                <div class="mt-3 text-center">
+                    <a href="{{ url_for('urunler') }}" class="text-sm text-red-600 hover:text-red-800 font-medium">
+                        +{{ stok_durumlari.kritik|length - 6 }} kritik ürün daha →
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    <!-- Grafikler - Responsive Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <!-- Kullanıcı Rol Dağılımı -->
+        <div class="bg-white shadow rounded-lg p-4 md:p-6">
+            <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 mb-4">Kullanıcı Rol Dağılımı</h3>
+            <div class="h-64 md:h-80">
+                <canvas id="rolDagilimChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Kat Bazlı Oda Sayıları -->
+        <div class="bg-white shadow rounded-lg p-4 md:p-6">
+            <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 mb-4">Kat Bazlı Oda Sayıları</h3>
+            <div class="h-64 md:h-80">
+                <canvas id="katOdaChart"></canvas>
+            </div>
+        </div>
+    </div>
     <!-- Son Eklenen Katlar ve Odalar - Responsive Tablo -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <!-- Son Eklenen Katlar -->
@@ -213,14 +373,19 @@
             <div class="px-4 py-5 sm:p-6">
                 <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 mb-4">Son Eklenen Katlar</h3>
                 {% if son_katlar %}
-                <div class="overflow-x-auto -mx-4 sm:mx-0">
+                <div class="table-wrapper -mx-4 sm:mx-0">
                     <div class="inline-block min-w-full align-middle">
-                        <table class="min-w-full divide-y divide-slate-200">
+                        <table id="son-katlar-table" class="min-w-full divide-y divide-slate-200">
                             <thead class="bg-slate-50">
                                 <tr>
                                     <th
                                         class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                        Kat Adı</th>
+                                        Kat Adı
+                                        <span
+                                            class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+                                            {{ son_katlar|length }} kat
+                                        </span>
+                                    </th>
                                     <th
                                         class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden sm:table-cell">
                                         Kat No</th>
@@ -231,16 +396,23 @@
                             </thead>
                             <tbody class="bg-white divide-y divide-slate-200">
                                 {% for kat in son_katlar %}
-                                <tr class="hover:bg-slate-50">
+                                <tr class="hover:bg-slate-50 transition-colors duration-150">
                                     <td
                                         class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-slate-900">
-                                        {{ kat.kat_adi }}</td>
+                                        🏢 {{ kat.kat_adi }}</td>
                                     <td
-                                        class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-slate-500 hidden sm:table-cell">
-                                        {{ kat.kat_no }}</td>
-                                    <td
-                                        class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-slate-500">
-                                        {{ kat.odalar|length }}</td>
+                                        class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm hidden sm:table-cell">
+                                        <span
+                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                            #{{ kat.kat_no }}
+                                        </span>
+                                    </td>
+                                    <td class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm">
+                                        <span
+                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                            🚪 {{ kat.odalar|length }}
+                                        </span>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -258,14 +430,19 @@
             <div class="px-4 py-5 sm:p-6">
                 <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 mb-4">Son Eklenen Odalar</h3>
                 {% if son_odalar %}
-                <div class="overflow-x-auto -mx-4 sm:mx-0">
+                <div class="table-wrapper -mx-4 sm:mx-0">
                     <div class="inline-block min-w-full align-middle">
-                        <table class="min-w-full divide-y divide-slate-200">
+                        <table id="son-odalar-table" class="min-w-full divide-y divide-slate-200">
                             <thead class="bg-slate-50">
                                 <tr>
                                     <th
                                         class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                        Oda No</th>
+                                        Oda No
+                                        <span
+                                            class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                            {{ son_odalar|length }} oda
+                                        </span>
+                                    </th>
                                     <th
                                         class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden sm:table-cell">
                                         Kat</th>
@@ -276,13 +453,17 @@
                             </thead>
                             <tbody class="bg-white divide-y divide-slate-200">
                                 {% for oda in son_odalar %}
-                                <tr class="hover:bg-slate-50">
+                                <tr class="hover:bg-slate-50 transition-colors duration-150">
                                     <td
                                         class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-slate-900">
-                                        {{ oda.oda_no }}</td>
+                                        🚪 {{ oda.oda_no }}</td>
                                     <td
-                                        class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-slate-500 hidden sm:table-cell">
-                                        {{ oda.kat.kat_adi }}</td>
+                                        class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm hidden sm:table-cell">
+                                        <span
+                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                            🏢 {{ oda.kat.kat_adi }}
+                                        </span>
+                                    </td>
                                     <td
                                         class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-slate-500">
                                         {{ oda.oda_tipi or '-' }}</td>
@@ -301,6 +482,95 @@
 </div>
 
 <script>
+    // Ürün Bazlı Tüketim Grafiği
+    {% if urun_labels %}
+    const urunTuketimCtx = document.getElementById( 'urunTuketimChart' );
+    if ( urunTuketimCtx ) {
+        // Gradient oluştur
+        const gradient = urunTuketimCtx.getContext( '2d' ).createLinearGradient( 0, 0, 0, 400 );
+        gradient.addColorStop( 0, 'rgba(59, 130, 246, 0.8)' );
+        gradient.addColorStop( 0.5, 'rgba(99, 102, 241, 0.6)' );
+        gradient.addColorStop( 1, 'rgba(139, 92, 246, 0.4)' );
+
+        new Chart( urunTuketimCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ urun_labels | tojson }},
+    datasets: [{
+        label: 'Tüketim Miktarı',
+        data: {{ urun_tuketim_miktarlari | tojson }},
+        backgroundColor: gradient,
+        borderColor: 'rgba(99, 102, 241, 1)',
+        borderWidth: 2,
+        borderRadius: 8,
+        borderSkipped: false,
+                }]
+            },
+    options: {
+        responsive: true,
+            maintainAspectRatio: false,
+                plugins: {
+            legend: {
+                display: false
+            },
+            title: {
+                display: false
+            },
+            tooltip: {
+                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                        titleFont: {
+                    size: 14,
+                        weight: 'bold'
+                },
+                bodyFont: {
+                    size: 13
+                },
+                callbacks: {
+                    label: function( context ) {
+                        return ' Tüketim: ' + context.parsed.y + ' adet';
+                    }
+                }
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true,
+                    grid: {
+                    color: 'rgba(0, 0, 0, 0.05)',
+                        drawBorder: false
+                },
+                ticks: {
+                    font: {
+                        size: window.innerWidth < 768 ? 10 : 11
+                    },
+                    color: '#64748b',
+                        precision: 0
+                }
+            },
+            x: {
+                grid: {
+                    display: false
+                },
+                ticks: {
+                    font: {
+                        size: window.innerWidth < 768 ? 10 : 11
+                    },
+                    color: '#64748b',
+                        maxRotation: 45,
+                            minRotation: 45
+                }
+            }
+        },
+        animation: {
+            duration: 1000,
+                easing: 'easeInOutQuart'
+        }
+    }
+        });
+    }
+    {% endif %}
+
     // Kullanıcı Rol Dağılımı Pie Chart
     const rolCtx = document.getElementById( 'rolDagilimChart' );
     if ( rolCtx ) {
@@ -404,6 +674,293 @@
         Chart.instances.forEach( chart => {
             chart.resize();
         } );
+    } );
+
+    // TableSearchFilter - Son Katlar
+    {% if son_katlar %}
+    if ( typeof TableSearchFilter !== 'undefined' ) {
+        new TableSearchFilter( 'son-katlar-table', {
+            searchPlaceholder: 'Katlarda ara...',
+            defaultItemsPerPage: 10
+        } );
+    }
+    {% endif %}
+
+    // TableSearchFilter - Son Odalar
+    {% if son_odalar %}
+    if ( typeof TableSearchFilter !== 'undefined' ) {
+        new TableSearchFilter( 'son-odalar-table', {
+            searchPlaceholder: 'Odalarda ara...',
+            defaultItemsPerPage: 10
+        } );
+    }
+    {% endif %}
+
+    // ========================================================================
+    // YENİ: Dashboard Widget İşlevleri
+    // ========================================================================
+
+    // Tüketim Trend Grafiği
+    let tuketimTrendChart = null;
+
+    async function tuketimTrendiniYukle( gunSayisi = 7 ) {
+        const trendLoading = document.getElementById( 'trendLoading' );
+        const chartCanvas = document.getElementById( 'tuketimTrendChart' );
+
+        try {
+            // Loading göster
+            if ( trendLoading ) trendLoading.classList.remove( 'hidden' );
+            if ( chartCanvas ) chartCanvas.style.opacity = '0.3';
+
+            // Progress bar ile fetch yap
+            const response = await fetchWithLoading( `/api/tuketim-trendleri?gun=${gunSayisi}`, {
+                loading: {
+                    showProgress: true
+                }
+            } );
+
+            // HTTP hata kontrolü
+            if ( !response.ok ) {
+                throw new Error( `HTTP ${response.status}: ${response.statusText}` );
+            }
+
+            const data = await response.json();
+
+            if ( data.success ) {
+                // Mevcut grafiği yok et
+                if ( tuketimTrendChart ) {
+                    tuketimTrendChart.destroy();
+                }
+
+                // Yeni grafik oluştur
+                const ctx = document.getElementById( 'tuketimTrendChart' );
+                if ( ctx ) {
+                    tuketimTrendChart = new Chart( ctx, {
+                        type: 'line',
+                        data: {
+                            labels: data.labels,
+                            datasets: data.datasets
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            interaction: {
+                                mode: 'index',
+                                intersect: false,
+                            },
+                            plugins: {
+                                legend: {
+                                    position: 'bottom',
+                                    labels: {
+                                        padding: 15,
+                                        font: {
+                                            size: window.innerWidth < 768 ? 11 : 12
+                                        }
+                                    }
+                                },
+                                tooltip: {
+                                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                    padding: 12,
+                                    titleFont: { size: 14 },
+                                    bodyFont: { size: 13 }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        font: {
+                                            size: window.innerWidth < 768 ? 10 : 11
+                                        }
+                                    }
+                                },
+                                x: {
+                                    ticks: {
+                                        font: {
+                                            size: window.innerWidth < 768 ? 10 : 11
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } );
+                }
+            } else {
+                // API'den hata mesajı
+                console.error( 'Tüketim trendi API hatası:', data.error || 'Bilinmeyen hata' );
+                if ( chartCanvas ) {
+                    const ctx = chartCanvas.getContext( '2d' );
+                    ctx.font = '14px Arial';
+                    ctx.fillStyle = '#64748b';
+                    ctx.textAlign = 'center';
+                    ctx.fillText( 'Veri yüklenemedi: ' + ( data.error || 'Hata' ), chartCanvas.width / 2, chartCanvas.height / 2 );
+                }
+            }
+        } catch ( error ) {
+            console.error( 'Tüketim trendi yüklenirken hata:', error );
+            // Kullanıcıya görsel geri bildirim
+            if ( chartCanvas ) {
+                const ctx = chartCanvas.getContext( '2d' );
+                ctx.font = '14px Arial';
+                ctx.fillStyle = '#ef4444';
+                ctx.textAlign = 'center';
+                ctx.fillText( 'Veriler yüklenemedi', chartCanvas.width / 2, chartCanvas.height / 2 - 10 );
+                ctx.font = '12px Arial';
+                ctx.fillStyle = '#64748b';
+                ctx.fillText( error.message, chartCanvas.width / 2, chartCanvas.height / 2 + 10 );
+            }
+        } finally {
+            // Loading gizle
+            if ( trendLoading ) trendLoading.classList.add( 'hidden' );
+            if ( chartCanvas ) chartCanvas.style.opacity = '1';
+        }
+    }
+
+    // Gün seçimi değiştiğinde
+    const trendGunSecim = document.getElementById( 'trendGunSecim' );
+    if ( trendGunSecim ) {
+        trendGunSecim.addEventListener( 'change', function () {
+            tuketimTrendiniYukle( parseInt( this.value ) );
+        } );
+    }
+
+    // Kullanıcı Aktiviteleri Widget'ı
+    async function aktiviteleriYukle() {
+        const aktiviteListesi = document.getElementById( 'aktiviteListesi' );
+        const aktiviteLoading = document.getElementById( 'aktiviteLoading' );
+
+        try {
+            // Loading göster
+            if ( aktiviteLoading ) aktiviteLoading.classList.remove( 'hidden' );
+            if ( aktiviteListesi ) aktiviteListesi.innerHTML = '';
+
+            // Progress bar ile fetch yap
+            const response = await fetchWithLoading( '/api/son-aktiviteler?limit=10', {
+                loading: {
+                    showProgress: true
+                }
+            } );
+
+            // HTTP hata kontrolü
+            if ( !response.ok ) {
+                throw new Error( `HTTP ${response.status}: ${response.statusText}` );
+            }
+
+            const data = await response.json();
+
+            if ( data.success && aktiviteListesi ) {
+                if ( data.aktiviteler.length === 0 ) {
+                    aktiviteListesi.innerHTML = `
+                        <div class="text-center py-8 text-slate-500">
+                            <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <p class="mt-2 text-sm">Henüz aktivite kaydı yok</p>
+                        </div>
+                    `;
+                } else {
+                    aktiviteListesi.innerHTML = data.aktiviteler.map( aktivite => {
+                        // İşlem tipine göre ikon ve renk
+                        let iconSvg, colorClass;
+                        switch ( aktivite.islem_tipi ) {
+                            case 'ekleme':
+                                iconSvg = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>';
+                                colorClass = 'bg-green-100 text-green-600';
+                                break;
+                            case 'guncelleme':
+                                iconSvg = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>';
+                                colorClass = 'bg-blue-100 text-blue-600';
+                                break;
+                            case 'silme':
+                                iconSvg = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>';
+                                colorClass = 'bg-red-100 text-red-600';
+                                break;
+                            default:
+                                iconSvg = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>';
+                                colorClass = 'bg-slate-100 text-slate-600';
+                        }
+
+                        // Detay metni oluştur
+                        let detayText = '';
+                        if ( aktivite.detay && Object.keys( aktivite.detay ).length > 0 ) {
+                            const firstKey = Object.keys( aktivite.detay )[0];
+                            detayText = aktivite.detay[firstKey] || '';
+                        }
+
+                        return `
+                            <div class="flex items-start space-x-3 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                                <div class="flex-shrink-0">
+                                    <div class="${colorClass} rounded-full p-2">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            ${iconSvg}
+                                        </svg>
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-slate-900">
+                                        ${aktivite.kullanici}
+                                    </p>
+                                    <p class="text-sm text-slate-600 truncate">
+                                        <span class="font-medium">${aktivite.islem_tipi}</span> -
+                                        ${aktivite.modul}
+                                        ${detayText ? `: ${detayText}` : ''}
+                                    </p>
+                                    <p class="text-xs text-slate-500 mt-1" title="${aktivite.tam_tarih}">
+                                        ${aktivite.zaman}
+                                    </p>
+                                </div>
+                            </div>
+                        `;
+                    } ).join( '' );
+                }
+            } else {
+                // API'den hata mesajı
+                console.error( 'Aktiviteler API hatası:', data.error || 'Bilinmeyen hata' );
+                if ( aktiviteListesi ) {
+                    aktiviteListesi.innerHTML = `
+                        <div class="text-center py-8 text-amber-600">
+                            <svg class="mx-auto h-12 w-12 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                            <p class="mt-2 text-sm">${data.error || 'Veri yüklenemedi'}</p>
+                        </div>
+                    `;
+                }
+            }
+        } catch ( error ) {
+            console.error( 'Aktiviteler yüklenirken hata:', error );
+            if ( aktiviteListesi ) {
+                aktiviteListesi.innerHTML = `
+                    <div class="text-center py-8 text-red-500">
+                        <svg class="mx-auto h-12 w-12 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <p class="mt-2 text-sm font-medium">Aktiviteler yüklenemedi</p>
+                        <p class="mt-1 text-xs text-red-400">${error.message}</p>
+                    </div>
+                `;
+            }
+        } finally {
+            // Loading gizle
+            if ( aktiviteLoading ) aktiviteLoading.classList.add( 'hidden' );
+        }
+    }
+
+    // Aktiviteleri yenile fonksiyonu
+    function aktiviteleriYenile() {
+        aktiviteleriYukle();
+    }
+
+    // Sayfa yüklendiğinde widget'ları başlat
+    document.addEventListener( 'DOMContentLoaded', function () {
+        // Tüketim trendini yükle
+        tuketimTrendiniYukle( 7 );
+
+        // Aktiviteleri yükle
+        aktiviteleriYukle();
+
+        // Her 30 saniyede bir aktiviteleri otomatik yenile
+        setInterval( aktiviteleriYukle, 30000 );
     } );
 </script>
 {% endblock %}

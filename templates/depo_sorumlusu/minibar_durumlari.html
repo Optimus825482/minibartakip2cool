@@ -176,80 +176,86 @@
             <!-- Minibar Ürünleri Tablosu -->
             <div>
                 <h4 class="text-md font-medium text-slate-900 mb-4">Minibar İçeriği</h4>
-                <div class="overflow-hidden border border-slate-200 rounded-lg">
-                    <table class="min-w-full divide-y divide-slate-200">
+                <div class="table-wrapper border border-slate-200 rounded-lg">
+                    <table id="minibar-urunler-table" class="min-w-full divide-y divide-slate-200">
                         <thead class="bg-slate-50">
                             <tr>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                     Ürün</th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">
                                     Grup</th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">
                                     Birim</th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden xl:table-cell">
                                     Başlangıç</th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                     Eklenen</th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                     Tüketim</th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                     Mevcut</th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">
                                     Ekleyen Personel</th>
                                 <th
-                                    class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden xl:table-cell">
                                     İşlem Tarihi</th>
                             </tr>
                         </thead>
                         <tbody class="bg-white divide-y divide-slate-200">
                             {% for item in minibar_bilgisi.urunler %}
-                            <tr>
-                                <td class="px-6 py-4 text-sm font-medium text-slate-900">
+                            <tr class="hover:bg-slate-50 transition-colors">
+                                <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-slate-900">
                                     <button
                                         onclick="urunGecmisiGoster({{ minibar_bilgisi.oda.id }}, {{ item.urun.id }}, '{{ item.urun.urun_adi }}')"
                                         class="text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left">
                                         {{ item.urun.urun_adi }}
                                     </button>
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                <td
+                                    class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
                                     {{ item.urun.grup.grup_adi }}
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                <td
+                                    class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 hidden lg:table-cell">
                                     {{ item.urun.birim }}
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                <td
+                                    class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 hidden xl:table-cell">
                                     {{ item.baslangic_stok }}
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500">
                                     {% if item.eklenen_miktar > 0 %}
                                     <span class="text-green-600 font-medium">+{{ item.eklenen_miktar }}</span>
                                     {% else %}
-                                    -
+                                    <span class="text-slate-400">-</span>
                                     {% endif %}
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500">
                                     {% if item.tuketim > 0 %}
                                     <span class="text-red-600 font-medium">-{{ item.tuketim }}</span>
                                     {% else %}
-                                    -
+                                    <span class="text-slate-400">-</span>
                                     {% endif %}
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-bold text-slate-900">
+                                <td
+                                    class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-bold text-slate-900">
                                     {{ item.mevcut_miktar }}
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-700">
+                                <td
+                                    class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-700 hidden lg:table-cell">
                                     {{ minibar_bilgisi.son_islem.personel.ad }} {{
                                     minibar_bilgisi.son_islem.personel.soyad }}
                                 </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                <td
+                                    class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 hidden xl:table-cell">
                                     {{ minibar_bilgisi.son_islem.islem_tarihi.strftime('%d.%m.%Y %H:%M') }}
                                 </td>
                             </tr>
@@ -374,7 +380,7 @@
                     `;
                     } else {
                         let html = `
-                        <div class="overflow-x-auto">
+                        <div class="table-wrapper">
                             <table class="min-w-full divide-y divide-slate-200">
                                 <thead class="bg-slate-50">
                                     <tr>
@@ -452,6 +458,22 @@
             modalKapat();
         }
     } );
+
+    // Minibar ürünleri tablosu için gelişmiş arama ve filtreleme
+    {% if minibar_bilgisi %}
+    document.addEventListener( 'DOMContentLoaded', function () {
+        window.tableSearchFilter_minibar = new TableSearchFilter( {
+            tableId: 'minibar-urunler-table',
+            searchInputId: 'minibar-search',
+            searchPlaceholder: 'Ürün adı, grup veya birim ara...',
+            defaultItemsPerPage: 25,
+            itemsPerPageOptions: [10, 25, 50, 100],
+            noResultsMessage: 'Aradığınız kriterlere uygun ürün bulunamadı',
+            filters: [],
+            sortable: true
+        } );
+    } );
+    {% endif %}
 </script>
 
 {% endblock %}

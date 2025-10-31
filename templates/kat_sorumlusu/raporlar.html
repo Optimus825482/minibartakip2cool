@@ -98,50 +98,71 @@
             {% if rapor_tipi == 'minibar_islem' %}
             <!-- Minibar İşlem Raporu -->
             <div class="overflow-hidden">
-                <table class="min-w-full divide-y divide-slate-200">
+                <table id="minibar-islem-rapor-table" class="min-w-full divide-y divide-slate-200">
                     <thead class="bg-slate-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                Tarih</th>
+                                Tarih
+                                <span
+                                    class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    {{ rapor_verisi|length }} kayıt
+                                </span>
+                            </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 Oda</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 İşlem Tipi</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">
                                 Ürün Sayısı</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">
                                 Toplam Miktar</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden xl:table-cell">
                                 Açıklama</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-slate-200">
                         {% for islem in rapor_verisi %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{
-                                islem.islem_tarihi.strftime('%d.%m.%Y %H:%M') }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{
-                                islem.oda.oda_no }}</td>
+                        <tr class="hover:bg-slate-50 transition-colors duration-150">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                                📅 {{ islem.islem_tarihi.strftime('%d.%m.%Y %H:%M') }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                🚪 {{ islem.oda.oda_no }}
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full
                                         {% if islem.islem_tipi == 'ilk_dolum' %}bg-blue-100 text-blue-800
                                         {% elif islem.islem_tipi == 'kontrol' %}bg-yellow-100 text-yellow-800
                                         {% else %}bg-green-100 text-green-800{% endif %}">
+                                    {% if islem.islem_tipi == 'ilk_dolum' %}🔵{% elif islem.islem_tipi == 'kontrol'
+                                    %}🟡{% else %}🟢{% endif %}
                                     {{ islem.islem_tipi.replace('_', ' ').title() }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ islem.detaylar|length }}
+                            <td class="px-6 py-4 whitespace-nowrap text-sm hidden md:table-cell">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                    📦 {{ islem.detaylar|length }}
+                                </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                {% if islem.islem_tipi == 'kontrol' %}
-                                {% set toplam = islem.detaylar|sum(attribute='tuketim') %}
-                                {{ toplam }} (Tüketim)
-                                {% else %}
-                                {% set toplam = islem.detaylar|sum(attribute='eklenen_miktar') %}
-                                {{ toplam }} (Eklenen)
-                                {% endif %}
+                            <td class="px-6 py-4 whitespace-nowrap text-sm hidden lg:table-cell">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+                                    {% if islem.islem_tipi == 'kontrol' %}
+                                    {% set toplam = islem.detaylar|sum(attribute='tuketim') %}
+                                    🔻 {{ toplam }} (Tüketim)
+                                    {% else %}
+                                    {% set toplam = islem.detaylar|sum(attribute='eklenen_miktar') %}
+                                    ➕ {{ toplam }} (Eklenen)
+                                    {% endif %}
+                                </span>
                             </td>
-                            <td class="px-6 py-4 text-sm text-slate-500">{{ islem.aciklama or '-' }}</td>
+                            <td class="px-6 py-4 text-sm text-slate-500 hidden xl:table-cell">
+                                📝 {{ islem.aciklama or '-' }}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -151,33 +172,58 @@
             {% elif rapor_tipi == 'tuketim' %}
             <!-- Tüketim Raporu -->
             <div class="overflow-hidden">
-                <table class="min-w-full divide-y divide-slate-200">
+                <table id="tuketim-rapor-table" class="min-w-full divide-y divide-slate-200">
                     <thead class="bg-slate-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                Ürün</th>
+                                Ürün
+                                <span
+                                    class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-100 text-red-800">
+                                    {{ rapor_verisi|length }} ürün
+                                </span>
+                            </th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 Grup</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">
                                 Birim</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 Toplam Tüketim</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">
                                 İşlem Sayısı</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-slate-200">
                         {% for urun, toplam_tuketim, islem_sayisi in rapor_verisi %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{
-                                urun.urun_adi }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ urun.grup.grup_adi }}
+                        <tr class="hover:bg-slate-50 transition-colors duration-150">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                📦 {{ urun.urun_adi }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ urun.birim }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-medium">{{ toplam_tuketim
-                                }}
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                    {{ urun.grup.grup_adi }}
+                                </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ islem_sayisi }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-slate-100 text-slate-700">
+                                    {{ urun.birim }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold">
+                                <span
+                                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                    🔻 {{ toplam_tuketim }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden lg:table-cell">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {{ islem_sayisi }}
+                                </span>
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -187,35 +233,55 @@
             {% elif rapor_tipi == 'oda_bazli' %}
             <!-- Oda Bazlı Rapor -->
             <div class="overflow-hidden">
-                <table class="min-w-full divide-y divide-slate-200">
+                <table id="oda-bazli-rapor-table" class="min-w-full divide-y divide-slate-200">
                     <thead class="bg-slate-50">
                         <tr>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                Oda</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Oda
+                                <span
+                                    class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                    {{ rapor_verisi|length }} oda
+                                </span>
+                            </th>
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">
                                 Kat</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 İşlem Sayısı</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 Toplam Tüketim</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">
                                 Son İşlem</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-slate-200">
                         {% for oda, islem_sayisi, toplam_tuketim, son_islem in rapor_verisi %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{
-                                oda.oda_no }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ oda.kat.kat_adi }}
+                        <tr class="hover:bg-slate-50 transition-colors duration-150">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                🚪 {{ oda.oda_no }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ islem_sayisi }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-medium">{{ toplam_tuketim
-                                or 0 }}
+                            <td class="px-6 py-4 whitespace-nowrap text-sm hidden md:table-cell">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                    🏢 {{ oda.kat.kat_adi }}
+                                </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {{ islem_sayisi }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-bold">
+                                <span
+                                    class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800">
+                                    🔻 {{ toplam_tuketim or 0 }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden lg:table-cell">
                                 {% if son_islem %}
-                                {{ son_islem.strftime('%d.%m.%Y %H:%M') }}
+                                📅 {{ son_islem.strftime('%d.%m.%Y %H:%M') }}
                                 {% else %}
                                 -
                                 {% endif %}
@@ -230,4 +296,46 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    {% if rapor_verisi %}
+    {% if rapor_tipi == 'minibar_islem' %}
+    // TableSearchFilter - Minibar İşlem Raporu
+    new TableSearchFilter( 'minibar-islem-rapor-table', {
+        searchPlaceholder: 'Minibar işlemlerinde ara (oda, açıklama)...',
+        filters: [
+            {
+                column: 2, // İşlem Tipi
+                label: 'İşlem Tipi',
+                type: 'badge'
+            }
+        ],
+        defaultItemsPerPage: 25
+    } );
+
+    {% elif rapor_tipi == 'tuketim' %}
+    // TableSearchFilter - Tüketim Raporu
+    new TableSearchFilter( 'tuketim-rapor-table', {
+        searchPlaceholder: 'Ürünlerde ara (ürün adı, grup, birim)...',
+        filters: [
+            {
+                column: 1, // Grup
+                label: 'Grup',
+                type: 'badge'
+            }
+        ],
+        defaultItemsPerPage: 25
+    } );
+
+    {% elif rapor_tipi == 'oda_bazli' %}
+    // TableSearchFilter - Oda Bazlı Rapor
+    new TableSearchFilter( 'oda-bazli-rapor-table', {
+        searchPlaceholder: 'Odalarda ara (oda no, kat)...',
+        defaultItemsPerPage: 25
+    } );
+    {% endif %}
+    {% endif %}
+</script>
 {% endblock %}

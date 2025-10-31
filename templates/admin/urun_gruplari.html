@@ -9,8 +9,9 @@
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-6">Yeni Ürün Grubu Ekle</h3>
-            
+
             <form method="POST" class="space-y-6">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
                         <label for="grup_adi" class="block text-sm font-medium text-slate-700">
@@ -18,8 +19,8 @@
                         </label>
                         <div class="mt-1">
                             <input id="grup_adi" name="grup_adi" type="text" required
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Örn: Alkolü İçecekler, Alkolsüz İçecekler">
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="Örn: Alkolü İçecekler, Alkolsüz İçecekler">
                         </div>
                     </div>
 
@@ -29,15 +30,15 @@
                         </label>
                         <div class="mt-1">
                             <textarea id="aciklama" name="aciklama" rows="3"
-                                      class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                      placeholder="Grup hakkında ek bilgiler..."></textarea>
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="Grup hakkında ek bilgiler..."></textarea>
                         </div>
                     </div>
                 </div>
 
                 <div class="flex justify-end">
                     <button type="submit"
-                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
                         Grup Ekle
                     </button>
                 </div>
@@ -48,69 +49,135 @@
     <!-- Mevcut Ürün Grupları Listesi -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">Mevcut Ürün Grupları</h3>
-            
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg leading-6 font-medium text-slate-900">Mevcut Ürün Grupları</h3>
+                <div class="flex items-center gap-2 text-sm text-slate-600">
+                    <span class="font-medium" data-stats-for="gruplar-table" data-stat="total">{{ gruplar|length
+                        }}</span>
+                    <span>Toplam Grup</span>
+                </div>
+            </div>
+
             {% if gruplar %}
-                <div class="overflow-hidden">
-                    <table class="min-w-full divide-y divide-slate-200">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Grup Adı</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Açıklama</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Ürün Sayısı</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Durum</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Eklenme Tarihi</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">İşlemler</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-slate-200">
-                            {% for grup in gruplar %}
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{ grup.grup_adi }}</td>
-                                <td class="px-6 py-4 text-sm text-slate-500">{{ grup.aciklama or '-' }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ grup.urunler|length }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+            <div class="table-wrapper">
+                <table id="gruplar-table" class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Grup Adı</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">
+                                Açıklama</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Ürün Sayısı</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Durum</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">
+                                Eklenme Tarihi</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider no-sort">
+                                İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-slate-200">
+                        {% for grup in gruplar %}
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium text-slate-900">
+                                {{ grup.grup_adi }}
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-slate-500 hidden md:table-cell">
+                                {{ grup.aciklama or '-' }}
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {{ grup.urunler|length }} ürün
+                                </span>
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                                <span
+                                    class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
                                         {% if grup.aktif %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
-                                        {% if grup.aktif %}Aktif{% else %}Pasif{% endif %}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ grup.olusturma_tarihi.strftime('%d.%m.%Y') }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                    <a href="{{ url_for('grup_duzenle', grup_id=grup.id) }}" 
-                                       class="text-slate-600 hover:text-slate-900">Düzenle</a>
+                                    {% if grup.aktif %}Aktif{% else %}Pasif{% endif %}
+                                </span>
+                            </td>
+                            <td
+                                class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 hidden lg:table-cell">
+                                {{ grup.olusturma_tarihi.strftime('%d.%m.%Y') }}
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium">
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <a href="{{ url_for('grup_duzenle', grup_id=grup.id) }}"
+                                        class="text-slate-600 hover:text-slate-900 whitespace-nowrap">Düzenle</a>
                                     {% if grup.aktif %}
-                                    <form method="POST" action="{{ url_for('grup_pasif_yap', grup_id=grup.id) }}" class="inline">
-                                        <button type="submit" 
-                                                class="text-red-600 hover:text-red-900"
-                                                onclick="return confirm('Bu ürün grubunu pasif yapmak istediğinizden emin misiniz?')">
+                                    <form method="POST" action="{{ url_for('grup_pasif_yap', grup_id=grup.id) }}"
+                                        class="inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <button type="submit" class="text-red-600 hover:text-red-900 whitespace-nowrap"
+                                            onclick="return confirm('Bu ürün grubunu pasif yapmak istediğinizden emin misiniz?')">
                                             Pasif Yap
                                         </button>
                                     </form>
                                     {% else %}
-                                    <form method="POST" action="{{ url_for('grup_aktif_yap', grup_id=grup.id) }}" class="inline">
-                                        <button type="submit" 
-                                                class="text-green-600 hover:text-green-900">
+                                    <form method="POST" action="{{ url_for('grup_aktif_yap', grup_id=grup.id) }}"
+                                        class="inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <button type="submit"
+                                            class="text-green-600 hover:text-green-900 whitespace-nowrap">
                                             Aktif Yap
                                         </button>
                                     </form>
                                     {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
-                <div class="text-center py-8">
-                    <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
-                    </svg>
-                    <h3 class="mt-2 text-sm font-medium text-slate-900">Henüz ürün grubu eklenmemiş</h3>
-                    <p class="mt-1 text-sm text-slate-500">Yukarıdaki formu kullanarak ilk ürün grubunuzu ekleyin.</p>
-                </div>
+            <div class="text-center py-8">
+                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10">
+                    </path>
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-slate-900">Henüz ürün grubu eklenmemiş</h3>
+                <p class="mt-1 text-sm text-slate-500">Yukarıdaki formu kullanarak ilk ürün grubunuzu ekleyin.</p>
+            </div>
             {% endif %}
         </div>
     </div>
 </div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener( 'DOMContentLoaded', function () {
+        window.tableSearchFilter_gruplar = new TableSearchFilter( {
+            tableId: 'gruplar-table',
+            searchInputId: 'gruplar-search',
+            searchPlaceholder: 'Grup adı veya açıklama ara...',
+            defaultItemsPerPage: 25,
+            itemsPerPageOptions: [10, 25, 50, 100],
+            noResultsMessage: 'Aradığınız kriterlere uygun grup bulunamadı',
+            filters: [
+                {
+                    column: 3,
+                    label: 'Durum',
+                    options: [
+                        { value: 'Aktif', label: 'Aktif' },
+                        { value: 'Pasif', label: 'Pasif' }
+                    ]
+                }
+            ],
+            sortable: true
+        } );
+    } );
+</script>
 {% endblock %}

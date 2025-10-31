@@ -1,78 +1,33 @@
 {% extends "base.html" %}
+{% from "_form_helpers.html" import render_field, render_select, render_submit, flash_messages %}
 
 {% block title %}Kullanıcı Düzenle - Minibar Takip Sistemi{% endblock %}
 {% block page_title %}Kullanıcı Düzenle{% endblock %}
 
 {% block content %}
-<div class="space-y-6">
-    <!-- Kullanıcı Düzenleme Formu -->
+<div class="max-w-2xl mx-auto">
+    {{ flash_messages() }}
+
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-6">Kullanıcı Bilgilerini Düzenle</h3>
-            
+
             <form method="POST" class="space-y-6">
+                {{ form.csrf_token }}
+
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                        <label for="kullanici_adi" class="block text-sm font-medium text-slate-700">
-                            Kullanıcı Adı <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <input id="kullanici_adi" name="kullanici_adi" type="text" required
-                                   value="{{ personel.kullanici_adi }}"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Kullanıcı adı">
-                        </div>
-                    </div>
+                    {{ render_field(form.kullanici_adi) }}
 
                     <div>
-                        <label for="yeni_sifre" class="block text-sm font-medium text-slate-700">
-                            Yeni Şifre
-                        </label>
-                        <div class="mt-1">
-                            <input id="yeni_sifre" name="yeni_sifre" type="password"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Yeni şifre (boş bırakırsanız değişmez)">
-                        </div>
+                        {{ render_field(form.yeni_sifre, placeholder="Yeni şifre (boş bırakırsanız değişmez)") }}
                         <p class="mt-1 text-sm text-slate-500">Şifre değiştirmek istemiyorsanız boş bırakın</p>
                     </div>
 
-                    <div>
-                        <label for="ad" class="block text-sm font-medium text-slate-700">
-                            Ad <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <input id="ad" name="ad" type="text" required
-                                   value="{{ personel.ad }}"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Ad">
-                        </div>
-                    </div>
+                    {{ render_field(form.ad) }}
+                    {{ render_field(form.soyad) }}
 
                     <div>
-                        <label for="soyad" class="block text-sm font-medium text-slate-700">
-                            Soyad <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <input id="soyad" name="soyad" type="text" required
-                                   value="{{ personel.soyad }}"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Soyad">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="rol" class="block text-sm font-medium text-slate-700">
-                            Rol <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <select id="rol" name="rol" required
-                                    class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
-                                <option value="">Rol seçiniz...</option>
-                                <option value="admin" {% if personel.rol == 'admin' %}selected{% endif %}>Admin</option>
-                                <option value="depo_sorumlusu" {% if personel.rol == 'depo_sorumlusu' %}selected{% endif %}>Depo Sorumlusu</option>
-                                <option value="kat_sorumlusu" {% if personel.rol == 'kat_sorumlusu' %}selected{% endif %}>Kat Sorumlusu</option>
-                            </select>
-                        </div>
+                        {{ render_select(form.rol) }}
                         <p class="mt-2 text-sm text-slate-500">
                             <strong>Admin:</strong> Tüm sistem yetkileri<br>
                             <strong>Depo Sorumlusu:</strong> Stok yönetimi ve zimmet atama<br>
@@ -80,38 +35,17 @@
                         </p>
                     </div>
 
-                    <div>
-                        <label for="email" class="block text-sm font-medium text-slate-700">
-                            Email
-                        </label>
-                        <div class="mt-1">
-                            <input id="email" name="email" type="email"
-                                   value="{{ personel.email or '' }}"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="email@example.com">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="telefon" class="block text-sm font-medium text-slate-700">
-                            Telefon
-                        </label>
-                        <div class="mt-1">
-                            <input id="telefon" name="telefon" type="tel"
-                                   value="{{ personel.telefon or '' }}"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Telefon numarası">
-                        </div>
-                    </div>
+                    {{ render_field(form.email, placeholder="email@example.com") }}
+                    {{ render_field(form.telefon, placeholder="Telefon numarası") }}
                 </div>
 
                 <div class="flex justify-end space-x-3">
                     <a href="{{ url_for('personel_tanimla') }}"
-                       class="inline-flex justify-center py-2 px-4 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                        class="bg-white py-2 px-4 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
                         İptal
                     </a>
                     <button type="submit"
-                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
                         Güncelle
                     </button>
                 </div>

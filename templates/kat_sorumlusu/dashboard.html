@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
-{% block title %}Kat Sorumlusu Dashboard - Minibar Takip Sistemi{% endblock %}
-{% block page_title %}Kat Sorumlusu Dashboard{% endblock %}
+{% block title %}Kat Sorumlusu Panel - Minibar Takip Sistemi{% endblock %}
+{% block page_title %}Kat Sorumlusu Panel{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
@@ -13,7 +13,8 @@
                     <div class="flex-shrink-0">
                         <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                             </svg>
                         </div>
                     </div>
@@ -33,7 +34,9 @@
                     <div class="flex-shrink-0">
                         <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
+                                </path>
                             </svg>
                         </div>
                     </div>
@@ -53,7 +56,9 @@
                     <div class="flex-shrink-0">
                         <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                                </path>
                             </svg>
                         </div>
                     </div>
@@ -73,11 +78,14 @@
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">Hızlı İşlemler</h3>
             <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                <a href="{{ url_for('minibar_kontrol') }}" class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200">
+                <a href="{{ url_for('minibar_kontrol') }}"
+                    class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200">
                     <div>
                         <span class="rounded-lg inline-flex p-3 bg-blue-50 text-blue-700 ring-4 ring-white">
                             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
+                                </path>
                             </svg>
                         </span>
                     </div>
@@ -90,11 +98,13 @@
                     </div>
                 </a>
 
-                <a href="{{ url_for('zimmetim') }}" class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200">
+                <a href="{{ url_for('zimmetim') }}"
+                    class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200">
                     <div>
                         <span class="rounded-lg inline-flex p-3 bg-green-50 text-green-700 ring-4 ring-white">
                             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                             </svg>
                         </span>
                     </div>
@@ -107,11 +117,14 @@
                     </div>
                 </a>
 
-                <a href="{{ url_for('kat_raporlar') }}" class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200">
+                <a href="{{ url_for('kat_raporlar') }}"
+                    class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200">
                     <div>
                         <span class="rounded-lg inline-flex p-3 bg-yellow-50 text-yellow-700 ring-4 ring-white">
                             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
+                                </path>
                             </svg>
                         </span>
                     </div>
@@ -132,39 +145,77 @@
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">Son Minibar İşlemleri</h3>
             {% if son_islemler %}
-                <div class="overflow-hidden">
-                    <table class="min-w-full divide-y divide-slate-200">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Oda</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">İşlem Tipi</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Açıklama</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tarih</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-slate-200">
-                            {% for islem in son_islemler %}
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{ islem.oda.oda_no }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+            <div class="overflow-hidden">
+                <table id="son-minibar-islemler-table" class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Oda
+                                <span
+                                    class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                    {{ son_islemler|length }} işlem
+                                </span>
+                            </th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                İşlem Tipi</th>
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">
+                                Açıklama</th>
+                            <th
+                                class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">
+                                Tarih</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-slate-200">
+                        {% for islem in son_islemler %}
+                        <tr class="hover:bg-slate-50 transition-colors duration-150">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                🚪 {{ islem.oda.oda_no }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-1 text-xs font-semibold rounded-full
                                         {% if islem.islem_tipi == 'ilk_dolum' %}bg-blue-100 text-blue-800
                                         {% elif islem.islem_tipi == 'kontrol' %}bg-yellow-100 text-yellow-800
                                         {% else %}bg-green-100 text-green-800{% endif %}">
-                                        {{ islem.islem_tipi.replace('_', ' ').title() }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-sm text-slate-500">{{ islem.aciklama or '-' }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ islem.islem_tarihi.strftime('%d.%m.%Y %H:%M') }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                    {% if islem.islem_tipi == 'ilk_dolum' %}🔵{% elif islem.islem_tipi == 'kontrol'
+                                    %}🟡{% else %}🟢{% endif %}
+                                    {{ islem.islem_tipi.replace('_', ' ').title() }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-slate-500 hidden md:table-cell">
+                                📝 {{ islem.aciklama or '-' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 hidden lg:table-cell">
+                                📅 {{ islem.islem_tarihi.strftime('%d.%m.%Y %H:%M') }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
-                <p class="text-slate-500 text-center py-4">Henüz minibar işlemi bulunmuyor.</p>
+            <p class="text-slate-500 text-center py-4">Henüz minibar işlemi bulunmuyor.</p>
             {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    // TableSearchFilter - Son Minibar İşlemleri
+    {% if son_islemler %}
+    new TableSearchFilter( 'son-minibar-islemler-table', {
+        searchPlaceholder: 'Minibar işlemlerinde ara (oda, açıklama)...',
+        filters: [
+            {
+                column: 1, // İşlem Tipi
+                label: 'İşlem Tipi',
+                type: 'badge'
+            }
+        ],
+        defaultItemsPerPage: 10
+    } );
+    {% endif %}
+</script>
 {% endblock %}

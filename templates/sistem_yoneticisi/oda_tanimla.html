@@ -1,79 +1,28 @@
 {% extends "base.html" %}
+{% from "_form_helpers.html" import render_field, render_select, render_submit, flash_messages %}
 
 {% block title %}Oda Tanımla - Minibar Takip Sistemi{% endblock %}
 {% block page_title %}Oda Tanımla{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
+    <!-- Flash Messages -->
+    {{ flash_messages() }}
+
     <!-- Oda Ekleme Formu -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-6">Yeni Oda Ekle</h3>
 
             <form method="POST" class="space-y-6">
+                {{ form.csrf_token }}
+
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                        <label for="kat_id" class="block text-sm font-medium text-slate-700">
-                            Kat <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <select id="kat_id" name="kat_id" required
-                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
-                                <option value="">Kat seçiniz...</option>
-                                {% for kat in katlar %}
-                                <option value="{{ kat.id }}">{{ kat.kat_adi }} ({{ kat.kat_no }}. Kat)</option>
-                                {% endfor %}
-                            </select>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="oda_no" class="block text-sm font-medium text-slate-700">
-                            Oda Numarası <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <input id="oda_no" name="oda_no" type="text" required
-                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                placeholder="Örn: 101, 201, A1">
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="oda_tipi" class="block text-sm font-medium text-slate-700">
-                            Oda Tipi
-                        </label>
-                        <div class="mt-1">
-                            <select id="oda_tipi" name="oda_tipi"
-                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
-                                <option value="">Oda tipi seçiniz...</option>
-                                <option value="Tek Kişilik">Tek Kişilik</option>
-                                <option value="Çift Kişilik">Çift Kişilik</option>
-                                <option value="Aile Odası">Aile Odası</option>
-                                <option value="Suit">Suit</option>
-                                <option value="Deluxe">Deluxe</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div>
-                        <label for="kapasite" class="block text-sm font-medium text-slate-700">
-                            Kapasite
-                        </label>
-                        <div class="mt-1">
-                            <input id="kapasite" name="kapasite" type="number" min="1" max="10"
-                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                placeholder="Kişi sayısı">
-                        </div>
-                    </div>
-
+                    {{ render_select(form.kat_id) }}
+                    {{ render_field(form.oda_no, placeholder="Örn: 101, 201, A1") }}
                 </div>
 
-                <div class="flex justify-end">
-                    <button type="submit"
-                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
-                        Oda Ekle
-                    </button>
-                </div>
+                {{ render_submit("Oda Ekle", class="flex justify-end") }}
             </form>
         </div>
     </div>
@@ -81,47 +30,56 @@
     <!-- Mevcut Odalar Listesi -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">Mevcut Odalar</h3>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg leading-6 font-medium text-slate-900">Mevcut Odalar</h3>
+                <div class="flex items-center gap-2 text-sm text-slate-600">
+                    <span class="font-medium" data-stats-for="odalar-table" data-stat="total">{{ odalar|length }}</span>
+                    <span>Toplam Oda</span>
+                </div>
+            </div>
 
             {% if odalar %}
-            <div class="overflow-hidden">
-                <table class="min-w-full divide-y divide-slate-200">
+            <div class="table-wrapper">
+                <table id="odalar-table" class="min-w-full divide-y divide-slate-200">
                     <thead class="bg-slate-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 Oda No</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 Kat</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                Oda Tipi</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                Kapasite</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider no-sort">
                                 İşlemler</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-slate-200">
                         {% for oda in odalar %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{ oda.oda_no }}
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                {{ oda.oda_no }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ oda.kat.kat_adi }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ oda.oda_tipi or '-' }}
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                    {{ oda.kat.kat_adi }}
+                                </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ oda.kapasite or '-' }}
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                <a href="{{ url_for('oda_duzenle', oda_id=oda.id) }}"
-                                    class="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">
-                                    Düzenle
-                                </a>
-                                <form method="POST" action="{{ url_for('oda_sil', oda_id=oda.id) }}" class="inline">
-                                    <button type="submit"
-                                        class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                                        onclick="return confirm('Bu odayı silmek istediğinizden emin misiniz?')">
-                                        Sil
-                                    </button>
-                                </form>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium">
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <a href="{{ url_for('oda_duzenle', oda_id=oda.id) }}"
+                                        class="text-slate-600 hover:text-slate-900 whitespace-nowrap">
+                                        Düzenle
+                                    </a>
+                                    <form method="POST" action="{{ url_for('oda_sil', oda_id=oda.id) }}" class="inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <button type="submit" class="text-red-600 hover:text-red-900 whitespace-nowrap"
+                                            onclick="return confirm('Bu odayı silmek istediğinizden emin misiniz?')">
+                                            Sil
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -141,4 +99,35 @@
         </div>
     </div>
 </div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener( 'DOMContentLoaded', function () {
+        // Kat seçeneklerini dinamik olarak oluştur
+        const katOptions = [
+            {% for kat in katlar %}
+            { value: '{{ kat.kat_adi }}', label: '{{ kat.kat_adi }}' },
+        {% endfor %}
+        ];
+
+    window.tableSearchFilter_odalar = new TableSearchFilter( {
+        tableId: 'odalar-table',
+        searchInputId: 'odalar-search',
+        searchPlaceholder: 'Oda numarası veya kat ara...',
+        defaultItemsPerPage: 50,
+        itemsPerPageOptions: [25, 50, 100, 200],
+        noResultsMessage: 'Aradığınız kriterlere uygun oda bulunamadı',
+        filters: [
+            {
+                column: 1,
+                label: 'Kat',
+                options: katOptions
+            }
+        ],
+        sortable: true
+    } );
+    });
+</script>
 {% endblock %}

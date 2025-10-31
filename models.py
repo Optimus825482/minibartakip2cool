@@ -199,7 +199,11 @@ class PersonelZimmetDetay(db.Model):
 class MinibarIslem(db.Model):
     """Minibar işlemleri tablosu - Kontrol ve tüketim başlık"""
     __tablename__ = 'minibar_islemleri'
-    
+    __table_args__ = (
+        db.Index('idx_oda_tarih', 'oda_id', 'islem_tarihi'),
+        db.Index('idx_personel_tarih', 'personel_id', 'islem_tarihi'),
+    )
+
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     oda_id = db.Column(db.Integer, db.ForeignKey('odalar.id'), nullable=False)
     personel_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id'), nullable=False)
@@ -265,4 +269,115 @@ class SistemLog(db.Model):
     
     def __repr__(self):
         return f'<SistemLog {self.islem_tipi} - {self.modul}>'
+
+
+class HataLog(db.Model):
+    """Hata log kayıtları tablosu"""
+    __tablename__ = 'hata_loglari'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    kullanici_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id'))
+    hata_tipi = db.Column(db.String(100), nullable=False)  # Exception tipi
+    hata_mesaji = db.Column(db.Text, nullable=False)  # Hata mesajı
+    hata_detay = db.Column(db.Text)  # Stack trace ve detaylar
+    modul = db.Column(db.String(100))  # Hangi modülde oluştu
+    url = db.Column(db.String(500))  # Hangi URL'de oluştu
+    method = db.Column(db.String(10))  # HTTP method (GET, POST, etc.)
+    ip_adresi = db.Column(db.String(50))
+    tarayici = db.Column(db.String(200))
+    olusturma_tarihi = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    cozuldu = db.Column(db.Boolean, default=False)  # Hata çözüldü mü?
+    cozum_notu = db.Column(db.Text)  # Çözüm notu
+    
+    # İlişki
+    kullanici = db.relationship('Kullanici', foreign_keys=[kullanici_id], backref='hata_kayitlari')
+    
+    def __repr__(self):
+        return f'<HataLog {self.hata_tipi} - {self.olusturma_tarihi}>'
+
+
+class AuditLog(db.Model):
+    """Audit Trail - Denetim İzi Kayıtları"""
+    __tablename__ = 'audit_logs'
+    __table_args__ = (
+        db.Index('idx_tablo_kayit', 'tablo_adi', 'kayit_id'),
+        db.Index('idx_kullanici_tarih', 'kullanici_id', 'islem_tarihi'),
+        db.Index('idx_tarih', 'islem_tarihi'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    
+    # Kullanıcı ve İşlem Bilgileri
+    kullanici_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id'), nullable=True)  # Nullable - sistem/script işlemleri için
+    kullanici_adi = db.Column(db.String(100), nullable=False)  # Denormalize - kullanıcı silinse bile kayıt kalır
+    kullanici_rol = db.Column(db.String(50), nullable=False)
+    
+    # İşlem Detayları
+    islem_tipi = db.Column(
+        db.Enum('create', 'update', 'delete', 'login', 'logout', 'view', 'export', 'import'), 
+        nullable=False
+    )
+    tablo_adi = db.Column(db.String(100), nullable=False)  # Hangi tablo etkilendi
+    kayit_id = db.Column(db.Integer)  # Etkilenen kayıt ID'si
+    
+    # Veri Değişiklikleri
+    eski_deger = db.Column(db.Text)  # JSON formatında eski değerler
+    yeni_deger = db.Column(db.Text)  # JSON formatında yeni değerler
+    degisiklik_ozeti = db.Column(db.Text)  # Okunabilir değişiklik özeti
+    
+    # HTTP İstek Bilgileri
+    http_method = db.Column(db.String(10))  # GET, POST, PUT, DELETE
+    url = db.Column(db.String(500))  # İstek URL'i
+    endpoint = db.Column(db.String(200))  # Flask endpoint adı
+    
+    # Ağ Bilgileri
+    ip_adresi = db.Column(db.String(50))
+    user_agent = db.Column(db.String(500))  # Tarayıcı bilgisi
+    
+    # Zaman Bilgisi
+    islem_tarihi = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    # Ek Bilgiler
+    aciklama = db.Column(db.Text)  # Ek açıklama
+    basarili = db.Column(db.Boolean, default=True)  # İşlem başarılı mı?
+    hata_mesaji = db.Column(db.Text)  # Hata varsa mesajı
+    
+    # İlişki
+    kullanici = db.relationship('Kullanici', foreign_keys=[kullanici_id], backref='audit_kayitlari')
+    
+    def __repr__(self):
+        return f'<AuditLog {self.islem_tipi} - {self.tablo_adi} #{self.kayit_id}>'
+
+
+class OtomatikRapor(db.Model):
+    """Otomatik Oluşturulan Raporlar (Günlük Stok Raporu vb.)"""
+    __tablename__ = 'otomatik_raporlar'
+    __table_args__ = (
+        db.Index('idx_rapor_tipi_tarih', 'rapor_tipi', 'olusturma_tarihi'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    
+    # Rapor Bilgileri
+    rapor_tipi = db.Column(
+        db.Enum('gunluk_stok', 'stok_kontrolu', 'zimmet_ozeti', 'minibar_tuketim'),
+        nullable=False
+    )
+    baslik = db.Column(db.String(200), nullable=False)
+    aciklama = db.Column(db.Text)
+    
+    # Rapor İçeriği (JSON formatında)
+    rapor_verisi = db.Column(db.Text, nullable=False)  # JSON string
+    
+    # Özet İstatistikler (Hızlı erişim için)
+    toplam_urun = db.Column(db.Integer)
+    kritik_stok_sayisi = db.Column(db.Integer)
+    toplam_deger = db.Column(Numeric(10, 2))
+    
+    # Ek Bilgiler
+    olusturan = db.Column(db.String(100), default='Sistem')  # Sistem veya kullanıcı adı
+    olusturma_tarihi = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    
+    def __repr__(self):
+        return f'<OtomatikRapor {self.rapor_tipi} - {self.olusturma_tarihi}>'
 

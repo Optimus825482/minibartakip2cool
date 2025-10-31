@@ -1,57 +1,32 @@
 {% extends "base.html" %}
+{% from "_form_helpers.html" import render_field, render_submit, flash_messages %}
 
 {% block title %}Kat Tanımla - Minibar Takip Sistemi{% endblock %}
 {% block page_title %}Kat Tanımla{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
+    <!-- Flash Messages -->
+    {{ flash_messages() }}
+
     <!-- Kat Ekleme Formu -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-6">Yeni Kat Ekle</h3>
-            
-            <form method="POST" class="space-y-6">
-                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div>
-                        <label for="kat_adi" class="block text-sm font-medium text-slate-700">
-                            Kat Adı <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <input id="kat_adi" name="kat_adi" type="text" required
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Örn: 1. Kat, Zemin Kat">
-                        </div>
-                    </div>
 
-                    <div>
-                        <label for="kat_no" class="block text-sm font-medium text-slate-700">
-                            Kat Numarası <span class="text-red-500">*</span>
-                        </label>
-                        <div class="mt-1">
-                            <input id="kat_no" name="kat_no" type="number" required
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Örn: 1, 2, 3">
-                        </div>
-                    </div>
+            <form method="POST" class="space-y-6">
+                {{ form.csrf_token }}
+
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    {{ render_field(form.kat_adi, placeholder="Örn: 1. Kat, Zemin Kat") }}
+                    {{ render_field(form.kat_no, placeholder="Örn: 1, 2, 3") }}
 
                     <div class="sm:col-span-2">
-                        <label for="aciklama" class="block text-sm font-medium text-slate-700">
-                            Açıklama
-                        </label>
-                        <div class="mt-1">
-                            <textarea id="aciklama" name="aciklama" rows="3"
-                                      class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                      placeholder="Kat hakkında ek bilgiler..."></textarea>
-                        </div>
+                        {{ render_field(form.aciklama, placeholder="Kat hakkında ek bilgiler...") }}
                     </div>
                 </div>
 
-                <div class="flex justify-end">
-                    <button type="submit"
-                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
-                        Kat Ekle
-                    </button>
-                </div>
+                {{ render_submit("Kat Ekle", class="flex justify-end") }}
             </form>
         </div>
     </div>
@@ -59,62 +34,120 @@
     <!-- Mevcut Katlar Listesi -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">Mevcut Katlar</h3>
-            
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg leading-6 font-medium text-slate-900">Mevcut Katlar</h3>
+                <div class="flex items-center gap-2 text-sm text-slate-600">
+                    <span class="font-medium" data-stats-for="katlar-table" data-stat="total">{{ katlar|length }}</span>
+                    <span>Toplam Kat</span>
+                </div>
+            </div>
+
             {% if katlar %}
-                <div class="overflow-hidden">
-                    <table class="min-w-full divide-y divide-slate-200">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Kat Adı</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Kat No</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Oda Sayısı</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Durum</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">İşlemler</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-slate-200">
-                            {% for kat in katlar %}
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{{ kat.kat_adi }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ kat.kat_no }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{{ kat.odalar|length }}</td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+            <div class="table-wrapper">
+                <table id="katlar-table" class="min-w-full divide-y divide-slate-200">
+                    <thead class="bg-slate-50">
+                        <tr>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Kat Adı</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Kat No</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">
+                                Oda Sayısı</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Durum</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider no-sort">
+                                İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-slate-200">
+                        {% for kat in katlar %}
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                                {{ kat.kat_adi }}
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                    {{ kat.kat_no }}. Kat
+                                </span>
+                            </td>
+                            <td
+                                class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    {{ kat.odalar|length }} oda
+                                </span>
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
+                                <span
+                                    class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
                                         {% if kat.aktif %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
-                                        {% if kat.aktif %}Aktif{% else %}Pasif{% endif %}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                    <a href="{{ url_for('kat_duzenle', kat_id=kat.id) }}" 
-                                       class="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200">
+                                    {% if kat.aktif %}Aktif{% else %}Pasif{% endif %}
+                                </span>
+                            </td>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium">
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <a href="{{ url_for('kat_duzenle', kat_id=kat.id) }}"
+                                        class="text-slate-600 hover:text-slate-900 whitespace-nowrap">
                                         Düzenle
                                     </a>
                                     {% if kat.aktif %}
                                     <form method="POST" action="{{ url_for('kat_sil', kat_id=kat.id) }}" class="inline">
-                                        <button type="submit" 
-                                                class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300"
-                                                onclick="return confirm('Bu katı silmek istediğinizden emin misiniz?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <button type="submit" class="text-red-600 hover:text-red-900 whitespace-nowrap"
+                                            onclick="return confirm('Bu katı silmek istediğinizden emin misiniz?')">
                                             Sil
                                         </button>
                                     </form>
                                     {% endif %}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
-                <div class="text-center py-8">
-                    <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
-                    </svg>
-                    <h3 class="mt-2 text-sm font-medium text-slate-900">Henüz kat eklenmemiş</h3>
-                    <p class="mt-1 text-sm text-slate-500">Yukarıdaki formu kullanarak ilk katınızı ekleyin.</p>
-                </div>
+            <div class="text-center py-8">
+                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
+                    </path>
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-slate-900">Henüz kat eklenmemiş</h3>
+                <p class="mt-1 text-sm text-slate-500">Yukarıdaki formu kullanarak ilk katınızı ekleyin.</p>
+            </div>
             {% endif %}
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener( 'DOMContentLoaded', function () {
+        const katlarTable = document.getElementById( 'katlar-table' );
+        if ( katlarTable ) {
+            new TableSearchFilter( 'katlar-table', {
+                searchPlaceholder: 'Kat adı, kat no veya oda sayısı ile ara...',
+                filters: [
+                    {
+                        columnIndex: 3, // Durum sütunu
+                        label: 'Durum',
+                        options: [
+                            { value: 'Aktif', label: 'Aktif' },
+                            { value: 'Pasif', label: 'Pasif' }
+                        ]
+                    }
+                ],
+                defaultItemsPerPage: 25 // Orta seviye - katlar genelde çok fazla değil
+            } );
+        }
+    } );
+</script>
 {% endblock %}

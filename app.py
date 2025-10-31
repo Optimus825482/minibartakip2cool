@@ -1,5 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify
-from datetime import datetime, timedelta
+from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify, send_file
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from datetime import datetime, timedelta, timezone
 import os
 import io
 import openpyxl
@@ -23,19 +26,57 @@ app = Flask(__name__)
 # Konfigürasyonu yükle
 app.config.from_object('config.Config')
 
+# CSRF Koruması Aktif
+csrf = CSRFProtect(app)
+
+# Rate Limiting Aktif
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://",  # Production'da Redis kullanılmalı
+    strategy="fixed-window"
+)
+
 # Veritabanı başlat
 from models import db
 db.init_app(app)
 
 # Yardımcı modülleri import et
 from utils.decorators import login_required, role_required, setup_required, setup_not_completed
-from utils.helpers import get_current_user, get_toplam_stok, get_kritik_stok_urunler, log_islem, get_son_loglar, get_kullanici_loglari, get_modul_loglari
+from utils.helpers import (
+    get_current_user, get_kritik_stok_urunler, get_stok_toplamlari,
+    log_islem, get_son_loglar, get_kullanici_loglari, get_modul_loglari,
+    log_hata, get_son_hatalar, get_cozulmemis_hatalar, hata_cozuldu_isaretle,
+    get_stok_durumu, get_tum_urunler_stok_durumlari
+)
+from utils.audit import (
+    audit_create, audit_update, audit_delete,
+    audit_login, audit_logout, serialize_model
+)
 
 # Modelleri import et
 from models import (
     Otel, Kullanici, Kat, Oda, UrunGrup, Urun, StokHareket, 
-    PersonelZimmet, PersonelZimmetDetay, MinibarIslem, MinibarIslemDetay, SistemAyar, SistemLog
+    PersonelZimmet, PersonelZimmetDetay, MinibarIslem, MinibarIslemDetay, 
+    SistemAyar, SistemLog, HataLog, OtomatikRapor
 )
+
+# Rate Limit Error Handler
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    """Rate limit aşıldığında gösterilecek hata sayfası"""
+    # Audit Trail - Rate limit ihlali
+    from utils.audit import log_audit
+    log_audit(
+        islem_tipi='view',
+        tablo_adi='rate_limit',
+        aciklama=f'Rate limit aşıldı: {request.endpoint}',
+        basarili=False,
+        hata_mesaji=str(e)
+    )
+
+    return render_template('errors/429.html', error=e), 429
 
 # Context processor - tüm template'lere kullanıcı bilgisini gönder
 @app.context_processor
@@ -51,7 +92,7 @@ def index():
     if not setup_tamamlandi or setup_tamamlandi.deger != '1':
         return redirect(url_for('setup'))
     
-    # Giriş yapmış kullanıcı varsa dashboard'a yönlendir
+    # Giriş yapmış kullanıcı varsa panele yönlendir
     if 'kullanici_id' in session:
         return redirect(url_for('dashboard'))
     
@@ -60,32 +101,38 @@ def index():
 # Setup sayfası
 @app.route('/setup', methods=['GET', 'POST'])
 @setup_not_completed
+@limiter.limit("10 per hour")  # Rate limit: 10 deneme/saat
 def setup():
-    if request.method == 'POST':
+    from forms import SetupForm
+    from sqlalchemy.exc import IntegrityError, OperationalError
+
+    form = SetupForm()
+
+    if form.validate_on_submit():
         try:
             # Otel bilgileri
             otel = Otel(
-                ad=request.form['otel_adi'],
-                adres=request.form['adres'],
-                telefon=request.form['telefon'],
-                email=request.form['email'],
-                vergi_no=request.form.get('vergi_no', '')
+                ad=form.otel_adi.data,
+                adres=form.adres.data,
+                telefon=form.telefon.data,
+                email=form.email.data,
+                vergi_no=form.vergi_no.data or ''
             )
             db.session.add(otel)
             db.session.flush()  # ID'yi almak için
-            
+
             # Sistem yöneticisi oluştur
             sistem_yoneticisi = Kullanici(
-                kullanici_adi=request.form['kullanici_adi'],
-                ad=request.form['ad'],
-                soyad=request.form['soyad'],
-                email=request.form['admin_email'],
-                telefon=request.form.get('admin_telefon', ''),
+                kullanici_adi=form.kullanici_adi.data,
+                ad=form.ad.data,
+                soyad=form.soyad.data,
+                email=form.admin_email.data,
+                telefon=form.admin_telefon.data or '',
                 rol='sistem_yoneticisi'
             )
-            sistem_yoneticisi.sifre_belirle(request.form['sifre'])
+            sistem_yoneticisi.sifre_belirle(form.sifre.data)
             db.session.add(sistem_yoneticisi)
-            
+
             # Setup tamamlandı işaretle
             setup_ayar = SistemAyar(
                 anahtar='setup_tamamlandi',
@@ -93,60 +140,89 @@ def setup():
                 aciklama='İlk kurulum tamamlandı'
             )
             db.session.add(setup_ayar)
-            
+
             db.session.commit()
-            
+
             flash('İlk kurulum başarıyla tamamlandı! Giriş yapabilirsiniz.', 'success')
             return redirect(url_for('login'))
-            
+
+        except IntegrityError:
+            db.session.rollback()
+            flash('Bu kullanıcı adı zaten kullanılıyor. Lütfen farklı bir kullanıcı adı deneyin.', 'danger')
+            log_hata(Exception('Setup IntegrityError'), modul='setup')
+        except OperationalError as e:
+            db.session.rollback()
+            flash('Veritabanı bağlantı hatası. Lütfen daha sonra tekrar deneyin.', 'danger')
+            log_hata(e, modul='setup')
         except Exception as e:
             db.session.rollback()
-            flash(f'Kurulum sırasında hata oluştu: {str(e)}', 'danger')
-    
-    return render_template('setup.html')
+            flash('Beklenmeyen bir hata oluştu. Sistem yöneticisine bildirildi.', 'danger')
+            log_hata(e, modul='setup', extra_info={'form_data': form.data})
+
+    return render_template('setup.html', form=form)
 
 # Login sayfası
 @app.route('/login', methods=['GET', 'POST'])
 @setup_required
+@limiter.limit("5 per minute")  # Rate limit: 5 deneme/dakika (Brute force koruması)
 def login():
-    if request.method == 'POST':
-        kullanici_adi = request.form['kullanici_adi']
-        sifre = request.form['sifre']
-        remember_me = 'remember_me' in request.form
-        
+    from forms import LoginForm
+
+    form = LoginForm()
+
+    if form.validate_on_submit():
         kullanici = Kullanici.query.filter_by(
-            kullanici_adi=kullanici_adi, 
+            kullanici_adi=form.kullanici_adi.data,
             aktif=True
         ).first()
-        
-        if kullanici and kullanici.sifre_kontrol(sifre):
+
+        if kullanici and kullanici.sifre_kontrol(form.sifre.data):
+            session.clear()
+            session.permanent = form.remember_me.data
+
             session['kullanici_id'] = kullanici.id
             session['kullanici_adi'] = kullanici.kullanici_adi
             session['ad'] = kullanici.ad
             session['soyad'] = kullanici.soyad
             session['rol'] = kullanici.rol
-            
-            # Remember me
-            if remember_me:
-                session.permanent = True
-            
+
             # Son giriş tarihini güncelle
-            kullanici.son_giris = datetime.utcnow()
-            db.session.commit()
-            
+            try:
+                kullanici.son_giris = datetime.now(timezone.utc)
+                db.session.commit()
+            except Exception as e:
+                # Son giriş güncelleme hatası login'i engellemez
+                log_hata(e, modul='login', extra_info={'action': 'son_giris_guncelleme'})
+
             # Log kaydı
             log_islem('giris', 'sistem', {
                 'kullanici_adi': kullanici.kullanici_adi,
                 'ad_soyad': f'{kullanici.ad} {kullanici.soyad}',
                 'rol': kullanici.rol
             })
-            
+
+            # Audit Trail
+            audit_login(
+                kullanici_id=kullanici.id,
+                kullanici_adi=kullanici.kullanici_adi,
+                kullanici_rol=kullanici.rol,
+                basarili=True
+            )
+
             flash(f'Hoş geldiniz, {kullanici.ad} {kullanici.soyad}!', 'success')
             return redirect(url_for('dashboard'))
         else:
+            # Başarısız login denemesini logla
+            audit_login(
+                kullanici_id=None,
+                kullanici_adi=form.kullanici_adi.data,
+                kullanici_rol='unknown',
+                basarili=False,
+                hata_mesaji='Geçersiz kullanıcı adı veya şifre'
+            )
             flash('Kullanıcı adı veya şifre hatalı!', 'danger')
-    
-    return render_template('login.html')
+
+    return render_template('login.html', form=form)
 
 # Logout
 @app.route('/logout')
@@ -154,19 +230,22 @@ def logout():
     # Log kaydı (session temizlenmeden önce)
     kullanici_id = session.get('kullanici_id')
     if kullanici_id:
-        kullanici = Kullanici.query.get(kullanici_id)
+        kullanici = db.session.get(Kullanici, kullanici_id)
         if kullanici:
             log_islem('cikis', 'sistem', {
                 'kullanici_adi': kullanici.kullanici_adi,
                 'ad_soyad': f'{kullanici.ad} {kullanici.soyad}',
                 'rol': kullanici.rol
             })
+            
+            # Audit Trail
+            audit_logout()
     
     session.clear()
     flash('Başarıyla çıkış yaptınız.', 'info')
     return redirect(url_for('login'))
 
-# Dashboard - rol bazlı yönlendirme
+# Panel - rol bazlı yönlendirme
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -175,7 +254,7 @@ def dashboard():
     if rol == 'sistem_yoneticisi':
         return redirect(url_for('sistem_yoneticisi_dashboard'))
     elif rol == 'admin':
-        return redirect(url_for('sistem_yoneticisi_dashboard'))  # Admin de sistem yöneticisi dashboard'ını kullanır
+        return redirect(url_for('sistem_yoneticisi_dashboard'))  # Admin de sistem yöneticisi panelini kullanır
     elif rol == 'depo_sorumlusu':
         return redirect(url_for('depo_dashboard'))
     elif rol == 'kat_sorumlusu':
@@ -184,7 +263,7 @@ def dashboard():
         flash('Geçersiz kullanıcı rolü!', 'danger')
         return redirect(url_for('logout'))
 
-# Sistem Yöneticisi Dashboard
+# Sistem Yöneticisi Panel
 @app.route('/sistem-yoneticisi')
 @login_required
 @role_required('sistem_yoneticisi', 'admin')
@@ -223,6 +302,9 @@ def sistem_yoneticisi_dashboard():
     toplam_urun = Urun.query.filter_by(aktif=True).count()
     kritik_urunler = get_kritik_stok_urunler()
     
+    # Gelişmiş stok durumları
+    stok_durumlari = get_tum_urunler_stok_durumlari()
+    
     # Son eklenen personeller (admin için)
     son_personeller = Kullanici.query.filter(
         Kullanici.rol.in_(['depo_sorumlusu', 'kat_sorumlusu']),
@@ -231,6 +313,31 @@ def sistem_yoneticisi_dashboard():
     
     # Son eklenen ürünler (admin için)
     son_urunler = Urun.query.filter_by(aktif=True).order_by(Urun.olusturma_tarihi.desc()).limit(5).all()
+    
+    # Ürün bazlı tüketim verileri (Son 30 günün en çok tüketilen ürünleri)
+    from datetime import datetime, timedelta
+    bugun = datetime.now().date()
+    otuz_gun_once = bugun - timedelta(days=30)
+    
+    # Minibar işlemlerinden en çok tüketilen ürünleri al
+    urun_tuketim = db.session.query(
+        Urun.urun_adi,
+        db.func.sum(MinibarIslemDetay.tuketim).label('toplam_tuketim')
+    ).join(
+        MinibarIslemDetay, MinibarIslemDetay.urun_id == Urun.id
+    ).join(
+        MinibarIslem, MinibarIslem.id == MinibarIslemDetay.islem_id
+    ).filter(
+        db.func.date(MinibarIslem.islem_tarihi) >= otuz_gun_once,
+        MinibarIslemDetay.tuketim > 0
+    ).group_by(
+        Urun.id, Urun.urun_adi
+    ).order_by(
+        db.desc('toplam_tuketim')
+    ).limit(10).all()
+    
+    urun_labels = [u[0] for u in urun_tuketim]
+    urun_tuketim_miktarlari = [float(u[1] or 0) for u in urun_tuketim]
     
     return render_template('sistem_yoneticisi/dashboard.html',
                          toplam_kat=toplam_kat,
@@ -247,8 +354,11 @@ def sistem_yoneticisi_dashboard():
                          toplam_urun_grup=toplam_urun_grup,
                          toplam_urun=toplam_urun,
                          kritik_urunler=kritik_urunler,
+                         stok_durumlari=stok_durumlari,
                          son_personeller=son_personeller,
-                         son_urunler=son_urunler)
+                         son_urunler=son_urunler,
+                         urun_labels=urun_labels,
+                         urun_tuketim_miktarlari=urun_tuketim_miktarlari)
 
 # Sistem Logları
 @app.route('/sistem-loglari')
@@ -289,9 +399,9 @@ def sistem_loglari():
                          modul=modul,
                          kullanici_id=kullanici_id)
 
-# Admin dashboard kaldırıldı - Sistem Yöneticisi dashboard'ı kullanılıyor
+# Admin paneli kaldırıldı - Sistem Yöneticisi paneli kullanılıyor
 
-# Depo Sorumlusu Dashboard
+# Depo Sorumlusu Panel
 @app.route('/depo')
 @login_required
 @role_required('depo_sorumlusu')
@@ -300,6 +410,9 @@ def depo_dashboard():
     toplam_urun = Urun.query.filter_by(aktif=True).count()
     kritik_urunler = get_kritik_stok_urunler()
     aktif_zimmetler = PersonelZimmet.query.filter_by(durum='aktif').count()
+    
+    # Gelişmiş stok durumları
+    stok_durumlari = get_tum_urunler_stok_durumlari()
     
     # Zimmet iade istatistikleri
     toplam_iade_edilen = db.session.query(db.func.sum(PersonelZimmetDetay.iade_edilen_miktar)).filter(
@@ -371,9 +484,33 @@ def depo_dashboard():
         ).scalar() or 0
         cikis_verileri.append(float(cikis))
     
+    # Ürün bazlı tüketim verileri (Son 30 günün en çok tüketilen ürünleri)
+    otuz_gun_once = bugun - timedelta(days=30)
+    
+    # Minibar işlemlerinden en çok tüketilen ürünleri al
+    urun_tuketim = db.session.query(
+        Urun.urun_adi,
+        db.func.sum(MinibarIslemDetay.tuketim).label('toplam_tuketim')
+    ).join(
+        MinibarIslemDetay, MinibarIslemDetay.urun_id == Urun.id
+    ).join(
+        MinibarIslem, MinibarIslem.id == MinibarIslemDetay.islem_id
+    ).filter(
+        db.func.date(MinibarIslem.islem_tarihi) >= otuz_gun_once,
+        MinibarIslemDetay.tuketim > 0
+    ).group_by(
+        Urun.id, Urun.urun_adi
+    ).order_by(
+        db.desc('toplam_tuketim')
+    ).limit(10).all()
+    
+    urun_labels = [u[0] for u in urun_tuketim]
+    urun_tuketim_miktarlari = [float(u[1] or 0) for u in urun_tuketim]
+    
     return render_template('depo_sorumlusu/dashboard.html',
                          toplam_urun=toplam_urun,
                          kritik_urunler=kritik_urunler,
+                         stok_durumlari=stok_durumlari,
                          aktif_zimmetler=aktif_zimmetler,
                          toplam_iade_edilen=toplam_iade_edilen,
                          bu_ay_iadeler=bu_ay_iadeler,
@@ -383,9 +520,11 @@ def depo_dashboard():
                          grup_stok_miktarlari=grup_stok_miktarlari,
                          gun_labels=gun_labels,
                          giris_verileri=giris_verileri,
-                         cikis_verileri=cikis_verileri)
+                         cikis_verileri=cikis_verileri,
+                         urun_labels=urun_labels,
+                         urun_tuketim_miktarlari=urun_tuketim_miktarlari)
 
-# Kat Sorumlusu Dashboard
+# Kat Sorumlusu Panel
 @app.route('/kat-sorumlusu')
 @login_required
 @role_required('kat_sorumlusu')
@@ -459,83 +598,140 @@ def kat_sorumlusu_dashboard():
 @login_required
 @role_required('sistem_yoneticisi', 'admin')
 def otel_tanimla():
+    from forms import OtelForm
+    from sqlalchemy.exc import OperationalError
+
     otel = Otel.query.first()
-    
-    if request.method == 'POST':
+    form = OtelForm(obj=otel)
+
+    if form.validate_on_submit():
         try:
             if otel:
-                # Güncelle
-                otel.ad = request.form['otel_adi']
-                otel.adres = request.form['adres']
-                otel.telefon = request.form['telefon']
-                otel.email = request.form['email']
-                otel.vergi_no = request.form['vergi_no']
+                # Güncelle - eski değerleri kaydet (audit için)
+                eski_deger = serialize_model(otel)
+
+                otel.ad = form.otel_adi.data
+                otel.adres = form.adres.data
+                otel.telefon = form.telefon.data
+                otel.email = form.email.data
+                otel.vergi_no = form.vergi_no.data
+
+                db.session.commit()
+
+                # Audit Trail
+                audit_update('oteller', otel.id, eski_deger, otel)
             else:
                 # Yeni oluştur
                 otel = Otel(
-                    ad=request.form['otel_adi'],
-                    adres=request.form['adres'],
-                    telefon=request.form['telefon'],
-                    email=request.form['email'],
-                    vergi_no=request.form['vergi_no']
+                    ad=form.otel_adi.data,
+                    adres=form.adres.data,
+                    telefon=form.telefon.data,
+                    email=form.email.data,
+                    vergi_no=form.vergi_no.data
                 )
                 db.session.add(otel)
-            
-            db.session.commit()
+                db.session.commit()
+
+                # Audit Trail
+                audit_create('oteller', otel.id, otel)
+
             flash('Otel bilgileri başarıyla güncellendi.', 'success')
             return redirect(url_for('sistem_yoneticisi_dashboard'))
-            
+
+        except OperationalError as e:
+            db.session.rollback()
+            flash('Veritabanı bağlantı hatası. Lütfen daha sonra tekrar deneyin.', 'danger')
+            log_hata(e, modul='otel_tanimla')
         except Exception as e:
             db.session.rollback()
-            flash(f'Hata oluştu: {str(e)}', 'danger')
-    
-    return render_template('sistem_yoneticisi/otel_tanimla.html', otel=otel)
+            flash('Beklenmeyen bir hata oluştu. Sistem yöneticisine bildirildi.', 'danger')
+            log_hata(e, modul='otel_tanimla', extra_info={'form_data': form.data})
+
+    return render_template('sistem_yoneticisi/otel_tanimla.html', otel=otel, form=form)
 
 @app.route('/kat-tanimla', methods=['GET', 'POST'])
 @login_required
 @role_required('sistem_yoneticisi', 'admin')
 def kat_tanimla():
-    if request.method == 'POST':
+    from forms import KatForm
+    from sqlalchemy.exc import IntegrityError, OperationalError
+
+    form = KatForm()
+
+    if form.validate_on_submit():
         try:
             kat = Kat(
                 otel_id=1,  # İlk otel
-                kat_adi=request.form['kat_adi'],
-                kat_no=int(request.form['kat_no']),
-                aciklama=request.form.get('aciklama', '')
+                kat_adi=form.kat_adi.data,
+                kat_no=form.kat_no.data,
+                aciklama=form.aciklama.data or ''
             )
             db.session.add(kat)
             db.session.commit()
+
+            # Audit Trail
+            audit_create('kat', kat.id, kat)
+
             flash('Kat başarıyla eklendi.', 'success')
             return redirect(url_for('kat_tanimla'))
-            
+
+        except IntegrityError:
+            db.session.rollback()
+            flash('Bu kat numarası zaten mevcut.', 'danger')
+            log_hata(Exception('Kat IntegrityError'), modul='kat_tanimla')
+        except OperationalError as e:
+            db.session.rollback()
+            flash('Veritabanı bağlantı hatası. Lütfen daha sonra tekrar deneyin.', 'danger')
+            log_hata(e, modul='kat_tanimla')
         except Exception as e:
             db.session.rollback()
-            flash(f'Hata oluştu: {str(e)}', 'danger')
-    
+            flash('Beklenmeyen bir hata oluştu. Sistem yöneticisine bildirildi.', 'danger')
+            log_hata(e, modul='kat_tanimla', extra_info={'form_data': form.data})
+
     katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
-    return render_template('sistem_yoneticisi/kat_tanimla.html', katlar=katlar)
+    return render_template('sistem_yoneticisi/kat_tanimla.html', katlar=katlar, form=form)
 
 @app.route('/kat-duzenle/<int:kat_id>', methods=['GET', 'POST'])
 @login_required
 @role_required('sistem_yoneticisi', 'admin')
 def kat_duzenle(kat_id):
+    from forms import KatForm
+    from sqlalchemy.exc import IntegrityError, OperationalError
+
     kat = Kat.query.get_or_404(kat_id)
-    
-    if request.method == 'POST':
+    form = KatForm(obj=kat)
+
+    if form.validate_on_submit():
         try:
-            kat.kat_adi = request.form['kat_adi']
-            kat.kat_no = int(request.form['kat_no'])
-            kat.aciklama = request.form.get('aciklama', '')
-            
+            # Eski değerleri kaydet
+            eski_deger = serialize_model(kat)
+
+            kat.kat_adi = form.kat_adi.data
+            kat.kat_no = form.kat_no.data
+            kat.aciklama = form.aciklama.data or ''
+
             db.session.commit()
+
+            # Audit Trail
+            audit_update('kat', kat.id, eski_deger, kat)
+
             flash('Kat başarıyla güncellendi.', 'success')
             return redirect(url_for('kat_tanimla'))
-            
+
+        except IntegrityError:
+            db.session.rollback()
+            flash('Bu kat numarası başka bir kat tarafından kullanılıyor.', 'danger')
+            log_hata(Exception('Kat Duzenle IntegrityError'), modul='kat_duzenle')
+        except OperationalError as e:
+            db.session.rollback()
+            flash('Veritabanı bağlantı hatası. Lütfen daha sonra tekrar deneyin.', 'danger')
+            log_hata(e, modul='kat_duzenle')
         except Exception as e:
             db.session.rollback()
-            flash(f'Hata oluştu: {str(e)}', 'danger')
-    
-    return render_template('sistem_yoneticisi/kat_duzenle.html', kat=kat)
+            flash('Beklenmeyen bir hata oluştu. Sistem yöneticisine bildirildi.', 'danger')
+            log_hata(e, modul='kat_duzenle', extra_info={'kat_id': kat_id, 'form_data': form.data})
+
+    return render_template('sistem_yoneticisi/kat_duzenle.html', kat=kat, form=form)
 
 @app.route('/kat-sil/<int:kat_id>', methods=['POST'])
 @login_required
@@ -543,8 +739,13 @@ def kat_duzenle(kat_id):
 def kat_sil(kat_id):
     try:
         kat = Kat.query.get_or_404(kat_id)
+        eski_deger = serialize_model(kat)
         kat.aktif = False
         db.session.commit()
+        
+        # Audit Trail
+        audit_update('kat', kat.id, eski_deger, kat)
+        
         flash('Kat başarıyla silindi.', 'success')
     except Exception as e:
         db.session.rollback()
@@ -556,50 +757,94 @@ def kat_sil(kat_id):
 @login_required
 @role_required('sistem_yoneticisi', 'admin')
 def oda_tanimla():
-    if request.method == 'POST':
+    from forms import OdaForm
+    from sqlalchemy.exc import IntegrityError, OperationalError
+
+    form = OdaForm()
+
+    # Kat seçeneklerini doldur
+    katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+    form.kat_id.choices = [(k.id, f'{k.kat_adi} (Kat {k.kat_no})') for k in katlar]
+
+    if form.validate_on_submit():
         try:
             oda = Oda(
-                kat_id=int(request.form['kat_id']),
-                oda_no=request.form['oda_no'],
-                oda_tipi=request.form.get('oda_tipi', ''),
-                kapasite=int(request.form['kapasite']) if request.form.get('kapasite') else None
+                kat_id=form.kat_id.data,
+                oda_no=form.oda_no.data,
+                oda_tipi=form.oda_tipi.data,
+                kapasite=form.kapasite.data
             )
             db.session.add(oda)
             db.session.commit()
+
+            # Audit Trail
+            audit_create('oda', oda.id, oda)
+
             flash('Oda başarıyla eklendi.', 'success')
             return redirect(url_for('oda_tanimla'))
-            
+
+        except IntegrityError:
+            db.session.rollback()
+            flash('Bu oda numarası zaten mevcut.', 'danger')
+            log_hata(Exception('Oda IntegrityError'), modul='oda_tanimla')
+        except OperationalError as e:
+            db.session.rollback()
+            flash('Veritabanı bağlantı hatası. Lütfen daha sonra tekrar deneyin.', 'danger')
+            log_hata(e, modul='oda_tanimla')
         except Exception as e:
             db.session.rollback()
-            flash(f'Hata oluştu: {str(e)}', 'danger')
-    
-    katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+            flash('Beklenmeyen bir hata oluştu. Sistem yöneticisine bildirildi.', 'danger')
+            log_hata(e, modul='oda_tanimla', extra_info={'form_data': form.data})
+
     odalar = Oda.query.filter_by(aktif=True).order_by(Oda.oda_no).all()
-    return render_template('sistem_yoneticisi/oda_tanimla.html', katlar=katlar, odalar=odalar)
+    return render_template('sistem_yoneticisi/oda_tanimla.html', katlar=katlar, odalar=odalar, form=form)
 
 @app.route('/oda-duzenle/<int:oda_id>', methods=['GET', 'POST'])
 @login_required
 @role_required('sistem_yoneticisi', 'admin')
 def oda_duzenle(oda_id):
+    from forms import OdaForm
+    from sqlalchemy.exc import IntegrityError, OperationalError
+
     oda = Oda.query.get_or_404(oda_id)
-    
-    if request.method == 'POST':
+    form = OdaForm(obj=oda)
+
+    # Kat seçeneklerini doldur
+    katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+    form.kat_id.choices = [(k.id, f'{k.kat_adi} (Kat {k.kat_no})') for k in katlar]
+
+    if form.validate_on_submit():
         try:
-            oda.kat_id = int(request.form['kat_id'])
-            oda.oda_no = request.form['oda_no']
-            oda.oda_tipi = request.form.get('oda_tipi', '')
-            oda.kapasite = int(request.form['kapasite']) if request.form.get('kapasite') else None
-            
+            # Eski değerleri kaydet
+            eski_deger = serialize_model(oda)
+
+            oda.kat_id = form.kat_id.data
+            oda.oda_no = form.oda_no.data
+            oda.oda_tipi = form.oda_tipi.data
+            oda.kapasite = form.kapasite.data
+
             db.session.commit()
+
+            # Audit Trail
+            audit_update('oda', oda.id, eski_deger, oda)
+
             flash('Oda başarıyla güncellendi.', 'success')
             return redirect(url_for('oda_tanimla'))
-            
+
+        except IntegrityError:
+            db.session.rollback()
+            flash('Bu oda numarası başka bir oda tarafından kullanılıyor.', 'danger')
+            log_hata(Exception('Oda Duzenle IntegrityError'), modul='oda_duzenle')
+        except OperationalError as e:
+            db.session.rollback()
+            flash('Veritabanı bağlantı hatası. Lütfen daha sonra tekrar deneyin.', 'danger')
+            log_hata(e, modul='oda_duzenle')
         except Exception as e:
             db.session.rollback()
-            flash(f'Hata oluştu: {str(e)}', 'danger')
-    
-    katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
-    return render_template('sistem_yoneticisi/oda_duzenle.html', oda=oda, katlar=katlar)
+            flash('Beklenmeyen bir hata oluştu. Sistem yöneticisine bildirildi.', 'danger')
+            log_hata(e, modul='oda_duzenle', extra_info={'oda_id': oda_id, 'form_data': form.data})
+
+    return render_template('sistem_yoneticisi/oda_duzenle.html', oda=oda, katlar=katlar, form=form)
 
 @app.route('/oda-sil/<int:oda_id>', methods=['POST'])
 @login_required
@@ -607,8 +852,13 @@ def oda_duzenle(oda_id):
 def oda_sil(oda_id):
     try:
         oda = Oda.query.get_or_404(oda_id)
+        eski_deger = serialize_model(oda)
         db.session.delete(oda)
         db.session.commit()
+        
+        # Audit Trail
+        audit_delete('oda', oda_id, eski_deger)
+        
         flash('Oda başarıyla silindi.', 'success')
     except Exception as e:
         db.session.rollback()
@@ -623,76 +873,109 @@ def oda_sil(oda_id):
 @login_required
 @role_required('sistem_yoneticisi', 'admin')
 def personel_tanimla():
-    if request.method == 'POST':
+    from forms import PersonelForm
+    from sqlalchemy.exc import IntegrityError
+
+    form = PersonelForm()
+
+    if form.validate_on_submit():
         try:
             personel = Kullanici(
-                kullanici_adi=request.form['kullanici_adi'],
-                ad=request.form['ad'],
-                soyad=request.form['soyad'],
-                email=request.form.get('email', ''),
-                telefon=request.form.get('telefon', ''),
-                rol=request.form['rol']
+                kullanici_adi=form.kullanici_adi.data,
+                ad=form.ad.data,
+                soyad=form.soyad.data,
+                email=form.email.data or '',
+                telefon=form.telefon.data or '',
+                rol=form.rol.data
             )
-            personel.sifre_belirle(request.form['sifre'])
+            personel.sifre_belirle(form.sifre.data)
             db.session.add(personel)
             db.session.commit()
+
+            # Audit Trail
+            audit_create('kullanici', personel.id, personel)
+
             flash('Kullanıcı başarıyla eklendi.', 'success')
             return redirect(url_for('personel_tanimla'))
-            
-        except Exception as e:
+
+        except IntegrityError as e:
             db.session.rollback()
             error_msg = str(e)
-            
+
             # Kullanıcı dostu hata mesajları
-            if 'Duplicate entry' in error_msg and 'kullanici_adi' in error_msg:
+            if 'kullanici_adi' in error_msg:
                 flash('Bu kullanıcı adı zaten kullanılıyor. Lütfen farklı bir kullanıcı adı seçin.', 'danger')
-            elif 'Duplicate entry' in error_msg and 'email' in error_msg:
+            elif 'email' in error_msg:
                 flash('Bu e-posta adresi zaten kullanılıyor. Lütfen farklı bir e-posta adresi seçin.', 'danger')
             else:
-                flash(f'Hata oluştu: {error_msg}', 'danger')
-    
+                flash('Kayıt sırasında bir hata oluştu.', 'danger')
+            log_hata(e, modul='personel_tanimla')
+
+        except Exception as e:
+            db.session.rollback()
+            flash('Beklenmeyen bir hata oluştu. Lütfen sistem yöneticisine başvurun.', 'danger')
+            log_hata(e, modul='personel_tanimla')
+
     personeller = Kullanici.query.filter(
         Kullanici.rol.in_(['admin', 'depo_sorumlusu', 'kat_sorumlusu']),
         Kullanici.aktif.is_(True)
     ).order_by(Kullanici.olusturma_tarihi.desc()).all()
-    return render_template('admin/personel_tanimla.html', personeller=personeller)
+    return render_template('admin/personel_tanimla.html', form=form, personeller=personeller)
 
 @app.route('/personel-duzenle/<int:personel_id>', methods=['GET', 'POST'])
 @login_required
 @role_required('sistem_yoneticisi', 'admin')
 def personel_duzenle(personel_id):
+    from forms import PersonelDuzenleForm
+    from sqlalchemy.exc import IntegrityError
+    from utils.audit import serialize_model
+
     personel = Kullanici.query.get_or_404(personel_id)
-    
-    if request.method == 'POST':
+    form = PersonelDuzenleForm(obj=personel)
+
+    if form.validate_on_submit():
         try:
-            personel.kullanici_adi = request.form['kullanici_adi']
-            personel.ad = request.form['ad']
-            personel.soyad = request.form['soyad']
-            personel.email = request.form.get('email', '')
-            personel.telefon = request.form.get('telefon', '')
-            personel.rol = request.form['rol']
-            
+            # Eski değerleri kaydet
+            eski_deger = serialize_model(personel)
+
+            personel.kullanici_adi = form.kullanici_adi.data
+            personel.ad = form.ad.data
+            personel.soyad = form.soyad.data
+            personel.email = form.email.data or ''
+            personel.telefon = form.telefon.data or ''
+            personel.rol = form.rol.data
+
             # Şifre değiştirilmişse
-            if request.form.get('yeni_sifre'):
-                personel.sifre_belirle(request.form['yeni_sifre'])
-            
+            if form.yeni_sifre.data:
+                personel.sifre_belirle(form.yeni_sifre.data)
+
             db.session.commit()
+
+            # Audit Trail
+            audit_update('kullanici', personel.id, eski_deger, personel)
+
             flash('Kullanıcı başarıyla güncellendi.', 'success')
             return redirect(url_for('personel_tanimla'))
-            
-        except Exception as e:
+
+        except IntegrityError as e:
             db.session.rollback()
             error_msg = str(e)
-            
+
             # Kullanıcı dostu hata mesajları
-            if 'Duplicate entry' in error_msg and 'kullanici_adi' in error_msg:
+            if 'kullanici_adi' in error_msg:
                 flash('Bu kullanıcı adı zaten kullanılıyor. Lütfen farklı bir kullanıcı adı seçin.', 'danger')
-            elif 'Duplicate entry' in error_msg and 'email' in error_msg:
+            elif 'email' in error_msg:
                 flash('Bu e-posta adresi zaten kullanılıyor. Lütfen farklı bir e-posta adresi seçin.', 'danger')
             else:
-                flash(f'Hata oluştu: {error_msg}', 'danger')
-    
-    return render_template('admin/personel_duzenle.html', personel=personel)
+                flash('Güncelleme sırasında bir hata oluştu.', 'danger')
+            log_hata(e, modul='personel_duzenle')
+
+        except Exception as e:
+            db.session.rollback()
+            flash('Beklenmeyen bir hata oluştu. Lütfen sistem yöneticisine başvurun.', 'danger')
+            log_hata(e, modul='personel_duzenle')
+
+    return render_template('admin/personel_duzenle.html', form=form, personel=personel)
 
 @app.route('/personel-pasif-yap/<int:personel_id>', methods=['POST'])
 @login_required
@@ -700,8 +983,13 @@ def personel_duzenle(personel_id):
 def personel_pasif_yap(personel_id):
     try:
         personel = Kullanici.query.get_or_404(personel_id)
+        eski_deger = serialize_model(personel)
         personel.aktif = False
         db.session.commit()
+        
+        # Audit Trail
+        audit_update('kullanici', personel.id, eski_deger, personel)
+        
         flash('Kullanıcı başarıyla pasif yapıldı.', 'success')
     except Exception as e:
         db.session.rollback()
@@ -715,8 +1003,13 @@ def personel_pasif_yap(personel_id):
 def personel_aktif_yap(personel_id):
     try:
         personel = Kullanici.query.get_or_404(personel_id)
+        eski_deger = serialize_model(personel)
         personel.aktif = True
         db.session.commit()
+        
+        # Audit Trail
+        audit_update('kullanici', personel.id, eski_deger, personel)
+        
         flash('Kullanıcı başarıyla aktif yapıldı.', 'success')
     except Exception as e:
         db.session.rollback()
@@ -728,43 +1021,73 @@ def personel_aktif_yap(personel_id):
 @login_required
 @role_required('sistem_yoneticisi', 'admin')
 def urun_gruplari():
-    if request.method == 'POST':
+    from forms import UrunGrupForm
+    from sqlalchemy.exc import IntegrityError
+
+    form = UrunGrupForm()
+
+    if form.validate_on_submit():
         try:
             grup = UrunGrup(
-                grup_adi=request.form['grup_adi'],
-                aciklama=request.form.get('aciklama', '')
+                grup_adi=form.grup_adi.data,
+                aciklama=form.aciklama.data or ''
             )
             db.session.add(grup)
             db.session.commit()
+
+            # Audit Trail
+            audit_create('urun_grup', grup.id, grup)
+
             flash('Ürün grubu başarıyla eklendi.', 'success')
             return redirect(url_for('urun_gruplari'))
-            
+
+        except IntegrityError as e:
+            db.session.rollback()
+            flash('Bu grup adı zaten kullanılıyor. Lütfen farklı bir ad girin.', 'danger')
+            log_hata(e, modul='urun_gruplari')
+
         except Exception as e:
             db.session.rollback()
-            flash(f'Hata oluştu: {str(e)}', 'danger')
-    
+            flash('Beklenmeyen bir hata oluştu. Lütfen sistem yöneticisine başvurun.', 'danger')
+            log_hata(e, modul='urun_gruplari')
+
     gruplar = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
-    return render_template('admin/urun_gruplari.html', gruplar=gruplar)
+    return render_template('admin/urun_gruplari.html', form=form, gruplar=gruplar)
 
 @app.route('/grup-duzenle/<int:grup_id>', methods=['GET', 'POST'])
 @login_required
 @role_required('sistem_yoneticisi', 'admin')
 def grup_duzenle(grup_id):
+    from forms import UrunGrupForm
+    from sqlalchemy.exc import IntegrityError
+
     grup = UrunGrup.query.get_or_404(grup_id)
-    
-    if request.method == 'POST':
+    form = UrunGrupForm(obj=grup)
+
+    if form.validate_on_submit():
         try:
-            grup.grup_adi = request.form['grup_adi']
-            grup.aciklama = request.form.get('aciklama', '')
+            eski_deger = serialize_model(grup)
+            grup.grup_adi = form.grup_adi.data
+            grup.aciklama = form.aciklama.data or ''
             db.session.commit()
+
+            # Audit Trail
+            audit_update('urun_grup', grup.id, eski_deger, grup)
+
             flash('Ürün grubu başarıyla güncellendi.', 'success')
             return redirect(url_for('urun_gruplari'))
-            
+
+        except IntegrityError as e:
+            db.session.rollback()
+            flash('Bu grup adı zaten kullanılıyor. Lütfen farklı bir ad girin.', 'danger')
+            log_hata(e, modul='grup_duzenle')
+
         except Exception as e:
             db.session.rollback()
-            flash(f'Hata oluştu: {str(e)}', 'danger')
-    
-    return render_template('admin/grup_duzenle.html', grup=grup)
+            flash('Beklenmeyen bir hata oluştu. Lütfen sistem yöneticisine başvurun.', 'danger')
+            log_hata(e, modul='grup_duzenle')
+
+    return render_template('admin/grup_duzenle.html', form=form, grup=grup)
 
 @app.route('/grup-sil/<int:grup_id>', methods=['POST'])
 @login_required
@@ -779,8 +1102,13 @@ def grup_sil(grup_id):
             flash(f'Bu gruba ait {urun_sayisi} ürün bulunmaktadır. Önce ürünleri silin veya başka gruba taşıyın.', 'danger')
             return redirect(url_for('urun_gruplari'))
         
+        eski_deger = serialize_model(grup)
         db.session.delete(grup)
         db.session.commit()
+        
+        # Audit Trail
+        audit_delete('urun_grup', grup_id, eski_deger)
+        
         flash('Ürün grubu başarıyla silindi.', 'success')
         
     except Exception as e:
@@ -795,8 +1123,13 @@ def grup_sil(grup_id):
 def grup_pasif_yap(grup_id):
     try:
         grup = UrunGrup.query.get_or_404(grup_id)
+        eski_deger = serialize_model(grup)
         grup.aktif = False
         db.session.commit()
+        
+        # Audit Trail
+        audit_update('urun_grup', grup.id, eski_deger, grup)
+        
         flash('Ürün grubu başarıyla pasif yapıldı.', 'success')
     except Exception as e:
         db.session.rollback()
@@ -810,8 +1143,13 @@ def grup_pasif_yap(grup_id):
 def grup_aktif_yap(grup_id):
     try:
         grup = UrunGrup.query.get_or_404(grup_id)
+        eski_deger = serialize_model(grup)
         grup.aktif = True
         db.session.commit()
+        
+        # Audit Trail
+        audit_update('urun_grup', grup.id, eski_deger, grup)
+        
         flash('Ürün grubu başarıyla aktif yapıldı.', 'success')
     except Exception as e:
         db.session.rollback()
@@ -823,19 +1161,30 @@ def grup_aktif_yap(grup_id):
 @login_required
 @role_required('sistem_yoneticisi', 'admin')
 def urunler():
-    if request.method == 'POST':
+    from forms import UrunForm
+    from sqlalchemy.exc import IntegrityError
+
+    form = UrunForm()
+
+    # Grup seçeneklerini doldur
+    gruplar = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
+    form.grup_id.choices = [(g.id, g.grup_adi) for g in gruplar]
+
+    if form.validate_on_submit():
         try:
-            barkod = request.form.get('barkod', '').strip()
             urun = Urun(
-                grup_id=int(request.form['grup_id']),
-                urun_adi=request.form['urun_adi'],
-                barkod=barkod if barkod else None,
-                birim=request.form.get('birim', 'Adet'),
-                kritik_stok_seviyesi=int(request.form.get('kritik_stok_seviyesi', 10))
+                grup_id=form.grup_id.data,
+                urun_adi=form.urun_adi.data,
+                barkod=form.barkod.data or None,
+                birim=form.birim.data or 'Adet',
+                kritik_stok_seviyesi=form.kritik_stok_seviyesi.data or 10
             )
             db.session.add(urun)
             db.session.commit()
-            
+
+            # Audit Trail
+            audit_create('urun', urun.id, urun)
+
             # Log kaydı
             log_islem('ekleme', 'urun', {
                 'urun_adi': urun.urun_adi,
@@ -843,42 +1192,59 @@ def urunler():
                 'grup_id': urun.grup_id,
                 'birim': urun.birim
             })
-            
+
             flash('Ürün başarıyla eklendi.', 'success')
             return redirect(url_for('urunler'))
-            
-        except Exception as e:
+
+        except IntegrityError as e:
             db.session.rollback()
             error_msg = str(e)
-            if 'Duplicate entry' in error_msg and 'barkod' in error_msg:
+            if 'barkod' in error_msg:
                 flash('Bu barkod numarası zaten kullanılıyor. Lütfen farklı bir barkod girin veya boş bırakın.', 'danger')
             else:
-                flash(f'Hata oluştu: {error_msg}', 'danger')
-    
-    gruplar = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
+                flash('Kayıt sırasında bir hata oluştu.', 'danger')
+            log_hata(e, modul='urunler')
+
+        except Exception as e:
+            db.session.rollback()
+            flash('Beklenmeyen bir hata oluştu. Lütfen sistem yöneticisine başvurun.', 'danger')
+            log_hata(e, modul='urunler')
+
     # Tüm ürünleri getir (aktif ve pasif)
     urunler = Urun.query.order_by(Urun.aktif.desc(), Urun.urun_adi).all()
-    return render_template('admin/urunler.html', gruplar=gruplar, urunler=urunler)
+    return render_template('admin/urunler.html', form=form, gruplar=gruplar, urunler=urunler)
 
 @app.route('/urun-duzenle/<int:urun_id>', methods=['GET', 'POST'])
 @login_required
 @role_required('sistem_yoneticisi', 'admin')
 def urun_duzenle(urun_id):
+    from forms import UrunForm
+    from sqlalchemy.exc import IntegrityError
+    from utils.audit import serialize_model
+
     urun = Urun.query.get_or_404(urun_id)
     gruplar = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
-    
-    if request.method == 'POST':
+
+    form = UrunForm(obj=urun)
+    form.grup_id.choices = [(g.id, g.grup_adi) for g in gruplar]
+
+    if form.validate_on_submit():
         try:
-            barkod = request.form.get('barkod', '').strip()
+            # Eski değerleri kaydet
+            eski_deger = serialize_model(urun)
             eski_urun_adi = urun.urun_adi
-            urun.urun_adi = request.form['urun_adi']
-            urun.grup_id = int(request.form['grup_id'])
-            urun.barkod = barkod if barkod else None
-            urun.birim = request.form.get('birim', 'Adet')
-            urun.kritik_stok_seviyesi = int(request.form.get('kritik_stok_seviyesi', 10))
-            
+
+            urun.urun_adi = form.urun_adi.data
+            urun.grup_id = form.grup_id.data
+            urun.barkod = form.barkod.data or None
+            urun.birim = form.birim.data or 'Adet'
+            urun.kritik_stok_seviyesi = form.kritik_stok_seviyesi.data or 10
+
             db.session.commit()
-            
+
+            # Audit Trail
+            audit_update('urun', urun.id, eski_deger, urun)
+
             # Log kaydı
             log_islem('guncelleme', 'urun', {
                 'urun_id': urun.id,
@@ -886,19 +1252,25 @@ def urun_duzenle(urun_id):
                 'yeni_urun_adi': urun.urun_adi,
                 'barkod': urun.barkod
             })
-            
+
             flash('Ürün başarıyla güncellendi.', 'success')
             return redirect(url_for('urunler'))
-            
-        except Exception as e:
+
+        except IntegrityError as e:
             db.session.rollback()
             error_msg = str(e)
-            if 'Duplicate entry' in error_msg and 'barkod' in error_msg:
+            if 'barkod' in error_msg:
                 flash('Bu barkod numarası zaten kullanılıyor. Lütfen farklı bir barkod girin veya boş bırakın.', 'danger')
             else:
-                flash(f'Hata oluştu: {error_msg}', 'danger')
-    
-    return render_template('admin/urun_duzenle.html', urun=urun, gruplar=gruplar)
+                flash('Güncelleme sırasında bir hata oluştu.', 'danger')
+            log_hata(e, modul='urun_duzenle')
+
+        except Exception as e:
+            db.session.rollback()
+            flash('Beklenmeyen bir hata oluştu. Lütfen sistem yöneticisine başvurun.', 'danger')
+            log_hata(e, modul='urun_duzenle')
+
+    return render_template('admin/urun_duzenle.html', form=form, urun=urun, gruplar=gruplar)
 
 @app.route('/urun-sil/<int:urun_id>', methods=['POST'])
 @login_required
@@ -914,8 +1286,15 @@ def urun_sil(urun_id):
             flash('Bu ürüne ait stok hareketi bulunmaktadır. Ürün silinemez.', 'danger')
             return redirect(url_for('urunler'))
         
+        # Eski değerleri kaydet (silme öncesi)
+        from utils.audit import serialize_model
+        eski_deger = serialize_model(urun)
+        
         db.session.delete(urun)
         db.session.commit()
+        
+        # Audit Trail
+        audit_delete('urun', urun_id, eski_deger)
         
         # Log kaydı
         log_islem('silme', 'urun', {
@@ -937,8 +1316,13 @@ def urun_sil(urun_id):
 def urun_pasif_yap(urun_id):
     try:
         urun = Urun.query.get_or_404(urun_id)
+        eski_deger = serialize_model(urun)
         urun.aktif = False
         db.session.commit()
+        
+        # Audit Trail
+        audit_update('urun', urun.id, eski_deger, urun)
+        
         flash('Ürün başarıyla pasif yapıldı.', 'success')
     except Exception as e:
         db.session.rollback()
@@ -952,8 +1336,13 @@ def urun_pasif_yap(urun_id):
 def urun_aktif_yap(urun_id):
     try:
         urun = Urun.query.get_or_404(urun_id)
+        eski_deger = serialize_model(urun)
         urun.aktif = True
         db.session.commit()
+        
+        # Audit Trail
+        audit_update('urun', urun.id, eski_deger, urun)
+        
         flash('Ürün başarıyla aktif yapıldı.', 'success')
     except Exception as e:
         db.session.rollback()
@@ -973,7 +1362,7 @@ def stok_giris():
             hareket_tipi = request.form['hareket_tipi']
             aciklama = request.form.get('aciklama', '')
             
-            urun = Urun.query.get(urun_id)
+            urun = db.session.get(Urun, urun_id)
             stok_hareket = StokHareket(
                 urun_id=urun_id,
                 hareket_tipi=hareket_tipi,
@@ -983,6 +1372,9 @@ def stok_giris():
             )
             db.session.add(stok_hareket)
             db.session.commit()
+            
+            # Audit Trail
+            audit_create('stok_hareket', stok_hareket.id, stok_hareket)
             
             # Log kaydı
             log_islem('ekleme', 'stok', {
@@ -1017,11 +1409,18 @@ def stok_duzenle(hareket_id):
     
     if request.method == 'POST':
         try:
+            # Eski değerleri kaydet
+            from utils.audit import serialize_model
+            eski_deger = serialize_model(hareket)
+            
             hareket.miktar = int(request.form['miktar'])
             hareket.hareket_tipi = request.form['hareket_tipi']
             hareket.aciklama = request.form.get('aciklama', '')
             
             db.session.commit()
+            
+            # Audit Trail
+            audit_update('stok_hareket', hareket.id, eski_deger, hareket)
             
             # Log kaydı
             log_islem('guncelleme', 'stok', {
@@ -1054,9 +1453,15 @@ def stok_sil(hareket_id):
         hareket_tipi = hareket.hareket_tipi
         miktar = hareket.miktar
         
+        # Eski değeri kaydet
+        eski_deger = serialize_model(hareket)
+        
         # Hareketi sil
         db.session.delete(hareket)
         db.session.commit()
+        
+        # Audit Trail
+        audit_delete('stok_hareket', hareket_id, eski_deger)
         
         # Log kaydı
         log_islem('silme', 'stok', {
@@ -1083,11 +1488,48 @@ def personel_zimmet():
             personel_id = int(request.form['personel_id'])
             aciklama = request.form.get('aciklama', '')
             urun_ids = request.form.getlist('urun_ids')
-            
+
             if not urun_ids:
                 flash('En az bir ürün seçmelisiniz.', 'warning')
                 return redirect(url_for('personel_zimmet'))
-            
+
+            # İstenen ürün miktarlarını topla
+            urun_miktarlari = {}
+            for urun_id in urun_ids:
+                try:
+                    miktar = int(request.form.get(f'miktar_{urun_id}', 0))
+                except (TypeError, ValueError):
+                    miktar = 0
+
+                if miktar > 0:
+                    uid = int(urun_id)
+                    urun_miktarlari[uid] = urun_miktarlari.get(uid, 0) + miktar
+
+            if not urun_miktarlari:
+                flash('Seçilen ürünler için geçerli bir miktar giriniz.', 'warning')
+                return redirect(url_for('personel_zimmet'))
+
+            # Stok uygunluğunu kontrol et
+            stok_map = get_stok_toplamlari(list(urun_miktarlari.keys()))
+            urun_kayitlari = {
+                urun.id: urun for urun in Urun.query.filter(Urun.id.in_(urun_miktarlari.keys())).all()
+            }
+
+            yetersiz_stok = []
+            for uid, talep_miktari in urun_miktarlari.items():
+                mevcut = stok_map.get(uid, 0)
+                if talep_miktari > mevcut:
+                    urun = urun_kayitlari.get(uid)
+                    urun_adi = f"{urun.urun_adi} ({urun.birim})" if urun else f'ID {uid}'
+                    yetersiz_stok.append((urun_adi, talep_miktari, mevcut))
+
+            if yetersiz_stok:
+                detay_mesaji = '; '.join(
+                    f"{urun_adi}: istenen {talep}, mevcut {mevcut}" for urun_adi, talep, mevcut in yetersiz_stok
+                )
+                flash(f'Stok yetersiz: {detay_mesaji}', 'danger')
+                return redirect(url_for('personel_zimmet'))
+
             # Zimmet başlık oluştur
             zimmet = PersonelZimmet(
                 personel_id=personel_id,
@@ -1096,30 +1538,32 @@ def personel_zimmet():
             )
             db.session.add(zimmet)
             db.session.flush()  # ID'yi almak için
-            
+
             # Zimmet detayları oluştur
-            for urun_id in urun_ids:
-                miktar = int(request.form.get(f'miktar_{urun_id}', 0))
-                if miktar > 0:
-                    detay = PersonelZimmetDetay(
-                        zimmet_id=zimmet.id,
-                        urun_id=int(urun_id),
-                        miktar=miktar,
-                        kalan_miktar=miktar
-                    )
-                    db.session.add(detay)
-                    
-                    # Stok çıkışı kaydet
-                    stok_hareket = StokHareket(
-                        urun_id=int(urun_id),
-                        hareket_tipi='cikis',
-                        miktar=miktar,
-                        aciklama=f'Zimmet atama - {aciklama}',
-                        islem_yapan_id=session['kullanici_id']
-                    )
-                    db.session.add(stok_hareket)
+            for uid, miktar in urun_miktarlari.items():
+                detay = PersonelZimmetDetay(
+                    zimmet_id=zimmet.id,
+                    urun_id=uid,
+                    miktar=miktar,
+                    kalan_miktar=miktar
+                )
+                db.session.add(detay)
+
+                # Stok çıkışı kaydet
+                stok_hareket = StokHareket(
+                    urun_id=uid,
+                    hareket_tipi='cikis',
+                    miktar=miktar,
+                    aciklama=f'Zimmet atama - {aciklama}',
+                    islem_yapan_id=session['kullanici_id']
+                )
+                db.session.add(stok_hareket)
             
             db.session.commit()
+            
+            # Audit Trail
+            audit_create('personel_zimmet', zimmet.id, zimmet)
+            
             flash('Zimmet başarıyla atandı.', 'success')
             return redirect(url_for('personel_zimmet'))
             
@@ -1238,6 +1682,10 @@ def zimmet_iptal(zimmet_id):
     """Zimmeti tamamen iptal et ve kullanılmayan ürünleri depoya iade et"""
     try:
         zimmet = PersonelZimmet.query.get_or_404(zimmet_id)
+        islem_yapan = get_current_user()
+        if not islem_yapan:
+            flash('Kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.', 'danger')
+            return redirect(url_for('logout'))
         
         # Sadece aktif zimmetler iptal edilebilir
         if zimmet.durum != 'aktif':
@@ -1255,7 +1703,7 @@ def zimmet_iptal(zimmet_id):
                     hareket_tipi='giris',
                     miktar=kalan,
                     aciklama=f'Zimmet iptali - {zimmet.personel.ad} {zimmet.personel.soyad} - Zimmet #{zimmet.id}',
-                    islem_yapan_id=current_user.id
+                    islem_yapan_id=islem_yapan.id
                 )
                 db.session.add(stok_hareket)
                 
@@ -1265,7 +1713,7 @@ def zimmet_iptal(zimmet_id):
         
         # Zimmet durumunu güncelle
         zimmet.durum = 'iptal'
-        zimmet.iade_tarihi = datetime.utcnow()
+        zimmet.iade_tarihi = datetime.now(timezone.utc)
         
         db.session.commit()
         flash(f'{zimmet.personel.ad} {zimmet.personel.soyad} adlı personelin zimmeti iptal edildi ve kullanılmayan ürünler depoya iade edildi.', 'success')
@@ -1284,6 +1732,10 @@ def zimmet_iade(detay_id):
     try:
         detay = PersonelZimmetDetay.query.get_or_404(detay_id)
         zimmet = detay.zimmet
+        islem_yapan = get_current_user()
+        if not islem_yapan:
+            flash('Kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.', 'danger')
+            return redirect(url_for('logout'))
         
         # Sadece aktif zimmetlerden iade alınabilir
         if zimmet.durum != 'aktif':
@@ -1310,7 +1762,7 @@ def zimmet_iade(detay_id):
             hareket_tipi='giris',
             miktar=iade_miktar,
             aciklama=f'Zimmet iadesi - {zimmet.personel.ad} {zimmet.personel.soyad} - {aciklama}',
-            islem_yapan_id=current_user.id
+            islem_yapan_id=islem_yapan.id
         )
         db.session.add(stok_hareket)
         
@@ -1349,7 +1801,7 @@ def minibar_durumlari():
     minibar_urunler = []
     
     if oda_id:
-        oda = Oda.query.get(oda_id)
+        oda = db.session.get(Oda, oda_id)
         
         # Son minibar işlemini bul
         son_islem = MinibarIslem.query.filter_by(oda_id=oda_id).order_by(
@@ -1501,10 +1953,11 @@ def depo_raporlar():
                 query = query.filter_by(grup_id=urun_grup_id)
             
             urunler_liste = query.order_by(Urun.urun_adi).all()
+            stok_map = get_stok_toplamlari([urun.id for urun in urunler_liste])
             
             rapor_verisi = []
             for urun in urunler_liste:
-                mevcut_stok = get_toplam_stok(urun.id)
+                mevcut_stok = stok_map.get(urun.id, 0)
                 rapor_verisi.append({
                     'urun': urun,
                     'mevcut_stok': mevcut_stok
@@ -1541,14 +1994,14 @@ def depo_raporlar():
                     try:
                         if '#' in hareket.aciklama:
                             zimmet_id = int(hareket.aciklama.split('#')[1].split()[0])
-                            zimmet = PersonelZimmet.query.get(zimmet_id)
+                            zimmet = db.session.get(PersonelZimmet, zimmet_id)
                             if zimmet and zimmet.personel:
                                 hareket.zimmet_personel = f"{zimmet.personel.ad} {zimmet.personel.soyad}"
                             else:
                                 hareket.zimmet_personel = None
                         else:
                             hareket.zimmet_personel = None
-                    except:
+                    except Exception:
                         hareket.zimmet_personel = None
                 else:
                     hareket.zimmet_personel = None
@@ -1608,7 +2061,7 @@ def depo_raporlar():
             rapor_verisi = query.order_by(PersonelZimmet.zimmet_tarihi.desc()).all()
         
         elif rapor_tipi == 'minibar_tuketim':
-            # Minibar Tüketim Raporu - Doldurma işlemlerindeki eklenen miktar = tüketim
+            # Minibar Tüketim Raporu - SADECE minibar kontrol sırasındaki tüketim
             rapor_baslik = "Minibar Tüketim Raporu"
             
             query = db.session.query(
@@ -1619,7 +2072,7 @@ def depo_raporlar():
                 Kat.kat_adi,
                 MinibarIslem.islem_tarihi,
                 MinibarIslem.islem_tipi,
-                MinibarIslemDetay.eklenen_miktar,
+                MinibarIslemDetay.tuketim,  # Tüketim sütununu kullan
                 Kullanici.ad,
                 Kullanici.soyad
             ).select_from(MinibarIslemDetay).join(
@@ -1635,9 +2088,9 @@ def depo_raporlar():
             ).join(
                 Kullanici, MinibarIslem.personel_id == Kullanici.id
             ).filter(
-                # İlk dolum hariç, sadece doldurma ve kontrol işlemlerini al
-                MinibarIslem.islem_tipi.in_(['doldurma', 'kontrol']),
-                MinibarIslemDetay.eklenen_miktar > 0  # Sadece ekleme yapılan kayıtlar
+                # Kontrol ve doldurma işlemlerini al (ilk_dolum hariç - çünkü ilk dolumda tüketim yok)
+                MinibarIslem.islem_tipi.in_(['kontrol', 'doldurma']),
+                MinibarIslemDetay.tuketim > 0  # Sadece tüketim olan kayıtlar
             )
             
             if baslangic_tarihi:
@@ -1663,16 +2116,20 @@ def depo_raporlar():
             rapor_baslik = "Ürün Grubu Bazlı Stok Raporu"
             
             query = UrunGrup.query.filter_by(aktif=True)
+            aktif_urunler = Urun.query.filter_by(aktif=True).all()
+            stok_map = get_stok_toplamlari([urun.id for urun in aktif_urunler])
+            urunler_by_grup = {}
+            for urun in aktif_urunler:
+                urunler_by_grup.setdefault(urun.grup_id, []).append(urun)
             
             rapor_verisi = []
             for grup in query.all():
-                grup_urunleri = Urun.query.filter_by(grup_id=grup.id, aktif=True).all()
-                toplam_stok_degeri = 0
+                grup_urunleri = urunler_by_grup.get(grup.id, [])
                 toplam_urun_sayisi = len(grup_urunleri)
                 kritik_urun_sayisi = 0
                 
                 for urun in grup_urunleri:
-                    mevcut_stok = get_toplam_stok(urun.id)
+                    mevcut_stok = stok_map.get(urun.id, 0)
                     if mevcut_stok <= urun.kritik_stok_seviyesi:
                         kritik_urun_sayisi += 1
                 
@@ -1743,7 +2200,21 @@ def minibar_kontrol():
             aciklama = request.form.get('aciklama', '')
             kullanici_id = session['kullanici_id']
             
-            # Minibar işlemi oluştur
+            # KONTROL İŞLEMİNDE KAYIT OLUŞTURMA - Sadece Görüntüleme
+            if islem_tipi == 'kontrol':
+                flash('Kontrol işlemi tamamlandı. (Sadece görüntüleme - kayıt oluşturulmadı)', 'info')
+                
+                # Kontrol için sistem logu
+                log_islem(
+                    kullanici_id=kullanici_id,
+                    modul='minibar',
+                    islem_tipi='kontrol',
+                    aciklama=f'Oda {oda_id} minibar kontrolü yapıldı (görüntüleme)'
+                )
+                
+                return redirect(url_for('minibar_kontrol'))
+            
+            # İlk dolum ve doldurma işlemleri için minibar kaydı oluştur
             islem = MinibarIslem(
                 oda_id=oda_id,
                 personel_id=kullanici_id,
@@ -1771,7 +2242,7 @@ def minibar_kontrol():
                         ).all()
                         
                         if not zimmet_detaylar:
-                            urun = Urun.query.get(urun_id)
+                            urun = db.session.get(Urun, urun_id)
                             urun_adi = urun.urun_adi if urun else 'Bilinmeyen ürün'
                             raise Exception(f'Zimmetinizde bu ürün bulunmuyor: {urun_adi}')
                         
@@ -1779,7 +2250,7 @@ def minibar_kontrol():
                         toplam_kalan = sum(detay.miktar - detay.kullanilan_miktar for detay in zimmet_detaylar)
                         
                         if toplam_kalan < miktar:
-                            urun = Urun.query.get(urun_id)
+                            urun = db.session.get(Urun, urun_id)
                             urun_adi = urun.urun_adi if urun else 'Bilinmeyen ürün'
                             raise Exception(f'Zimmetinizde yeterli ürün yok: {urun_adi}. Kalan: {toplam_kalan}')
                         
@@ -1853,11 +2324,36 @@ def minibar_kontrol():
                                         kalan_tuketim -= kullanilacak
             
             db.session.commit()
+            
+            # Audit Trail
+            audit_create('minibar_islem', islem.id, islem)
+            
             flash('Minibar işlemi başarıyla kaydedildi. Zimmetinizden düşürülen ürünler güncellendi.', 'success')
+            
+            # İşlem logu
+            log_islem(
+                kullanici_id=kullanici_id,
+                modul='minibar',
+                islem_tipi=islem_tipi,
+                aciklama=f'Oda {oda_id} - {islem_tipi} işlemi'
+            )
+            
             return redirect(url_for('minibar_kontrol'))
             
         except Exception as e:
             db.session.rollback()
+            
+            # Hatayı logla
+            log_hata(
+                exception=e,
+                modul='minibar',
+                extra_info={
+                    'oda_id': request.form.get('oda_id'),
+                    'islem_tipi': request.form.get('islem_tipi'),
+                    'kullanici_id': session.get('kullanici_id')
+                }
+            )
+            
             flash(f'Hata oluştu: {str(e)}', 'danger')
     
     katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
@@ -1897,13 +2393,30 @@ def minibar_urunler():
     try:
         urunler = Urun.query.filter_by(aktif=True).order_by(Urun.grup_id, Urun.urun_adi).all()
         
+        # Kullanıcının zimmet bilgilerini getir - aktif zimmetler
+        kullanici_id = session.get('kullanici_id')
+        aktif_zimmetler = PersonelZimmet.query.filter_by(
+            personel_id=kullanici_id,
+            durum='aktif'
+        ).all()
+        
+        # Her ürün için toplam zimmet miktarını hesapla
+        zimmet_dict = {}
+        for zimmet in aktif_zimmetler:
+            for detay in zimmet.detaylar:
+                if detay.urun_id not in zimmet_dict:
+                    zimmet_dict[detay.urun_id] = 0
+                zimmet_dict[detay.urun_id] += (detay.kalan_miktar or 0)
+        
         urun_listesi = []
         for urun in urunler:
             urun_listesi.append({
                 'id': urun.id,
-                'ad': urun.urun_adi,
-                'grup': urun.grup.grup_adi,
-                'birim': urun.birim
+                'urun_adi': urun.urun_adi,
+                'grup_id': urun.grup_id,
+                'grup_adi': urun.grup.grup_adi,
+                'birim': urun.birim,
+                'zimmet_miktari': zimmet_dict.get(urun.id, 0)
             })
         
         return jsonify({'success': True, 'urunler': urun_listesi})
@@ -1925,7 +2438,7 @@ def api_minibar_icerigi(oda_id):
         # Son işlemdeki ürünleri ve miktarlarını getir
         urunler = []
         for detay in son_islem.detaylar:
-            urun = Urun.query.get(detay.urun_id)
+            urun = db.session.get(Urun, detay.urun_id)
             if urun:
                 # Mevcut stok hesaplama:
                 # - Eğer bitis_stok girilmişse onu kullan (kontrol/doldurma işlemlerinde)
@@ -1978,7 +2491,7 @@ def api_minibar_doldur():
         if eklenen_miktar <= 0:
             return jsonify({'success': False, 'error': 'Eklenecek miktar 0\'dan büyük olmalı'})
         
-        urun = Urun.query.get(urun_id)
+        urun = db.session.get(Urun, urun_id)
         if not urun:
             return jsonify({'success': False, 'error': 'Ürün bulunamadı'})
         
@@ -2088,6 +2601,358 @@ def api_minibar_doldur():
         
     except Exception as e:
         db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)})
+
+# ============================================================================
+# TOPLU İŞLEM ÖZELLİKLERİ
+# ============================================================================
+
+@app.route('/toplu-oda-doldurma', methods=['GET'])
+@login_required
+@role_required('kat_sorumlusu')
+def toplu_oda_doldurma():
+    """Toplu oda doldurma sayfası"""
+    katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+    urun_gruplari = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
+    return render_template('kat_sorumlusu/toplu_oda_doldurma.html',
+                         katlar=katlar,
+                         urun_gruplari=urun_gruplari)
+
+@app.route('/api/toplu-oda-mevcut-durum', methods=['POST'])
+@login_required
+@role_required('kat_sorumlusu')
+def api_toplu_oda_mevcut_durum():
+    """Seçilen odalardaki belirli bir ürünün mevcut stok durumunu döndür"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'error': 'Geçersiz JSON verisi'}), 400
+        
+        oda_ids = data.get('oda_ids', [])
+        urun_id = data.get('urun_id')
+        
+        if not oda_ids or not urun_id:
+            return jsonify({'success': False, 'error': 'Eksik parametreler'}), 400
+        
+        # Tip dönüşümü yap
+        try:
+            urun_id = int(urun_id)
+            oda_ids = [int(oid) for oid in oda_ids]
+        except (ValueError, TypeError) as e:
+            return jsonify({'success': False, 'error': f'Geçersiz parametre tipi: {str(e)}'}), 400
+        
+        durum_listesi = []
+        
+        for oda_id in oda_ids:
+            oda = db.session.get(Oda, oda_id)
+            if not oda:
+                continue
+            
+            # Son işlemi bul
+            son_islem = MinibarIslem.query.filter_by(oda_id=oda_id).order_by(
+                MinibarIslem.id.desc()
+            ).first()
+            
+            mevcut_stok = 0
+            if son_islem:
+                son_detay = next((d for d in son_islem.detaylar if d.urun_id == urun_id), None)
+                if son_detay:
+                    mevcut_stok = son_detay.bitis_stok if son_detay.bitis_stok is not None else 0
+            
+            durum_listesi.append({
+                'oda_id': oda_id,
+                'oda_no': oda.oda_no,
+                'mevcut_stok': mevcut_stok
+            })
+        
+        return jsonify({'success': True, 'durum': durum_listesi})
+    except Exception as e:
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Mevcut durum hatası: {error_detail}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/toplu-oda-doldur', methods=['POST'])
+@login_required
+@role_required('kat_sorumlusu')
+def api_toplu_oda_doldur():
+    """Seçilen odalara toplu olarak ürün doldur - Direkt stok ekleme (tüketim takibi yok)"""
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({'success': False, 'error': 'Geçersiz JSON verisi'}), 400
+        
+        oda_ids = data.get('oda_ids', [])  # Seçilen oda ID'leri
+        urun_id = data.get('urun_id')
+        eklenen_miktar = data.get('eklenen_miktar')
+        kullanici_id = session.get('kullanici_id')
+        
+        if not kullanici_id:
+            return jsonify({'success': False, 'error': 'Kullanıcı oturumu bulunamadı'}), 401
+
+        # Validasyon ve tip dönüşümü
+        if not oda_ids or not urun_id or not eklenen_miktar:
+            return jsonify({'success': False, 'error': 'Eksik parametreler'}), 400
+        
+        try:
+            urun_id = int(urun_id)
+            oda_ids = [int(oid) for oid in oda_ids]
+            eklenen_miktar = float(eklenen_miktar)
+        except (ValueError, TypeError) as e:
+            return jsonify({'success': False, 'error': f'Geçersiz parametre tipi: {str(e)}'}), 400
+        
+        if eklenen_miktar <= 0:
+            return jsonify({'success': False, 'error': 'Eklenecek miktar 0\'dan büyük olmalıdır'}), 400
+
+        # Ürün bilgisi
+        urun = db.session.get(Urun, urun_id)
+        if not urun:
+            return jsonify({'success': False, 'error': 'Ürün bulunamadı'})
+
+        # Zimmetten toplam gereken miktar
+        toplam_gerekli = eklenen_miktar * len(oda_ids)
+
+        # Kullanıcının zimmetini kontrol et
+        zimmet_detaylar = db.session.query(PersonelZimmetDetay).join(
+            PersonelZimmet, PersonelZimmetDetay.zimmet_id == PersonelZimmet.id
+        ).filter(
+            PersonelZimmet.personel_id == kullanici_id,
+            PersonelZimmet.durum == 'aktif',
+            PersonelZimmetDetay.urun_id == urun_id
+        ).order_by(PersonelZimmet.zimmet_tarihi).all()
+
+        # Toplam kalan zimmet
+        toplam_kalan = sum(detay.miktar - detay.kullanilan_miktar for detay in zimmet_detaylar)
+
+        if toplam_kalan < toplam_gerekli:
+            return jsonify({
+                'success': False,
+                'error': f'Zimmetinizde yeterli ürün yok! Gereken: {toplam_gerekli} {urun.birim}, Mevcut: {toplam_kalan} {urun.birim}'
+            })
+
+        # Her oda için işlem oluştur
+        basarili_odalar = []
+        hatali_odalar = []
+
+        for oda_id in oda_ids:
+            try:
+                oda = db.session.get(Oda, oda_id)
+                if not oda:
+                    hatali_odalar.append({'oda_id': oda_id, 'hata': 'Oda bulunamadı'})
+                    continue
+
+                # Son işlemi bul
+                son_islem = MinibarIslem.query.filter_by(oda_id=oda_id).order_by(
+                    MinibarIslem.id.desc()
+                ).first()
+
+                # Mevcut stok (bu ürün için)
+                mevcut_stok = 0
+                if son_islem:
+                    son_detay = next((d for d in son_islem.detaylar if d.urun_id == urun_id), None)
+                    if son_detay:
+                        mevcut_stok = son_detay.bitis_stok if son_detay.bitis_stok is not None else 0
+
+                # Yeni stok = Mevcut + Eklenen (tüketim takibi yok)
+                yeni_stok = mevcut_stok + eklenen_miktar
+
+                # Yeni işlem oluştur
+                islem = MinibarIslem(
+                    oda_id=oda_id,
+                    personel_id=kullanici_id,
+                    islem_tipi='doldurma',
+                    aciklama=f'TOPLU DOLDURMA - Mevcut: {mevcut_stok}, Eklenen: {eklenen_miktar} {urun.birim} {urun.urun_adi}'
+                )
+                db.session.add(islem)
+                db.session.flush()
+
+                # Diğer ürünleri kopyala (değişmeden)
+                if son_islem:
+                    for son_detay_item in son_islem.detaylar:
+                        if son_detay_item.urun_id != urun_id:
+                            mevcut = son_detay_item.bitis_stok if son_detay_item.bitis_stok is not None else 0
+                            yeni_detay = MinibarIslemDetay(
+                                islem_id=islem.id,
+                                urun_id=son_detay_item.urun_id,
+                                baslangic_stok=mevcut,
+                                bitis_stok=mevcut,
+                                tuketim=0,
+                                eklenen_miktar=0,
+                                zimmet_detay_id=son_detay_item.zimmet_detay_id
+                            )
+                            db.session.add(yeni_detay)
+
+                # Doldurma detayını ekle (tüketim = 0, sadece ekleme)
+                doldurma_detay = MinibarIslemDetay(
+                    islem_id=islem.id,
+                    urun_id=urun_id,
+                    baslangic_stok=mevcut_stok,
+                    bitis_stok=yeni_stok,
+                    tuketim=0,  # Tüketim takibi yok
+                    eklenen_miktar=eklenen_miktar,
+                    zimmet_detay_id=None
+                )
+                db.session.add(doldurma_detay)
+
+                # Zimmetten düş (FIFO) - Sadece eklenen miktar kadar
+                kalan_miktar = eklenen_miktar
+                for zimmet_detay in zimmet_detaylar:
+                    if kalan_miktar <= 0:
+                        break
+                    detay_kalan = zimmet_detay.miktar - zimmet_detay.kullanilan_miktar
+                    if detay_kalan > 0:
+                        kullanilacak = min(detay_kalan, kalan_miktar)
+                        zimmet_detay.kullanilan_miktar += kullanilacak
+                        zimmet_detay.kalan_miktar = zimmet_detay.miktar - zimmet_detay.kullanilan_miktar
+                        kalan_miktar -= kullanilacak
+
+                        if not doldurma_detay.zimmet_detay_id:
+                            doldurma_detay.zimmet_detay_id = zimmet_detay.id
+
+                basarili_odalar.append({'oda_id': oda_id, 'oda_no': oda.oda_no})
+
+            except Exception as oda_hata:
+                hatali_odalar.append({'oda_id': oda_id, 'hata': str(oda_hata)})
+                db.session.rollback()
+                continue
+
+        # Tüm işlemleri kaydet
+        if basarili_odalar:
+            db.session.commit()
+            
+            # Audit Trail - Toplu doldurma işlemi
+            audit_create('minibar_toplu_doldurma', None, {
+                'urun_id': urun_id,
+                'urun_adi': urun.urun_adi,
+                'eklenen_miktar': eklenen_miktar,
+                'oda_sayisi': len(basarili_odalar),
+                'toplam_miktar': toplam_gerekli,
+                'basarili_odalar': [o['oda_no'] for o in basarili_odalar],
+                'islem_tipi': 'toplu_doldurma'
+            })
+
+        return jsonify({
+            'success': True,
+            'basarili_sayisi': len(basarili_odalar),
+            'hatali_sayisi': len(hatali_odalar),
+            'basarili_odalar': basarili_odalar,
+            'hatali_odalar': hatali_odalar,
+            'mesaj': f'{len(basarili_odalar)} odaya başarıyla ürün eklendi!'
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        error_detail = traceback.format_exc()
+        print(f"Toplu doldurma hatası: {error_detail}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/kat-bazli-rapor', methods=['GET'])
+@login_required
+@role_required('kat_sorumlusu', 'admin', 'depo_sorumlusu')
+def kat_bazli_rapor():
+    """Kat bazlı tüketim raporu sayfası"""
+    katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+    return render_template('raporlar/kat_bazli_rapor.html', katlar=katlar)
+
+@app.route('/api/kat-rapor-veri', methods=['GET'])
+@login_required
+@role_required('kat_sorumlusu', 'admin', 'depo_sorumlusu')
+def api_kat_rapor_veri():
+    """Kat bazlı rapor verilerini getir"""
+    try:
+        kat_id = request.args.get('kat_id', type=int)
+        baslangic_tarih = request.args.get('baslangic_tarih')
+        bitis_tarih = request.args.get('bitis_tarih')
+
+        if not kat_id:
+            return jsonify({'success': False, 'error': 'Kat ID gerekli'})
+
+        # Kat bilgisi
+        kat = db.session.get(Kat, kat_id)
+        if not kat:
+            return jsonify({'success': False, 'error': 'Kat bulunamadı'})
+
+        # Kattaki odalar
+        odalar = Oda.query.filter_by(kat_id=kat_id, aktif=True).order_by(Oda.oda_no).all()
+
+        if not odalar:
+            return jsonify({'success': True, 'kat_adi': kat.kat_adi, 'odalar': [], 'urun_ozeti': []})
+
+        # Tarih filtresi oluştur
+        query_filter = []
+        if baslangic_tarih:
+            query_filter.append(MinibarIslem.islem_tarihi >= baslangic_tarih)
+        if bitis_tarih:
+            from datetime import datetime, timedelta
+            bitis_dt = datetime.strptime(bitis_tarih, '%Y-%m-%d') + timedelta(days=1)
+            query_filter.append(MinibarIslem.islem_tarihi < bitis_dt)
+
+        # Her oda için rapor verisi
+        oda_raporlari = []
+        urun_toplam_tuketim = {}  # {urun_id: {'urun_adi': '', 'birim': '', 'toplam': 0}}
+
+        for oda in odalar:
+            # Son işlem
+            son_islem_query = MinibarIslem.query.filter_by(oda_id=oda.id)
+            if query_filter:
+                son_islem_query = son_islem_query.filter(*query_filter)
+            son_islem = son_islem_query.order_by(MinibarIslem.id.desc()).first()
+
+            oda_veri = {
+                'oda_no': oda.oda_no,
+                'oda_id': oda.id,
+                'son_islem_tarih': son_islem.islem_tarihi.strftime('%d.%m.%Y %H:%M') if son_islem else '-',
+                'urunler': [],
+                'toplam_tuketim_adedi': 0
+            }
+
+            if son_islem:
+                for detay in son_islem.detaylar:
+                    urun = detay.urun
+                    oda_veri['urunler'].append({
+                        'urun_adi': urun.urun_adi,
+                        'mevcut_stok': detay.bitis_stok or 0,
+                        'tuketim': detay.tuketim or 0,
+                        'birim': urun.birim
+                    })
+                    oda_veri['toplam_tuketim_adedi'] += (detay.tuketim or 0)
+
+                    # Ürün toplam tüketim
+                    if urun.id not in urun_toplam_tuketim:
+                        urun_toplam_tuketim[urun.id] = {
+                            'urun_adi': urun.urun_adi,
+                            'birim': urun.birim,
+                            'toplam': 0
+                        }
+                    urun_toplam_tuketim[urun.id]['toplam'] += (detay.tuketim or 0)
+
+            oda_raporlari.append(oda_veri)
+
+        # Ürün özeti listesi
+        urun_ozeti = [
+            {
+                'urun_adi': v['urun_adi'],
+                'toplam_tuketim': v['toplam'],
+                'birim': v['birim']
+            }
+            for v in urun_toplam_tuketim.values()
+        ]
+
+        # Toplam tüketim özeti sırala
+        urun_ozeti.sort(key=lambda x: x['toplam_tuketim'], reverse=True)
+
+        return jsonify({
+            'success': True,
+            'kat_adi': kat.kat_adi,
+            'oda_sayisi': len(odalar),
+            'odalar': oda_raporlari,
+            'urun_ozeti': urun_ozeti
+        })
+
+    except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/zimmetim')
@@ -2244,10 +3109,11 @@ def excel_export(rapor_tipi):
                 query = query.filter_by(grup_id=urun_grup_id)
             
             urunler_liste = query.order_by(Urun.urun_adi).all()
+            stok_map = get_stok_toplamlari([urun.id for urun in urunler_liste])
             
             for urun in urunler_liste:
                 row_num += 1
-                mevcut_stok = get_toplam_stok(urun.id)
+                mevcut_stok = stok_map.get(urun.id, 0)
                 durum = 'KRİTİK' if mevcut_stok <= urun.kritik_stok_seviyesi else 'NORMAL'
                 
                 ws.cell(row=row_num, column=1, value=urun.urun_adi)
@@ -2296,7 +3162,7 @@ def excel_export(rapor_tipi):
                     try:
                         if '#' in hareket.aciklama:
                             zimmet_id = int(hareket.aciklama.split('#')[1].split()[0])
-                            zimmet = PersonelZimmet.query.get(zimmet_id)
+                            zimmet = db.session.get(PersonelZimmet, zimmet_id)
                             if zimmet and zimmet.personel:
                                 aciklama += f" → {zimmet.personel.ad} {zimmet.personel.soyad}"
                     except Exception:
@@ -2405,15 +3271,20 @@ def excel_export(rapor_tipi):
                 cell.fill = PatternFill(start_color="5B9BD5", end_color="5B9BD5", fill_type="solid")
             
             gruplar = UrunGrup.query.filter_by(aktif=True).all()
+            aktif_urunler = Urun.query.filter_by(aktif=True).all()
+            stok_map = get_stok_toplamlari([urun.id for urun in aktif_urunler])
+            urun_gruplari_map = {}
+            for urun in aktif_urunler:
+                urun_gruplari_map.setdefault(urun.grup_id, []).append(urun)
             
             for grup in gruplar:
                 row_num += 1
-                grup_urunleri = Urun.query.filter_by(grup_id=grup.id, aktif=True).all()
+                grup_urunleri = urun_gruplari_map.get(grup.id, [])
                 toplam_urun_sayisi = len(grup_urunleri)
                 kritik_urun_sayisi = 0
                 
                 for urun in grup_urunleri:
-                    mevcut_stok = get_toplam_stok(urun.id)
+                    mevcut_stok = stok_map.get(urun.id, 0)
                     if mevcut_stok <= urun.kritik_stok_seviyesi:
                         kritik_urun_sayisi += 1
                 
@@ -2429,7 +3300,7 @@ def excel_export(rapor_tipi):
                 try:
                     if cell.value and len(str(cell.value)) > max_length:
                         max_length = len(str(cell.value))
-                except:
+                except Exception:
                     pass
             adjusted_width = min(max_length + 2, 50)
             ws.column_dimensions[column_letter].width = adjusted_width
@@ -2520,9 +3391,10 @@ def pdf_export(rapor_tipi):
                 query = query.filter_by(grup_id=urun_grup_id)
             
             urunler_liste = query.order_by(Urun.urun_adi).all()
+            stok_map = get_stok_toplamlari([urun.id for urun in urunler_liste]) if urunler_liste else {}
             
             for urun in urunler_liste:
-                mevcut_stok = get_toplam_stok(urun.id)
+                mevcut_stok = stok_map.get(urun.id, 0)
                 durum = 'KRITIK' if mevcut_stok <= urun.kritik_stok_seviyesi else 'NORMAL'
                 
                 data.append([
@@ -2564,7 +3436,7 @@ def pdf_export(rapor_tipi):
                     try:
                         if '#' in hareket.aciklama:
                             zimmet_id = int(hareket.aciklama.split('#')[1].split()[0])
-                            zimmet = PersonelZimmet.query.get(zimmet_id)
+                            zimmet = db.session.get(PersonelZimmet, zimmet_id)
                             if zimmet and zimmet.personel:
                                 aciklama = f"{aciklama} → {zimmet.personel.ad} {zimmet.personel.soyad}"
                     except Exception:
@@ -2659,14 +3531,20 @@ def pdf_export(rapor_tipi):
             data.append([turkce_ascii(h) for h in ['Urun Grubu', 'Toplam Urun', 'Kritik Stoklu Urun']])
             
             gruplar = UrunGrup.query.filter_by(aktif=True).all()
-            
+            aktif_urunler = Urun.query.filter_by(aktif=True).all()
+            stok_map = get_stok_toplamlari([urun.id for urun in aktif_urunler]) if aktif_urunler else {}
+
+            grup_urunleri_map = {}
+            for urun in aktif_urunler:
+                grup_urunleri_map.setdefault(urun.grup_id, []).append(urun)
+
             for grup in gruplar:
-                grup_urunleri = Urun.query.filter_by(grup_id=grup.id, aktif=True).all()
+                grup_urunleri = grup_urunleri_map.get(grup.id, [])
                 toplam_urun_sayisi = len(grup_urunleri)
                 kritik_urun_sayisi = 0
                 
                 for urun in grup_urunleri:
-                    mevcut_stok = get_toplam_stok(urun.id)
+                    mevcut_stok = stok_map.get(urun.id, 0)
                     if mevcut_stok <= urun.kritik_stok_seviyesi:
                         kritik_urun_sayisi += 1
                 
@@ -2746,6 +3624,354 @@ def pdf_export(rapor_tipi):
         flash(f'PDF export hatasi: {str(e)}', 'danger')
         return redirect(url_for('depo_raporlar'))
 
+# ============================================================================
+# API: DASHBOARD WIDGET'LARI
+# ============================================================================
+
+@app.route('/api/son-aktiviteler')
+@login_required
+@role_required(['sistem_yoneticisi', 'admin'])
+def api_son_aktiviteler():
+    """Son kullanıcı aktivitelerini döndür"""
+    try:
+        limit = request.args.get('limit', 10, type=int)
+
+        # Son aktiviteleri çek (sadece önemli işlemler)
+        aktiviteler = SistemLog.query\
+            .filter(SistemLog.islem_tipi.in_(['ekleme', 'guncelleme', 'silme']))\
+            .order_by(SistemLog.islem_tarihi.desc())\
+            .limit(limit)\
+            .all()
+
+        data = []
+        for log in aktiviteler:
+            # Kullanıcı bilgisi
+            kullanici_adi = 'Sistem'
+            if log.kullanici:
+                kullanici_adi = f"{log.kullanici.ad} {log.kullanici.soyad}"
+
+            # İşlem detayını parse et
+            import json
+            detay = {}
+            if log.islem_detay:
+                try:
+                    detay = json.loads(log.islem_detay) if isinstance(log.islem_detay, str) else log.islem_detay
+                except Exception:
+                    detay = {'aciklama': log.islem_detay}
+
+            # Zaman farkı hesapla
+            # islem_tarihi timezone-aware mi kontrol et
+            if log.islem_tarihi.tzinfo is None:
+                # Naive datetime ise, UTC olarak kabul et
+                islem_tarihi = log.islem_tarihi.replace(tzinfo=timezone.utc)
+            else:
+                islem_tarihi = log.islem_tarihi
+            
+            zaman_farki = datetime.now(timezone.utc) - islem_tarihi
+
+            if zaman_farki < timedelta(minutes=1):
+                zaman_str = "Az önce"
+            elif zaman_farki < timedelta(hours=1):
+                dakika = int(zaman_farki.total_seconds() / 60)
+                zaman_str = f"{dakika} dakika önce"
+            elif zaman_farki < timedelta(days=1):
+                saat = int(zaman_farki.total_seconds() / 3600)
+                zaman_str = f"{saat} saat önce"
+            else:
+                gun = zaman_farki.days
+                zaman_str = f"{gun} gün önce"
+
+            data.append({
+                'id': log.id,
+                'kullanici': kullanici_adi,
+                'islem_tipi': log.islem_tipi,
+                'modul': log.modul,
+                'detay': detay,
+                'zaman': zaman_str,
+                'tam_tarih': log.islem_tarihi.strftime('%d.%m.%Y %H:%M')
+            })
+
+        return jsonify({'success': True, 'aktiviteler': data})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/tuketim-trendleri')
+@login_required
+@role_required(['sistem_yoneticisi', 'admin', 'depo_sorumlusu'])
+def api_tuketim_trendleri():
+    """Günlük/haftalık tüketim trendlerini döndür"""
+    try:
+        from sqlalchemy import func
+
+        gun_sayisi = request.args.get('gun', 7, type=int)  # Varsayılan 7 gün
+
+        # Son N günün tüketim verilerini al
+        baslangic = datetime.now(timezone.utc) - timedelta(days=gun_sayisi)
+
+        # Günlük tüketim toplamı (MinibarIslemDetay'dan)
+        gunluk_tuketim = db.session.query(
+            func.date(MinibarIslem.islem_tarihi).label('tarih'),
+            func.sum(MinibarIslemDetay.tuketim).label('toplam_tuketim'),
+            func.count(MinibarIslemDetay.id).label('islem_sayisi')
+        ).join(MinibarIslemDetay, MinibarIslemDetay.islem_id == MinibarIslem.id)\
+         .filter(MinibarIslem.islem_tarihi >= baslangic)\
+         .group_by(func.date(MinibarIslem.islem_tarihi))\
+         .order_by(func.date(MinibarIslem.islem_tarihi))\
+         .all()
+
+        # Tüm günleri doldur (veri olmayan günler için 0)
+        tum_gunler = {}
+        for i in range(gun_sayisi):
+            tarih = (datetime.now(timezone.utc) - timedelta(days=gun_sayisi-i-1)).date()
+            tum_gunler[str(tarih)] = {'tuketim': 0, 'islem_sayisi': 0}
+
+        # Veri olanları güncelle
+        for row in gunluk_tuketim:
+            tarih_str = str(row.tarih)
+            tum_gunler[tarih_str] = {
+                'tuketim': int(row.toplam_tuketim or 0),
+                'islem_sayisi': int(row.islem_sayisi or 0)
+            }
+
+        # Chart.js formatına çevir
+        labels = []
+        tuketim_data = []
+        islem_data = []
+
+        for tarih_str in sorted(tum_gunler.keys()):
+            # Tarih formatla (DD/MM)
+            tarih_obj = datetime.strptime(tarih_str, '%Y-%m-%d')
+            labels.append(tarih_obj.strftime('%d/%m'))
+            tuketim_data.append(tum_gunler[tarih_str]['tuketim'])
+            islem_data.append(tum_gunler[tarih_str]['islem_sayisi'])
+
+        return jsonify({
+            'success': True,
+            'labels': labels,
+            'datasets': [
+                {
+                    'label': 'Toplam Tüketim',
+                    'data': tuketim_data,
+                    'borderColor': 'rgb(239, 68, 68)',
+                    'backgroundColor': 'rgba(239, 68, 68, 0.1)',
+                    'tension': 0.3
+                },
+                {
+                    'label': 'İşlem Sayısı',
+                    'data': islem_data,
+                    'borderColor': 'rgb(59, 130, 246)',
+                    'backgroundColor': 'rgba(59, 130, 246, 0.1)',
+                    'tension': 0.3
+                }
+            ]
+        })
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# ==========================
+# AUDIT TRAIL ROUTE'LARI
+# ==========================
+
+@app.route('/sistem-yoneticisi/audit-trail')
+@login_required
+@role_required('sistem_yoneticisi')
+def audit_trail():
+    """Audit Trail - Denetim İzi Sayfası"""
+    from models import AuditLog, Kullanici
+    from datetime import datetime, timedelta
+    
+    # Sayfalama
+    page = request.args.get('page', 1, type=int)
+    per_page = 50
+    
+    # Filtreler
+    kullanici_id = request.args.get('kullanici_id', type=int)
+    islem_tipi = request.args.get('islem_tipi')
+    tablo_adi = request.args.get('tablo_adi')
+    tarih_baslangic = request.args.get('tarih_baslangic')
+    tarih_bitis = request.args.get('tarih_bitis')
+    
+    # Base query
+    query = AuditLog.query
+    
+    # Filtreleme
+    if kullanici_id:
+        query = query.filter_by(kullanici_id=kullanici_id)
+    if islem_tipi:
+        query = query.filter_by(islem_tipi=islem_tipi)
+    if tablo_adi:
+        query = query.filter_by(tablo_adi=tablo_adi)
+    if tarih_baslangic:
+        tarih_baslangic_dt = datetime.strptime(tarih_baslangic, '%Y-%m-%d')
+        query = query.filter(AuditLog.islem_tarihi >= tarih_baslangic_dt)
+    if tarih_bitis:
+        tarih_bitis_dt = datetime.strptime(tarih_bitis, '%Y-%m-%d') + timedelta(days=1)
+        query = query.filter(AuditLog.islem_tarihi < tarih_bitis_dt)
+    
+    # Sıralama ve sayfalama
+    query = query.order_by(AuditLog.islem_tarihi.desc())
+    pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+    
+    # İstatistikler
+    bugun = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    bu_hafta = bugun - timedelta(days=bugun.weekday())
+    bu_ay = bugun.replace(day=1)
+    
+    stats = {
+        'today': AuditLog.query.filter(AuditLog.islem_tarihi >= bugun).count(),
+        'week': AuditLog.query.filter(AuditLog.islem_tarihi >= bu_hafta).count(),
+        'month': AuditLog.query.filter(AuditLog.islem_tarihi >= bu_ay).count()
+    }
+    
+    # Filtre için kullanıcı listesi
+    users = Kullanici.query.filter_by(aktif=True).order_by(Kullanici.kullanici_adi).all()
+    
+    # Filtre için tablo listesi (unique)
+    tables = db.session.query(AuditLog.tablo_adi).distinct().order_by(AuditLog.tablo_adi).all()
+    tables = [t[0] for t in tables]
+    
+    return render_template('sistem_yoneticisi/audit_trail.html',
+                         logs=pagination.items,
+                         pagination=pagination,
+                         users=users,
+                         tables=tables,
+                         stats=stats)
+
+
+@app.route('/sistem-yoneticisi/audit-trail/<int:log_id>')
+@login_required
+@role_required('sistem_yoneticisi')
+def audit_trail_detail(log_id):
+    """Audit Log Detay API"""
+    from models import AuditLog
+    
+    log = AuditLog.query.get_or_404(log_id)
+    
+    return jsonify({
+        'id': log.id,
+        'kullanici_id': log.kullanici_id,
+        'kullanici_adi': log.kullanici_adi,
+        'kullanici_rol': log.kullanici_rol,
+        'islem_tipi': log.islem_tipi,
+        'tablo_adi': log.tablo_adi,
+        'kayit_id': log.kayit_id,
+        'eski_deger': log.eski_deger,
+        'yeni_deger': log.yeni_deger,
+        'degisiklik_ozeti': log.degisiklik_ozeti,
+        'http_method': log.http_method,
+        'url': log.url,
+        'endpoint': log.endpoint,
+        'ip_adresi': log.ip_adresi,
+        'user_agent': log.user_agent,
+        'islem_tarihi': log.islem_tarihi.strftime('%d.%m.%Y %H:%M:%S'),
+        'aciklama': log.aciklama,
+        'basarili': log.basarili,
+        'hata_mesaji': log.hata_mesaji
+    })
+
+
+@app.route('/sistem-yoneticisi/audit-trail/export')
+@login_required
+@role_required('sistem_yoneticisi')
+def audit_trail_export():
+    """Audit Trail Excel Export"""
+    from models import AuditLog
+    from io import BytesIO
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from datetime import datetime
+    
+    # Filtreleri al
+    kullanici_id = request.args.get('kullanici_id', type=int)
+    islem_tipi = request.args.get('islem_tipi')
+    tablo_adi = request.args.get('tablo_adi')
+    tarih_baslangic = request.args.get('tarih_baslangic')
+    tarih_bitis = request.args.get('tarih_bitis')
+    
+    # Query oluştur
+    query = AuditLog.query
+    
+    if kullanici_id:
+        query = query.filter_by(kullanici_id=kullanici_id)
+    if islem_tipi:
+        query = query.filter_by(islem_tipi=islem_tipi)
+    if tablo_adi:
+        query = query.filter_by(tablo_adi=tablo_adi)
+    if tarih_baslangic:
+        tarih_baslangic_dt = datetime.strptime(tarih_baslangic, '%Y-%m-%d')
+        query = query.filter(AuditLog.islem_tarihi >= tarih_baslangic_dt)
+    if tarih_bitis:
+        tarih_bitis_dt = datetime.strptime(tarih_bitis, '%Y-%m-%d')
+        query = query.filter(AuditLog.islem_tarihi <= tarih_bitis_dt)
+    
+    logs = query.order_by(AuditLog.islem_tarihi.desc()).limit(10000).all()
+    
+    # Excel oluştur
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Audit Trail"
+    
+    # Başlıklar
+    headers = ['ID', 'Tarih', 'Kullanıcı', 'Rol', 'İşlem', 'Tablo', 'Kayıt ID', 
+               'Değişiklik', 'IP', 'URL', 'Başarılı']
+    
+    # Başlık satırını formatla
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=1, column=col, value=header)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+        cell.alignment = Alignment(horizontal='center')
+    
+    # Verileri ekle
+    for row, log in enumerate(logs, 2):
+        ws.cell(row=row, column=1, value=log.id)
+        ws.cell(row=row, column=2, value=log.islem_tarihi.strftime('%d.%m.%Y %H:%M'))
+        ws.cell(row=row, column=3, value=log.kullanici_adi)
+        ws.cell(row=row, column=4, value=log.kullanici_rol)
+        ws.cell(row=row, column=5, value=log.islem_tipi)
+        ws.cell(row=row, column=6, value=log.tablo_adi)
+        ws.cell(row=row, column=7, value=log.kayit_id)
+        ws.cell(row=row, column=8, value=log.degisiklik_ozeti or '')
+        ws.cell(row=row, column=9, value=log.ip_adresi or '')
+        ws.cell(row=row, column=10, value=log.url or '')
+        ws.cell(row=row, column=11, value='Evet' if log.basarili else 'Hayır')
+    
+    # Sütun genişliklerini ayarla
+    ws.column_dimensions['A'].width = 8
+    ws.column_dimensions['B'].width = 18
+    ws.column_dimensions['C'].width = 20
+    ws.column_dimensions['D'].width = 20
+    ws.column_dimensions['E'].width = 12
+    ws.column_dimensions['F'].width = 20
+    ws.column_dimensions['G'].width = 10
+    ws.column_dimensions['H'].width = 50
+    ws.column_dimensions['I'].width = 15
+    ws.column_dimensions['J'].width = 40
+    ws.column_dimensions['K'].width = 10
+    
+    # Excel dosyasını kaydet
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    filename = f"audit_trail_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    
+    # Audit export işlemini logla
+    from utils.audit import audit_export
+    audit_export('audit_logs', f'Excel export: {len(logs)} kayıt')
+    
+    return send_file(
+        output,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True,
+        download_name=filename
+    )
+
+
 # Hata yakalama
 @app.errorhandler(404)
 def not_found(error):
@@ -2755,6 +3981,13 @@ def not_found(error):
 def internal_error(error):
     db.session.rollback()
     return render_template('errors/500.html'), 500
+
+@app.errorhandler(400)
+def bad_request(error):
+    """CSRF ve diğer 400 hatalarını yakala"""
+    if request.is_json:
+        return jsonify({'success': False, 'error': str(error)}), 400
+    return render_template('errors/404.html'), 400
 
 def init_database():
     """Veritabanı ve tabloları otomatik kontrol et ve oluştur"""

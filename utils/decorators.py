@@ -5,23 +5,49 @@ def login_required(f):
     """Giriş yapmış kullanıcı kontrolü"""
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        from flask import request, jsonify
+        
         if 'kullanici_id' not in session:
+            # API isteği mi kontrol et
+            if request.path.startswith('/api/') or request.is_json:
+                return jsonify({'success': False, 'error': 'Giriş yapmalısınız'}), 401
             flash('Bu sayfaya erişmek için giriş yapmalısınız.', 'warning')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
 
 
-def role_required(*roles):
-    """Belirli rollere sahip kullanıcı kontrolü"""
+def role_required(*allowed_roles):
+    """Belirli rollere sahip kullanıcı kontrolü
+    
+    Kullanım:
+        @role_required('admin')  # Tek rol
+        @role_required('admin', 'sistem_yoneticisi')  # Çoklu rol
+        @role_required(['admin', 'sistem_yoneticisi'])  # Liste olarak da olabilir
+    """
+    # Eğer tek parametre ve liste/tuple ise, onu düzleştir
+    if len(allowed_roles) == 1 and isinstance(allowed_roles[0], (list, tuple)):
+        allowed_roles = allowed_roles[0]
+    
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
+            from flask import request, jsonify
+            
             if 'kullanici_id' not in session:
+                # API isteği mi kontrol et
+                if request.path.startswith('/api/') or request.is_json:
+                    return jsonify({'success': False, 'error': 'Giriş yapmalısınız'}), 401
                 flash('Bu sayfaya erişmek için giriş yapmalısınız.', 'warning')
                 return redirect(url_for('login'))
             
-            if 'rol' not in session or session['rol'] not in roles:
+            # Rol kontrolü
+            if 'rol' not in session or session['rol'] not in allowed_roles:
+                # API isteği mi kontrol et
+                if request.path.startswith('/api/') or request.is_json:
+                    # Debug için ekstra bilgi
+                    error_msg = f"Bu işlem için yetkiniz yok (Gerekli: {', '.join(allowed_roles)}, Mevcut: {session.get('rol', 'Yok')})"
+                    return jsonify({'success': False, 'error': error_msg}), 403
                 flash('Bu sayfaya erişim yetkiniz yok.', 'danger')
                 return redirect(url_for('dashboard'))
             

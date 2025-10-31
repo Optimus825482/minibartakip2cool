@@ -1,0 +1,586 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Trail - Denetim İzi{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Başlık ve Açıklama -->
+    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                    <svg class="w-8 h-8 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                        </path>
+                    </svg>
+                    Audit Trail - Denetim İzi
+                </h1>
+                <p class="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                    Sistemde yapılan tüm değişikliklerin detaylı kaydı
+                </p>
+            </div>
+
+            <!-- Export Butonu -->
+            <button onclick="exportAuditLog()"
+                class="px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg flex items-center gap-2 transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                    </path>
+                </svg>
+                Excel İndir
+            </button>
+        </div>
+    </div>
+
+    <!-- Filtreler -->
+    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">🔍 Filtreler</h2>
+
+        <form method="GET" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- Kullanıcı Filtresi -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Kullanıcı
+                </label>
+                <select name="kullanici_id"
+                    class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-slate-700 dark:text-white">
+                    <option value="">Tümü</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if request.args.get('kullanici_id')==user.id|string %}selected{%
+                        endif %}>
+                        {{ user.kullanici_adi }} ({{ user.rol }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- İşlem Tipi -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    İşlem Tipi
+                </label>
+                <select name="islem_tipi"
+                    class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-slate-700 dark:text-white">
+                    <option value="">🔍 Tümü</option>
+                    <option value="create" {% if request.args.get('islem_tipi')=='create' %}selected{% endif %}>
+                        ➕ Oluşturma</option>
+                    <option value="update" {% if request.args.get('islem_tipi')=='update' %}selected{% endif %}>
+                        ✏️ Güncelleme</option>
+                    <option value="delete" {% if request.args.get('islem_tipi')=='delete' %}selected{% endif %}>
+                        🗑️ Silme</option>
+                    <option value="login" {% if request.args.get('islem_tipi')=='login' %}selected{% endif %}>
+                        🔐 Giriş</option>
+                    <option value="logout" {% if request.args.get('islem_tipi')=='logout' %}selected{% endif %}>
+                        🚪 Çıkış</option>
+                    <option value="view" {% if request.args.get('islem_tipi')=='view' %}selected{% endif %}>
+                        👁️ Görüntüleme</option>
+                    <option value="export" {% if request.args.get('islem_tipi')=='export' %}selected{% endif %}>
+                        📥 Export</option>
+                    <option value="import" {% if request.args.get('islem_tipi')=='import' %}selected{% endif %}>
+                        📤 Import</option>
+                </select>
+            </div>
+
+            <!-- Tablo Adı -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Tablo/Modül
+                </label>
+                <select name="tablo_adi"
+                    class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-slate-700 dark:text-white">
+                    <option value="">Tümü</option>
+                    {% for tablo in tables %}
+                    <option value="{{ tablo }}" {% if request.args.get('tablo_adi')==tablo %}selected{% endif %}>
+                        {{ tablo }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Tarih Aralığı -->
+            <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Tarih Aralığı
+                </label>
+                <input type="date" name="tarih_baslangic" value="{{ request.args.get('tarih_baslangic', '') }}"
+                    class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-slate-700 dark:text-white mb-2">
+                <input type="date" name="tarih_bitis" value="{{ request.args.get('tarih_bitis', '') }}"
+                    class="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-purple-500 dark:bg-slate-700 dark:text-white">
+            </div>
+
+            <!-- Filtre Butonları -->
+            <div class="md:col-span-2 lg:col-span-4 flex gap-2">
+                <button type="submit"
+                    class="px-6 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg transition-colors">
+                    Filtrele
+                </button>
+                <a href="{{ url_for('audit_trail') }}"
+                    class="px-6 py-2 bg-slate-500 hover:bg-slate-600 text-white rounded-lg transition-colors">
+                    Temizle
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- İstatistikler -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">Toplam Kayıt</p>
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ pagination.total }}</p>
+                </div>
+                <div class="p-3 bg-purple-100 dark:bg-purple-900/20 rounded-full">
+                    <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                        </path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">Bugün</p>
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ stats.today }}</p>
+                </div>
+                <div class="p-3 bg-blue-100 dark:bg-blue-900/20 rounded-full">
+                    <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">Bu Hafta</p>
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ stats.week }}</p>
+                </div>
+                <div class="p-3 bg-green-100 dark:bg-green-900/20 rounded-full">
+                    <svg class="w-6 h-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm p-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-slate-600 dark:text-slate-400">Bu Ay</p>
+                    <p class="text-2xl font-bold text-slate-900 dark:text-white">{{ stats.month }}</p>
+                </div>
+                <div class="p-3 bg-orange-100 dark:bg-orange-900/20 rounded-full">
+                    <svg class="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+                        </path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit Log Tablosu -->
+    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-sm overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-slate-50 dark:bg-slate-700">
+                    <tr>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase">
+                            ID
+                        </th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase">
+                            Tarih
+                        </th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase">
+                            Kullanıcı
+                        </th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase">
+                            İşlem
+                        </th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase">
+                            Tablo
+                        </th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase">
+                            Değişiklik
+                        </th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase">
+                            IP
+                        </th>
+                        <th
+                            class="px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-300 uppercase">
+                            Detay
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 dark:divide-slate-700">
+                    {% for log in logs %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900 dark:text-white">
+                            #{{ log.id }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400">
+                            {{ log.islem_tarihi.strftime('%d.%m.%Y %H:%M') }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-slate-900 dark:text-white">
+                                {{ log.kullanici_adi }}
+                            </div>
+                            <div class="text-xs text-slate-500 dark:text-slate-400">
+                                {{ log.kullanici_rol }}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if log.islem_tipi == 'create' %}
+                            <span
+                                class="inline-flex items-center gap-1 rounded-md bg-green-400/10 px-2 py-1 text-xs font-medium text-green-400 ring-1 ring-inset ring-green-400/20"
+                                title="Oluşturma">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path
+                                        d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" />
+                                </svg>
+                                EKLE
+                            </span>
+                            {% elif log.islem_tipi == 'update' %}
+                            <span
+                                class="inline-flex items-center gap-1 rounded-md bg-blue-400/10 px-2 py-1 text-xs font-medium text-blue-400 ring-1 ring-inset ring-blue-400/30"
+                                title="Güncelleme">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path
+                                        d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                </svg>
+                                DÜZEN
+                            </span>
+                            {% elif log.islem_tipi == 'delete' %}
+                            <span
+                                class="inline-flex items-center gap-1 rounded-md bg-red-400/10 px-2 py-1 text-xs font-medium text-red-400 ring-1 ring-inset ring-red-400/20"
+                                title="Silme">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                                SİL
+                            </span>
+                            {% elif log.islem_tipi == 'login' %}
+                            <span
+                                class="inline-flex items-center gap-1 rounded-md bg-purple-400/10 px-2 py-1 text-xs font-medium text-purple-400 ring-1 ring-inset ring-purple-400/30"
+                                title="Giriş">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M3 3a1 1 0 011 1v12a1 1 0 11-2 0V4a1 1 0 011-1zm7.707 3.293a1 1 0 010 1.414L9.414 9H17a1 1 0 110 2H9.414l1.293 1.293a1 1 0 01-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                                GİRİŞ
+                            </span>
+                            {% elif log.islem_tipi == 'logout' %}
+                            <span
+                                class="inline-flex items-center gap-1 rounded-md bg-gray-400/10 px-2 py-1 text-xs font-medium text-gray-400 ring-1 ring-inset ring-gray-400/20"
+                                title="Çıkış">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                                ÇIKIŞ
+                            </span>
+                            {% elif log.islem_tipi == 'view' %}
+                            <span
+                                class="inline-flex items-center gap-1 rounded-md bg-yellow-400/10 px-2 py-1 text-xs font-medium text-yellow-500 ring-1 ring-inset ring-yellow-400/20"
+                                title="Görüntüleme">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                                    <path fill-rule="evenodd"
+                                        d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                                GÖRÜNTÜLE
+                            </span>
+                            {% elif log.islem_tipi == 'export' %}
+                            <span
+                                class="inline-flex items-center gap-1 rounded-md bg-indigo-400/10 px-2 py-1 text-xs font-medium text-indigo-400 ring-1 ring-inset ring-indigo-400/30"
+                                title="Export">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                                EXPORT
+                            </span>
+                            {% elif log.islem_tipi == 'import' %}
+                            <span
+                                class="inline-flex items-center gap-1 rounded-md bg-pink-400/10 px-2 py-1 text-xs font-medium text-pink-400 ring-1 ring-inset ring-pink-400/20"
+                                title="Import">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd"
+                                        d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z"
+                                        clip-rule="evenodd" />
+                                </svg>
+                                IMPORT
+                            </span>
+                            {% else %}
+                            <span
+                                class="inline-flex items-center gap-1 rounded-md bg-gray-400/10 px-2 py-1 text-xs font-medium text-gray-400 ring-1 ring-inset ring-gray-400/20"
+                                title="{{ log.islem_tipi }}">
+                                {{ log.islem_tipi|upper }}
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-600 dark:text-slate-400">
+                            {{ log.tablo_adi }}
+                            {% if log.kayit_id %}
+                            <span class="text-xs text-slate-500">#{{ log.kayit_id }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">
+                            <div class="max-w-xs">
+                                {% if log.degisiklik_ozeti and log.degisiklik_ozeti|length > 50 %}
+                                <span class="line-clamp-2" title="{{ log.degisiklik_ozeti }}">
+                                    {{ log.degisiklik_ozeti[:50] }}...
+                                </span>
+                                {% else %}
+                                {{ log.degisiklik_ozeti or '-' }}
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                            {{ log.ip_adresi or '-' }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button onclick="showAuditDetail({{ log.id }})"
+                                class="inline-flex items-center gap-1 px-3 py-1.5 text-purple-600 hover:text-white hover:bg-purple-600 dark:text-purple-400 dark:hover:text-white border border-purple-600 dark:border-purple-400 rounded-lg transition-all duration-200">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z">
+                                    </path>
+                                </svg>
+                                Detay
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="px-6 py-12 text-center text-slate-500 dark:text-slate-400">
+                            Henüz kayıt bulunamadı
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if pagination.pages > 1 %}
+        <div class="px-6 py-4 bg-slate-50 dark:bg-slate-700 border-t border-slate-200 dark:border-slate-600">
+            <div class="flex items-center justify-between">
+                <div class="text-sm text-slate-600 dark:text-slate-400">
+                    Sayfa {{ pagination.page }} / {{ pagination.pages }} (Toplam: {{ pagination.total }} kayıt)
+                </div>
+                <div class="flex gap-2">
+                    {% if pagination.has_prev %}
+                    <a href="{{ url_for('audit_trail', page=pagination.prev_num, 
+                                        kullanici_id=request.args.get('kullanici_id'),
+                                        islem_tipi=request.args.get('islem_tipi'),
+                                        tablo_adi=request.args.get('tablo_adi'),
+                                        tarih_baslangic=request.args.get('tarih_baslangic'),
+                                        tarih_bitis=request.args.get('tarih_bitis')) }}"
+                        class="px-4 py-2 bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-500 transition-colors">
+                        ← Önceki
+                    </a>
+                    {% endif %}
+                    {% if pagination.has_next %}
+                    <a href="{{ url_for('audit_trail', page=pagination.next_num,
+                                        kullanici_id=request.args.get('kullanici_id'),
+                                        islem_tipi=request.args.get('islem_tipi'),
+                                        tablo_adi=request.args.get('tablo_adi'),
+                                        tarih_baslangic=request.args.get('tarih_baslangic'),
+                                        tarih_bitis=request.args.get('tarih_bitis')) }}"
+                        class="px-4 py-2 bg-white dark:bg-slate-600 border border-slate-300 dark:border-slate-500 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-500 transition-colors">
+                        Sonraki →
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Audit Detail Modal -->
+<div id="auditDetailModal"
+    class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6">
+            <div class="flex justify-between items-start mb-6">
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white">Audit Log Detayı</h3>
+                <button onclick="closeAuditDetail()"
+                    class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+            <div id="auditDetailContent" class="space-y-4">
+                <!-- Ajax ile yüklenecek -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Line clamp utility */
+    .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Smooth table scroll */
+    .overflow-x-auto {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(148, 163, 184, 0.3) transparent;
+    }
+
+    .overflow-x-auto::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .overflow-x-auto::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .overflow-x-auto::-webkit-scrollbar-thumb {
+        background-color: rgba(148, 163, 184, 0.3);
+        border-radius: 4px;
+    }
+
+    .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(148, 163, 184, 0.5);
+    }
+</style>
+
+<script>
+    function showAuditDetail( logId ) {
+        const modal = document.getElementById( 'auditDetailModal' );
+        const content = document.getElementById( 'auditDetailContent' );
+
+        content.innerHTML = '<div class="text-center py-8"><div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent"></div></div>';
+        modal.classList.remove( 'hidden' );
+
+        fetch( `/sistem-yoneticisi/audit-trail/${logId}` )
+            .then( response => response.json() )
+            .then( data => {
+                content.innerHTML = `
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-sm font-medium text-slate-600 dark:text-slate-400">ID</label>
+                            <p class="text-slate-900 dark:text-white">#${data.id}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-slate-600 dark:text-slate-400">Tarih</label>
+                            <p class="text-slate-900 dark:text-white">${data.islem_tarihi}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-slate-600 dark:text-slate-400">Kullanıcı</label>
+                            <p class="text-slate-900 dark:text-white">${data.kullanici_adi} (${data.kullanici_rol})</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-slate-600 dark:text-slate-400">İşlem Tipi</label>
+                            <p class="text-slate-900 dark:text-white">${data.islem_tipi}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-slate-600 dark:text-slate-400">Tablo</label>
+                            <p class="text-slate-900 dark:text-white">${data.tablo_adi} ${data.kayit_id ? '#' + data.kayit_id : ''}</p>
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-slate-600 dark:text-slate-400">IP Adresi</label>
+                            <p class="text-slate-900 dark:text-white">${data.ip_adresi || '-'}</p>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="text-sm font-medium text-slate-600 dark:text-slate-400">URL</label>
+                            <p class="text-slate-900 dark:text-white break-all">${data.url || '-'}</p>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="text-sm font-medium text-slate-600 dark:text-slate-400">User Agent</label>
+                            <p class="text-slate-900 dark:text-white text-sm">${data.user_agent || '-'}</p>
+                        </div>
+                        <div class="col-span-2">
+                            <label class="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2 block">
+                                📝 Değişiklik Özeti
+                            </label>
+                            <div class="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
+                                <p class="text-slate-900 dark:text-white whitespace-pre-wrap break-words leading-relaxed">
+                                    ${data.degisiklik_ozeti || '-'}
+                                </p>
+                            </div>
+                        </div>
+                        ${data.eski_deger ? `
+                        <div class="col-span-2">
+                            <label class="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2 block flex items-center gap-2">
+                                <svg class="w-4 h-4 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                                </svg>
+                                Eski Değer
+                            </label>
+                            <pre class="mt-2 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg text-sm overflow-x-auto text-slate-900 dark:text-white">${JSON.stringify( JSON.parse( data.eski_deger ), null, 2 )}</pre>
+                        </div>
+                        ` : ''}
+                        ${data.yeni_deger ? `
+                        <div class="col-span-2">
+                            <label class="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2 block flex items-center gap-2">
+                                <svg class="w-4 h-4 text-green-500" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                                Yeni Değer
+                            </label>
+                            <pre class="mt-2 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg text-sm overflow-x-auto text-slate-900 dark:text-white">${JSON.stringify( JSON.parse( data.yeni_deger ), null, 2 )}</pre>
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            } )
+            .catch( error => {
+                content.innerHTML = `<div class="text-center text-red-500">Hata: ${error.message}</div>`;
+            } );
+    }
+
+    function closeAuditDetail() {
+        document.getElementById( 'auditDetailModal' ).classList.add( 'hidden' );
+    }
+
+    function exportAuditLog() {
+        // Mevcut filtreleri URL'ye ekle
+        const params = new URLSearchParams( window.location.search );
+        window.location.href = '/sistem-yoneticisi/audit-trail/export?' + params.toString();
+    }
+
+    // ESC tuşu ile modal'ı kapat
+    document.addEventListener( 'keydown', function ( e ) {
+        if ( e.key === 'Escape' ) {
+            closeAuditDetail();
+        }
+    } );
+</script>
+{% endblock %}

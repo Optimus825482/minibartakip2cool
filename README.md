@@ -219,4 +219,4 @@ Sorularınız için issue açabilirsiniz.
 
 ---
 
-**Not**: Production ortamında mutlaka güçlü `SECRET_KEY` kullanın ve `.env` dosyasını repository'ye eklemeyin!
+**Not**: Production ortamında mutlaka güçlü `SECRET_KEY` kullanın, HTTPS üzerinden yayın yapın (config üretimde `SESSION_COOKIE_SECURE=True` olarak gelir) ve `.env` dosyasını repository'ye eklemeyin!

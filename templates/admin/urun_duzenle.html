@@ -9,18 +9,18 @@
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-6">Ürün Bilgilerini Düzenle</h3>
-            
+
             <form method="POST" class="space-y-6">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
                         <label for="urun_adi" class="block text-sm font-medium text-slate-700">
                             Ürün Adı <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-1">
-                            <input id="urun_adi" name="urun_adi" type="text" required
-                                   value="{{ urun.urun_adi }}"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Ürün adı">
+                            <input id="urun_adi" name="urun_adi" type="text" required value="{{ urun.urun_adi }}"
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="Ürün adı">
                         </div>
                     </div>
 
@@ -30,10 +30,10 @@
                         </label>
                         <div class="mt-1">
                             <select id="grup_id" name="grup_id" required
-                                    class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
                                 <option value="">Grup seçiniz...</option>
                                 {% for grup in gruplar %}
-                                <option value="{{ grup.id }}" {% if grup.id == urun.grup_id %}selected{% endif %}>
+                                <option value="{{ grup.id }}" {% if grup.id==urun.grup_id %}selected{% endif %}>
                                     {{ grup.grup_adi }}
                                 </option>
                                 {% endfor %}
@@ -46,10 +46,9 @@
                             Barkod
                         </label>
                         <div class="mt-1">
-                            <input id="barkod" name="barkod" type="text"
-                                   value="{{ urun.barkod or '' }}"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Barkod numarası">
+                            <input id="barkod" name="barkod" type="text" value="{{ urun.barkod or '' }}"
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="Barkod numarası">
                         </div>
                     </div>
 
@@ -59,14 +58,16 @@
                         </label>
                         <div class="mt-1">
                             <select id="birim" name="birim"
-                                    class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
-                                <option value="Adet" {% if urun.birim == 'Adet' %}selected{% endif %}>Adet</option>
-                                <option value="Kutu" {% if urun.birim == 'Kutu' %}selected{% endif %}>Kutu</option>
-                                <option value="Şişe" {% if urun.birim == 'Şişe' %}selected{% endif %}>Şişe</option>
-                                <option value="Gram" {% if urun.birim == 'Gram' %}selected{% endif %}>Gram</option>
-                                <option value="Kilogram" {% if urun.birim == 'Kilogram' %}selected{% endif %}>Kilogram</option>
-                                <option value="Litre" {% if urun.birim == 'Litre' %}selected{% endif %}>Litre</option>
-                                <option value="Mililitre" {% if urun.birim == 'Mililitre' %}selected{% endif %}>Mililitre</option>
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
+                                <option value="Adet" {% if urun.birim=='Adet' %}selected{% endif %}>Adet</option>
+                                <option value="Kutu" {% if urun.birim=='Kutu' %}selected{% endif %}>Kutu</option>
+                                <option value="Şişe" {% if urun.birim=='Şişe' %}selected{% endif %}>Şişe</option>
+                                <option value="Gram" {% if urun.birim=='Gram' %}selected{% endif %}>Gram</option>
+                                <option value="Kilogram" {% if urun.birim=='Kilogram' %}selected{% endif %}>Kilogram
+                                </option>
+                                <option value="Litre" {% if urun.birim=='Litre' %}selected{% endif %}>Litre</option>
+                                <option value="Mililitre" {% if urun.birim=='Mililitre' %}selected{% endif %}>Mililitre
+                                </option>
                             </select>
                         </div>
                     </div>
@@ -77,9 +78,9 @@
                         </label>
                         <div class="mt-1">
                             <input id="kritik_stok_seviyesi" name="kritik_stok_seviyesi" type="number" min="0"
-                                   value="{{ urun.kritik_stok_seviyesi or 10 }}"
-                                   class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
-                                   placeholder="Minimum stok seviyesi">
+                                value="{{ urun.kritik_stok_seviyesi or 10 }}"
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="Minimum stok seviyesi">
                         </div>
                         <p class="mt-1 text-sm text-slate-500">Bu seviyenin altına düştüğünde uyarı verilir</p>
                     </div>
@@ -87,11 +88,11 @@
 
                 <div class="flex justify-end space-x-3">
                     <a href="{{ url_for('urunler') }}"
-                       class="inline-flex justify-center py-2 px-4 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                        class="inline-flex justify-center py-2 px-4 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
                         İptal
                     </a>
                     <button type="submit"
-                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
                         Güncelle
                     </button>
                 </div>

@@ -1,10 +1,61 @@
 <!DOCTYPE html>
-<html lang="tr" class="h-full" data-theme="light">
+<html lang="tr" class="h-full">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Minibar Takip Sistemi{% endblock %}</title>
+
+    <!-- CRITICAL: Dark Mode - Sayfa yüklenmeden önce temayı uygula (FOUC önleme) -->
+    <script>
+        // LocalStorage'dan temayı al ve hemen uygula
+        ( function () {
+            const savedTheme = localStorage.getItem( 'minibar-theme' );
+            const systemTheme = window.matchMedia( '(prefers-color-scheme: dark)' ).matches ? 'dark' : 'light';
+            const theme = savedTheme || systemTheme;
+
+            if ( theme === 'dark' ) {
+                document.documentElement.classList.add( 'dark' );
+            }
+        } )();
+    </script>
+
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Otel minibar yönetim ve takip sistemi - Mobil uyumlu PWA">
+    <meta name="theme-color" content="#475569">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Minibar">
+    <meta name="application-name" content="Minibar Takip">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='icons/ios/180.png') }}">
+    <link rel="apple-touch-icon" sizes="152x152" href="{{ url_for('static', filename='icons/ios/152.png') }}">
+    <link rel="apple-touch-icon" sizes="144x144" href="{{ url_for('static', filename='icons/ios/144.png') }}">
+    <link rel="apple-touch-icon" sizes="120x120" href="{{ url_for('static', filename='icons/ios/120.png') }}">
+    <link rel="apple-touch-icon" sizes="114x114" href="{{ url_for('static', filename='icons/ios/114.png') }}">
+    <link rel="apple-touch-icon" sizes="76x76" href="{{ url_for('static', filename='icons/ios/76.png') }}">
+    <link rel="apple-touch-icon" sizes="72x72" href="{{ url_for('static', filename='icons/ios/72.png') }}">
+    <link rel="apple-touch-icon" sizes="60x60" href="{{ url_for('static', filename='icons/ios/60.png') }}">
+    <link rel="apple-touch-icon" sizes="57x57" href="{{ url_for('static', filename='icons/ios/57.png') }}">
+
+    <!-- Standard Favicon -->
+    <link rel="icon" type="image/png" sizes="192x192"
+        href="{{ url_for('static', filename='icons/android/android-launchericon-192-192.png') }}">
+    <link rel="icon" type="image/png" sizes="32x32" href="{{ url_for('static', filename='icons/ios/32.png') }}">
+    <link rel="icon" type="image/png" sizes="16x16" href="{{ url_for('static', filename='icons/ios/16.png') }}">
+
+    <!-- Windows Tiles -->
+    <meta name="msapplication-TileColor" content="#475569">
+    <meta name="msapplication-TileImage"
+        content="{{ url_for('static', filename='icons/android/android-launchericon-144-144.png') }}">
 
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -221,6 +272,243 @@
                 transform: scale(1);
             }
         }
+
+        /* PWA Install Banner Animation */
+        .animate-slide-up {
+            animation: slideUp 0.5s ease-out;
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        /* Mobil Tablo Optimizasyonları */
+        .table-wrapper {
+            overflow-x: auto;
+            overflow-y: visible;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+            border-radius: 0.5rem;
+        }
+
+        /* Scrollbar Stilleri - Mobil İçin Görünür */
+        .table-wrapper::-webkit-scrollbar {
+            height: 8px;
+            background-color: rgba(203, 213, 225, 0.3);
+            border-radius: 4px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-thumb {
+            background-color: rgba(71, 85, 105, 0.5);
+            border-radius: 4px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-thumb:hover {
+            background-color: rgba(71, 85, 105, 0.7);
+        }
+
+        /* Firefox scrollbar */
+        .table-wrapper {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(71, 85, 105, 0.5) rgba(203, 213, 225, 0.3);
+        }
+
+        /* Mobilde scroll göstergesi */
+        @media (max-width: 768px) {
+            .table-wrapper::after {
+                content: '→';
+                position: absolute;
+                right: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                background: linear-gradient(to right, transparent, white 30%);
+                padding: 0.5rem 1rem;
+                font-size: 1.5rem;
+                color: rgba(71, 85, 105, 0.5);
+                pointer-events: none;
+                opacity: 1;
+                transition: opacity 0.3s;
+            }
+
+            .table-wrapper.scrolled-end::after {
+                opacity: 0;
+            }
+
+            /* Dark mode için */
+            .dark .table-wrapper::after {
+                background: linear-gradient(to right, transparent, #1e293b 30%);
+            }
+        }
+
+        /* Tablo sütunlarının minimum genişliği */
+        .table-wrapper table {
+            min-width: 100%;
+        }
+
+        @media (max-width: 640px) {
+            .table-wrapper table {
+                min-width: 600px;
+                /* Mobilde minimum genişlik */
+            }
+        }
+
+        /* Touch-friendly tablo hücreleri */
+        @media (max-width: 768px) {
+
+            .table-wrapper td,
+            .table-wrapper th {
+                white-space: nowrap;
+                padding: 0.75rem 0.5rem !important;
+            }
+        }
+
+        /* ===================================== */
+        /* DARK MODE STYLES */
+        /* ===================================== */
+
+        /* Dark mode geçişleri */
+        .dark {
+            color-scheme: dark;
+        }
+
+        /* Dark mode için genel arka plan ve metin renkleri */
+        .dark body {
+            background-color: #0f172a;
+            color: #e2e8f0;
+        }
+
+        /* Dark mode kartlar */
+        .dark .bg-white {
+            background-color: #1e293b !important;
+        }
+
+        .dark .bg-slate-50 {
+            background-color: #0f172a !important;
+        }
+
+        .dark .bg-slate-100 {
+            background-color: #1e293b !important;
+        }
+
+        /* Dark mode metin renkleri */
+        .dark .text-slate-900 {
+            color: #f1f5f9 !important;
+        }
+
+        .dark .text-slate-700 {
+            color: #cbd5e1 !important;
+        }
+
+        .dark .text-slate-600 {
+            color: #94a3b8 !important;
+        }
+
+        .dark .text-slate-500 {
+            color: #64748b !important;
+        }
+
+        /* Dark mode border'lar */
+        .dark .border-slate-200 {
+            border-color: #334155 !important;
+        }
+
+        .dark .border-slate-300 {
+            border-color: #475569 !important;
+        }
+
+        /* Dark mode hover efektleri */
+        .dark .hover\:bg-slate-50:hover {
+            background-color: #1e293b !important;
+        }
+
+        .dark .hover\:bg-slate-100:hover {
+            background-color: #334155 !important;
+        }
+
+        /* Dark mode input'lar */
+        .dark input,
+        .dark textarea,
+        .dark select {
+            background-color: #1e293b;
+            border-color: #334155;
+            color: #e2e8f0;
+        }
+
+        .dark input:focus,
+        .dark textarea:focus,
+        .dark select:focus {
+            border-color: #3b82f6;
+            background-color: #0f172a;
+        }
+
+        /* Dark mode tablo */
+        .dark table {
+            color: #e2e8f0;
+        }
+
+        .dark thead {
+            background-color: #1e293b !important;
+        }
+
+        .dark tbody tr {
+            border-color: #334155;
+        }
+
+        .dark tbody tr:hover {
+            background-color: #1e293b !important;
+        }
+
+        /* Dark mode shadow'lar */
+        .dark .shadow {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.5), 0 1px 2px -1px rgba(0, 0, 0, 0.5);
+        }
+
+        .dark .shadow-lg {
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Dark mode toast bildirimleri */
+        .dark .toast-item {
+            background-color: #1e293b !important;
+            border-color: #334155;
+        }
+
+        .dark .toast-item p {
+            color: #e2e8f0;
+        }
+
+        /* Animasyonlu geçişler - Sadece gerekli elementlerde */
+        /* PERFORMANS: Tüm elementlerde transition çok yavaş, sadece dark mode geçişlerinde */
+        @media (prefers-reduced-motion: no-preference) {
+
+            .dark,
+            body,
+            .bg-white,
+            .bg-slate-50,
+            .bg-slate-100,
+            .text-slate-900,
+            .text-slate-700,
+            .text-slate-600,
+            .text-slate-500,
+            .border-slate-200,
+            .border-slate-300,
+            input,
+            textarea,
+            select,
+            button,
+            .card,
+            .toast-item {
+                transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+            }
+        }
     </style>
 
     {% block extra_head %}{% endblock %}
@@ -267,7 +555,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
                         </svg>
-                        Dashboard
+                        Panel
                     </a>
 
                     <!-- Sistem Yönetimi -->
@@ -339,19 +627,19 @@
                         Kullanıcı Yönetimi
                     </a>
 
-                    <!-- Sistem İzleme -->
+                    <!-- Güvenlik & Denetim -->
                     <div class="px-4 py-2 mt-4">
                         <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                            Sistem İzleme</h3>
+                            Güvenlik & Denetim</h3>
                     </div>
-                    <a href="{{ url_for('sistem_loglari') }}"
+                    <a href="{{ url_for('audit_trail') }}"
                         class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                         <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
                             </path>
                         </svg>
-                        Sistem Logları
+                        Audit Trail
                     </a>
 
 
@@ -363,7 +651,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
                         </svg>
-                        Dashboard
+                        Panel
                     </a>
 
                     <!-- Sistem Yönetimi -->
@@ -435,19 +723,19 @@
                         Kullanıcı Yönetimi
                     </a>
 
-                    <!-- Sistem İzleme -->
+                    <!-- Güvenlik & Denetim -->
                     <div class="px-4 py-2 mt-4">
                         <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                            Sistem İzleme</h3>
+                            Güvenlik & Denetim</h3>
                     </div>
-                    <a href="{{ url_for('sistem_loglari') }}"
+                    <a href="{{ url_for('audit_trail') }}"
                         class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                         <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
                             </path>
                         </svg>
-                        Sistem Logları
+                        Audit Trail
                     </a>
 
 
@@ -458,7 +746,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
                         </svg>
-                        Dashboard
+                        Panel
                     </a>
                     <a href="{{ url_for('stok_giris') }}"
                         class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
@@ -486,6 +774,17 @@
                         </svg>
                         Minibar Durumları
                     </a>
+
+                    <a href="{{ url_for('kat_bazli_rapor') }}"
+                        class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
+                            </path>
+                        </svg>
+                        Kat Tüketim Raporu
+                    </a>
+
                     <a href="{{ url_for('depo_raporlar') }}"
                         class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                         <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -503,7 +802,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
                         </svg>
-                        Dashboard
+                        Panel
                     </a>
                     <a href="{{ url_for('minibar_kontrol') }}"
                         class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
@@ -513,6 +812,15 @@
                             </path>
                         </svg>
                         Minibar Kontrol
+                    </a>
+                    <a href="{{ url_for('toplu_oda_doldurma') }}"
+                        class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z">
+                            </path>
+                        </svg>
+                        Toplu Oda Doldurma
                     </a>
                     <a href="{{ url_for('zimmetim') }}"
                         class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
@@ -530,6 +838,15 @@
                             </path>
                         </svg>
                         Raporlar
+                    </a>
+                    <a href="{{ url_for('kat_bazli_rapor') }}"
+                        class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6">
+                            </path>
+                        </svg>
+                        Kat Bazlı Rapor
                     </a>
                     {% endif %}
                     {% endif %}
@@ -572,7 +889,7 @@
                     <!-- Page Title - Responsive -->
                     <h1
                         class="text-base sm:text-lg md:text-xl font-semibold text-slate-900 dark:text-slate-100 truncate flex-1 text-center md:text-left">
-                        {% block page_title %}Dashboard{% endblock %}
+                        {% block page_title %}Panel{% endblock %}
                     </h1>
 
                     <!-- Right side - Touch-friendly -->
@@ -630,41 +947,133 @@
     <!-- Overlay for mobile - Touch-friendly -->
     <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden overlay-transition"></div>
 
+    <!-- PWA Install Prompt -->
+    <div id="pwa-install-banner"
+        class="hidden fixed bottom-0 left-0 right-0 bg-slate-800 text-white p-4 shadow-2xl z-50 animate-slide-up">
+        <div class="max-w-4xl mx-auto flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3 flex-1">
+                <svg class="w-10 h-10 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+                <div class="flex-1">
+                    <h3 class="font-semibold text-sm sm:text-base">Uygulamayı Yükle</h3>
+                    <p class="text-xs sm:text-sm text-slate-300">Hızlı erişim için ana ekrana ekleyin</p>
+                </div>
+            </div>
+            <div class="flex gap-2">
+                <button id="pwa-install-dismiss"
+                    class="px-3 py-2 text-sm text-slate-300 hover:text-white transition-colors">
+                    Kapat
+                </button>
+                <button id="pwa-install-button"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-semibold transition-all transform hover:scale-105">
+                    Yükle
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- JavaScript -->
     <script>
-        // Theme toggle
-        const themeToggle = document.getElementById( 'theme-toggle' );
-        const themeToggleDarkIcon = document.getElementById( 'theme-toggle-dark-icon' );
-        const themeToggleLightIcon = document.getElementById( 'theme-toggle-light-icon' );
+        // Service Worker Registration
+        if ( 'serviceWorker' in navigator ) {
+            window.addEventListener( 'load', () => {
+                navigator.serviceWorker.register( '/static/service-worker.js' )
+                    .then( registration => {
+                        console.log( '✓ Service Worker registered:', registration.scope );
 
-        // Check for saved theme preference or default to 'light'
-        const currentTheme = localStorage.getItem( 'theme' ) || 'light';
-
-        // Apply the current theme
-        if ( currentTheme === 'dark' ) {
-            document.documentElement.classList.add( 'dark' );
-            themeToggleLightIcon.classList.remove( 'hidden' );
-            themeToggleDarkIcon.classList.add( 'hidden' );
-        } else {
-            document.documentElement.classList.remove( 'dark' );
-            themeToggleDarkIcon.classList.remove( 'hidden' );
-            themeToggleLightIcon.classList.add( 'hidden' );
+                        // Güncelleme kontrolü
+                        registration.addEventListener( 'updatefound', () => {
+                            const newWorker = registration.installing;
+                            newWorker.addEventListener( 'statechange', () => {
+                                if ( newWorker.state === 'installed' && navigator.serviceWorker.controller ) {
+                                    // Yeni versiyon hazır - kullanıcıya bildir
+                                    if ( confirm( 'Yeni bir sürüm mevcut. Sayfayı yenilemek ister misiniz?' ) ) {
+                                        window.location.reload();
+                                    }
+                                }
+                            } );
+                        } );
+                    } )
+                    .catch( error => {
+                        console.log( 'Service Worker registration failed:', error );
+                    } );
+            } );
         }
 
-        // Theme toggle event listener
-        themeToggle.addEventListener( 'click', function () {
-            if ( document.documentElement.classList.contains( 'dark' ) ) {
-                document.documentElement.classList.remove( 'dark' );
-                localStorage.setItem( 'theme', 'light' );
-                themeToggleDarkIcon.classList.remove( 'hidden' );
-                themeToggleLightIcon.classList.add( 'hidden' );
-            } else {
-                document.documentElement.classList.add( 'dark' );
-                localStorage.setItem( 'theme', 'dark' );
-                themeToggleLightIcon.classList.remove( 'hidden' );
-                themeToggleDarkIcon.classList.add( 'hidden' );
+        // PWA Install Prompt
+        let deferredPrompt;
+        const installBanner = document.getElementById( 'pwa-install-banner' );
+        const installButton = document.getElementById( 'pwa-install-button' );
+        const dismissButton = document.getElementById( 'pwa-install-dismiss' );
+
+        // beforeinstallprompt olayını yakala
+        window.addEventListener( 'beforeinstallprompt', ( e ) => {
+            // Varsayılan tarayıcı prompt'unu engelle
+            e.preventDefault();
+            deferredPrompt = e;
+
+            // Kullanıcı daha önce dismiss etmediyse banner'ı göster
+            const dismissed = localStorage.getItem( 'pwa-install-dismissed' );
+            const dismissedTime = localStorage.getItem( 'pwa-install-dismissed-time' );
+            const currentTime = new Date().getTime();
+            const dayInMs = 24 * 60 * 60 * 1000;
+
+            // 7 gün geçmişse tekrar göster
+            if ( !dismissed || ( dismissedTime && currentTime - dismissedTime > 7 * dayInMs ) ) {
+                setTimeout( () => {
+                    installBanner.classList.remove( 'hidden' );
+                }, 3000 ); // 3 saniye sonra göster
             }
         } );
+
+        // Install butonuna tıklanınca
+        if ( installButton ) {
+            installButton.addEventListener( 'click', async () => {
+                if ( !deferredPrompt ) return;
+
+                // Install prompt'unu göster
+                deferredPrompt.prompt();
+
+                // Kullanıcının cevabını bekle
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log( `User response: ${outcome}` );
+
+                // Prompt'u kullanıldı, temizle
+                deferredPrompt = null;
+                installBanner.classList.add( 'hidden' );
+
+                if ( outcome === 'accepted' ) {
+                    localStorage.removeItem( 'pwa-install-dismissed' );
+                }
+            } );
+        }
+
+        // Dismiss butonuna tıklanınca
+        if ( dismissButton ) {
+            dismissButton.addEventListener( 'click', () => {
+                installBanner.classList.add( 'hidden' );
+                localStorage.setItem( 'pwa-install-dismissed', 'true' );
+                localStorage.setItem( 'pwa-install-dismissed-time', new Date().getTime() );
+            } );
+        }
+
+        // Uygulama yüklendiyse banner'ı gösterme
+        window.addEventListener( 'appinstalled', () => {
+            console.log( '✓ PWA installed successfully' );
+            installBanner.classList.add( 'hidden' );
+            localStorage.setItem( 'pwa-install-dismissed', 'true' );
+        } );
+
+        // Theme toggle artık theme.js tarafından yönetiliyor
+        // Eski localStorage'daki 'theme' anahtarını 'minibar-theme' anahtarına migrate et
+        const oldTheme = localStorage.getItem( 'theme' );
+        if ( oldTheme && !localStorage.getItem( 'minibar-theme' ) ) {
+            localStorage.setItem( 'minibar-theme', oldTheme );
+            localStorage.removeItem( 'theme' ); // Eski anahtarı temizle
+        }
 
         // Sidebar Toggle
         const menuButton = document.getElementById( 'mobile-menu-button' );
@@ -719,10 +1128,20 @@
             } );
         }
 
-        // Menü linklerine tıklayınca sadece mobile'da menüyü kapat
+        // Menü linklerine tıklayınca loading göster ve mobile'da menüyü kapat
         const menuLinks = sidebar.querySelectorAll( 'a' );
         menuLinks.forEach( function ( link ) {
-            link.addEventListener( 'click', function () {
+            link.addEventListener( 'click', function ( e ) {
+                // Sadece normal navigasyon linkleri için (# veya javascript: değilse)
+                const href = link.getAttribute( 'href' );
+                if ( href && href !== '#' && !href.startsWith( 'javascript:' ) ) {
+                    // Loading animasyonu göster
+                    if ( window.showLoading ) {
+                        window.showLoading( 'Yükleniyor...' );
+                    }
+                }
+
+                // Mobile'da menüyü kapat
                 if ( window.innerWidth < 768 ) {
                     toggleSidebar();
                 }
@@ -893,6 +1312,118 @@
                     }, index * 400 ); // Birden fazla mesaj varsa sırayla göster
                 } );
             }
+        } );
+    </script>
+
+    <!-- Mobil Tablo Scroll İndikatörü -->
+    <script>
+        // Tablo scroll indicator
+        function initTableScrollIndicators() {
+            const tableWrappers = document.querySelectorAll( '.table-wrapper' );
+
+            tableWrappers.forEach( wrapper => {
+                function checkScrollEnd() {
+                    const isScrolledToEnd = wrapper.scrollLeft + wrapper.clientWidth >= wrapper.scrollWidth - 5;
+                    if ( isScrolledToEnd ) {
+                        wrapper.classList.add( 'scrolled-end' );
+                    } else {
+                        wrapper.classList.remove( 'scrolled-end' );
+                    }
+                }
+
+                wrapper.addEventListener( 'scroll', checkScrollEnd );
+                checkScrollEnd(); // İlk kontrol
+            } );
+        }
+
+        // Sayfa yüklendiğinde ve dinamik içerik eklendiğinde çalıştır
+        if ( document.readyState === 'loading' ) {
+            document.addEventListener( 'DOMContentLoaded', initTableScrollIndicators );
+        } else {
+            initTableScrollIndicators();
+        }
+
+        // MutationObserver ile dinamik tablolar için
+        const observer = new MutationObserver( () => {
+            initTableScrollIndicators();
+        } );
+
+        observer.observe( document.body, {
+            childList: true,
+            subtree: true
+        } );
+    </script>
+
+    <!-- Toast Notification System -->
+    <script src="{{ url_for('static', filename='js/toast.js') }}" defer></script>
+
+    <!-- Loading & Progress Indicators -->
+    <script src="{{ url_for('static', filename='js/loading.js') }}" defer></script>
+
+    <!-- Dark Mode / Theme Switcher -->
+    <script src="{{ url_for('static', filename='js/theme.js') }}" defer></script>
+
+    <!-- Gelişmiş Tablo Arama ve Filtreleme Sistemi -->
+    <script src="{{ url_for('static', filename='js/table-search-filter.js') }}" defer></script>
+
+    <!-- Flask Flash Mesajları için Toast -->
+    <script>
+        // Flask flash mesajlarını toast olarak göster
+        {% with messages = get_flashed_messages( with_categories = true ) %}
+        {% if messages %}
+        document.addEventListener( 'DOMContentLoaded', function () {
+            {% for category, message in messages %}
+            // Flask kategorilerini toast türlerine çevir
+            let toastType = '{{ category }}';
+            if ( toastType === 'success' ) {
+                toastSuccess( '{{ message|safe }}' );
+            } else if ( toastType === 'danger' || toastType === 'error' ) {
+                toastError( '{{ message|safe }}' );
+            } else if ( toastType === 'warning' ) {
+                toastWarning( '{{ message|safe }}' );
+            } else {
+                toastInfo( '{{ message|safe }}' );
+            }
+            {% endfor %}
+        } );
+        {% endif %}
+        {% endwith %}
+    </script>
+
+    <!-- Global Navigation Loading Interceptor -->
+    <script>
+        document.addEventListener( 'DOMContentLoaded', function () {
+            // Tüm navigasyon linklerini yakala (sidebar ve navbar)
+            const allNavigationLinks = document.querySelectorAll( 'a[href]:not([target="_blank"]):not([download])' );
+
+            allNavigationLinks.forEach( function ( link ) {
+                link.addEventListener( 'click', function ( e ) {
+                    const href = link.getAttribute( 'href' );
+
+                    // Sadece gerçek sayfa navigasyonları için loading göster
+                    // # veya javascript: linkleri hariç
+                    if ( href &&
+                        href !== '#' &&
+                        !href.startsWith( 'javascript:' ) &&
+                        !href.startsWith( 'mailto:' ) &&
+                        !href.startsWith( 'tel:' ) ) {
+
+                        // Loading animasyonu göster
+                        if ( window.showLoading ) {
+                            // Link'te title varsa onu kullan, yoksa "Yükleniyor..."
+                            const loadingText = link.getAttribute( 'title' ) || 'Yükleniyor...';
+                            window.showLoading( loadingText );
+                        }
+                    }
+                } );
+            } );
+
+            // Sayfa yüklendiğinde loading'i gizle (geri buton durumu için)
+            window.addEventListener( 'pageshow', function ( event ) {
+                if ( window.hideLoading ) {
+                    window.hideLoading();
+                }
+            } );
         } );
     </script>
 

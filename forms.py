@@ -1,0 +1,624 @@
+from flask_wtf import FlaskForm
+from wtforms import StringField, PasswordField, BooleanField, TextAreaField, IntegerField, SelectField
+from wtforms.validators import DataRequired, Email, Length, EqualTo, NumberRange, Optional, ValidationError
+import re
+
+
+def pattern_validator(pattern, message):
+    """Return a validator that enforces a regex pattern when field has data."""
+    compiled = re.compile(pattern)
+
+    def _validator(form, field):
+        data = field.data or ''
+        if data and not compiled.match(data):
+            raise ValidationError(message)
+
+    return _validator
+
+
+def password_strength_validator(message):
+    """Ensure password includes upper, lower, digit and special characters."""
+    def _validator(form, field):
+        data = field.data or ''
+        if not data:
+            return
+
+        conditions = (
+            re.search(r'[A-Z]', data),
+            re.search(r'[a-z]', data),
+            re.search(r'\d', data),
+            re.search(r'[!@#$%^&*(),.?":{}|<>]', data)
+        )
+
+        if not all(conditions):
+            raise ValidationError(message)
+
+    return _validator
+
+class BaseForm(FlaskForm):
+    """Base form with common validators"""
+    
+    def validate_email(self, field):
+        """Custom email validation with Turkish domain support"""
+        email = field.data
+        if email and '@' in email:
+            # Allow common Turkish email domains
+            turkish_domains = ['hotmail.com', 'gmail.com', 'yahoo.com', 'yandex.com', 
+                              'outlook.com', 'msn.com', 'windowslive.com',
+                              'edu.tr', '.gov.tr', '.org.tr', '.net.tr',
+                              'turkcell.com.tr', 'ttk.gov.tr']
+            
+            if not any(domain in email.lower() for domain in turkish_domains):
+                # Basic email pattern validation
+                email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+                if not re.match(email_pattern, email):
+                    raise ValidationError('Geçerli bir e-posta adresi giriniz.')
+
+class LoginForm(BaseForm):
+    """Enhanced login form with advanced validation"""
+    kullanici_adi = StringField(
+        'Kullanıcı Adı', 
+        validators=[
+            DataRequired(message='Kullanıcı adı zorunludur.'),
+            Length(min=3, max=50, message='Kullanıcı adı 3-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-Z0-9_.-]+$', 'Kullanıcı adı sadece harf, rakam ve özel karakterler (_ - .) içerebilir.')
+        ]
+    )
+    
+    sifre = PasswordField(
+        'Şifre', 
+        validators=[
+            DataRequired(message='Şifre zorunludur.'),
+            Length(min=6, max=128, message='Şifre 6-128 karakter arasında olmalıdır.')
+        ]
+    )
+    
+    remember_me = BooleanField('Beni Hatırla')
+
+class SetupForm(BaseForm):
+    """Enhanced setup form with comprehensive validation"""
+    otel_adi = StringField(
+        'Otel Adı', 
+        validators=[
+            DataRequired(message='Otel adı zorunludur.'),
+            Length(min=2, max=200, message='Otel adı 2-200 karakter arasında olmalıdır.')
+        ]
+    )
+    
+    adres = TextAreaField(
+        'Adres', 
+        validators=[
+            DataRequired(message='Adres zorunludur.'),
+            Length(min=10, max=500, message='Adres 10-500 karakter arasında olmalıdır.')
+        ]
+    )
+    
+    telefon = StringField(
+        'Telefon', 
+        validators=[
+            DataRequired(message='Telefon numarası zorunludur.'),
+            Length(min=10, max=20, message='Telefon numarası 10-20 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[\d\s\-\+\(\)\.]+$', 'Geçerli bir telefon numarası giriniz.')
+        ]
+    )
+    
+    email = StringField(
+        'E-posta', 
+        validators=[
+            Optional(),
+            Email(message='Geçerli bir e-posta adresi giriniz.'),
+            Length(max=100, message='E-posta adresi 100 karakterden uzun olamaz.')
+        ]
+    )
+    
+    vergi_no = StringField(
+        'Vergi Numarası', 
+        validators=[
+            Optional(),
+            Length(max=20, message='Vergi numarası 20 karakterden uzun olamaz.'),
+            pattern_validator(r'^\d+$', 'Vergi numarası sadece rakam içerebilir.')
+        ]
+    )
+    
+    kullanici_adi = StringField(
+        'Sistem Yöneticisi Kullanıcı Adı', 
+        validators=[
+            DataRequired(message='Kullanıcı adı zorunludur.'),
+            Length(min=3, max=50, message='Kullanıcı adı 3-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-Z0-9_.-]+$', 'Kullanıcı adı sadece harf, rakam ve özel karakterler (_ - .) içerebilir.')
+        ]
+    )
+    
+    ad = StringField(
+        'Ad', 
+        validators=[
+            DataRequired(message='Ad zorunludur.'),
+            Length(min=2, max=50, message='Ad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Ad sadece harf içerebilir.')
+        ]
+    )
+    
+    soyad = StringField(
+        'Soyad', 
+        validators=[
+            DataRequired(message='Soyad zorunludur.'),
+            Length(min=2, max=50, message='Soyad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Soyad sadece harf içerebilir.')
+        ]
+    )
+    
+    admin_email = StringField(
+        'Sistem Yöneticisi E-posta', 
+        validators=[
+            DataRequired(message='E-posta adresi zorunludur.'),
+            Email(message='Geçerli bir e-posta adresi giriniz.'),
+            Length(max=100, message='E-posta adresi 100 karakterden uzun olamaz.')
+        ]
+    )
+    
+    admin_telefon = StringField(
+        'Sistem Yöneticisi Telefon', 
+        validators=[
+            Optional(),
+            Length(max=20, message='Telefon numarası 20 karakterden uzun olamaz.'),
+            pattern_validator(r'^[\d\s\-\+\(\)\.]+$', 'Geçerli bir telefon numarası giriniz.')
+        ]
+    )
+    
+    sifre = PasswordField(
+        'Şifre', 
+        validators=[
+            DataRequired(message='Şifre zorunludur.'),
+            Length(min=8, max=128, message='Şifre en az 8 karakter olmalıdır.'),
+            password_strength_validator('Şifre en az bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir.')
+        ]
+    )
+    
+    sifre_onay = PasswordField(
+        'Şifre Onayı', 
+        validators=[
+            DataRequired(message='Şifre onayı zorunludur.'),
+            EqualTo('sifre', message='Şifreler eşleşmiyor.')
+        ]
+    )
+
+class PersonelForm(BaseForm):
+    """Enhanced personnel form"""
+    kullanici_adi = StringField(
+        'Kullanıcı Adı', 
+        validators=[
+            DataRequired(message='Kullanıcı adı zorunludur.'),
+            Length(min=3, max=50, message='Kullanıcı adı 3-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-Z0-9_.-]+$', 'Kullanıcı adı sadece harf, rakam ve özel karakterler (_ - .) içerebilir.')
+        ]
+    )
+    
+    ad = StringField(
+        'Ad', 
+        validators=[
+            DataRequired(message='Ad zorunludur.'),
+            Length(min=2, max=50, message='Ad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Ad sadece harf içerebilir.')
+        ]
+    )
+    
+    soyad = StringField(
+        'Soyad', 
+        validators=[
+            DataRequired(message='Soyad zorunludur.'),
+            Length(min=2, max=50, message='Soyad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Soyad sadece harf içerebilir.')
+        ]
+    )
+    
+    email = StringField(
+        'E-posta', 
+        validators=[
+            Optional(),
+            Email(message='Geçerli bir e-posta adresi giriniz.'),
+            Length(max=100, message='E-posta adresi 100 karakterden uzun olamaz.')
+        ]
+    )
+    
+    telefon = StringField(
+        'Telefon', 
+        validators=[
+            Optional(),
+            Length(max=20, message='Telefon numarası 20 karakterden uzun olamaz.'),
+            pattern_validator(r'^[\d\s\-\+\(\)\.]+$', 'Geçerli bir telefon numarası giriniz.')
+        ]
+    )
+    
+    rol = SelectField(
+        'Rol', 
+        validators=[DataRequired(message='Rol seçimi zorunludur.')]
+    )
+    
+    sifre = PasswordField(
+        'Şifre', 
+        validators=[
+            DataRequired(message='Şifre zorunludur.'),
+            Length(min=8, max=128, message='Şifre en az 8 karakter olmalıdır.'),
+            password_strength_validator('Şifre en az bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir.')
+        ]
+    )
+
+class PersonelForm(BaseForm):
+    """Personel tanımlama formu"""
+    kullanici_adi = StringField(
+        'Kullanıcı Adı',
+        validators=[
+            DataRequired(message='Kullanıcı adı zorunludur.'),
+            Length(min=3, max=50, message='Kullanıcı adı 3-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-Z0-9_.-]+$', 'Kullanıcı adı sadece harf, rakam ve (_-.) karakterleri içerebilir.')
+        ]
+    )
+
+    ad = StringField(
+        'Ad',
+        validators=[
+            DataRequired(message='Ad zorunludur.'),
+            Length(min=2, max=50, message='Ad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Ad sadece harf içerebilir.')
+        ]
+    )
+
+    soyad = StringField(
+        'Soyad',
+        validators=[
+            DataRequired(message='Soyad zorunludur.'),
+            Length(min=2, max=50, message='Soyad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Soyad sadece harf içerebilir.')
+        ]
+    )
+
+    email = StringField(
+        'E-posta',
+        validators=[
+            Optional(),
+            Email(message='Geçerli bir e-posta adresi giriniz.'),
+            Length(max=100, message='E-posta adresi 100 karakterden uzun olamaz.')
+        ]
+    )
+
+    telefon = StringField(
+        'Telefon',
+        validators=[
+            Optional(),
+            Length(max=20, message='Telefon numarası 20 karakterden uzun olamaz.'),
+            pattern_validator(r'^[\d\s\-\+\(\)\.]+$', 'Geçerli bir telefon numarası giriniz.')
+        ]
+    )
+
+    rol = SelectField(
+        'Rol',
+        choices=[
+            ('admin', 'Admin'),
+            ('depo_sorumlusu', 'Depo Sorumlusu'),
+            ('kat_sorumlusu', 'Kat Sorumlusu')
+        ],
+        validators=[DataRequired(message='Rol seçimi zorunludur.')]
+    )
+
+    sifre = PasswordField(
+        'Şifre',
+        validators=[
+            DataRequired(message='Şifre zorunludur.'),
+            Length(min=8, max=128, message='Şifre en az 8 karakter olmalıdır.'),
+            password_strength_validator('Şifre en az bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir.')
+        ]
+    )
+
+class PersonelDuzenleForm(BaseForm):
+    """Personel düzenleme formu (şifre opsiyonel)"""
+    kullanici_adi = StringField(
+        'Kullanıcı Adı',
+        validators=[
+            DataRequired(message='Kullanıcı adı zorunludur.'),
+            Length(min=3, max=50, message='Kullanıcı adı 3-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-Z0-9_.-]+$', 'Kullanıcı adı sadece harf, rakam ve (_-.) karakterleri içerebilir.')
+        ]
+    )
+
+    ad = StringField(
+        'Ad',
+        validators=[
+            DataRequired(message='Ad zorunludur.'),
+            Length(min=2, max=50, message='Ad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Ad sadece harf içerebilir.')
+        ]
+    )
+
+    soyad = StringField(
+        'Soyad',
+        validators=[
+            DataRequired(message='Soyad zorunludur.'),
+            Length(min=2, max=50, message='Soyad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Soyad sadece harf içerebilir.')
+        ]
+    )
+
+    email = StringField(
+        'E-posta',
+        validators=[
+            Optional(),
+            Email(message='Geçerli bir e-posta adresi giriniz.'),
+            Length(max=100, message='E-posta adresi 100 karakterden uzun olamaz.')
+        ]
+    )
+
+    telefon = StringField(
+        'Telefon',
+        validators=[
+            Optional(),
+            Length(max=20, message='Telefon numarası 20 karakterden uzun olamaz.'),
+            pattern_validator(r'^[\d\s\-\+\(\)\.]+$', 'Geçerli bir telefon numarası giriniz.')
+        ]
+    )
+
+    rol = SelectField(
+        'Rol',
+        choices=[
+            ('admin', 'Admin'),
+            ('depo_sorumlusu', 'Depo Sorumlusu'),
+            ('kat_sorumlusu', 'Kat Sorumlusu')
+        ],
+        validators=[DataRequired(message='Rol seçimi zorunludur.')]
+    )
+
+    yeni_sifre = PasswordField(
+        'Yeni Şifre',
+        validators=[
+            Optional(),
+            Length(min=8, max=128, message='Şifre en az 8 karakter olmalıdır.'),
+            password_strength_validator('Şifre en az bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir.')
+        ]
+    )
+
+class UrunForm(BaseForm):
+    """Enhanced product form"""
+    grup_id = SelectField(
+        'Ürün Grubu', 
+        validators=[DataRequired(message='Ürün grubu seçimi zorunludur.')]
+    )
+    
+    urun_adi = StringField(
+        'Ürün Adı', 
+        validators=[
+            DataRequired(message='Ürün adı zorunludur.'),
+            Length(min=2, max=100, message='Ürün adı 2-100 karakter arasında olmalıdır.')
+        ]
+    )
+    
+    barkod = StringField(
+        'Barkod', 
+        validators=[
+            Optional(),
+            Length(max=50, message='Barkod 50 karakterden uzun olamaz.'),
+            pattern_validator(r'^[a-zA-Z0-9_.-]+$', 'Barkod sadece harf, rakam ve özel karakterler içerebilir.')
+        ]
+    )
+    
+    birim = SelectField(
+        'Birim', 
+        validators=[DataRequired(message='Birim seçimi zorunludur.')]
+    )
+    
+    kritik_stok_seviyesi = IntegerField(
+        'Kritik Stok Seviyesi', 
+        validators=[
+            DataRequired(message='Kritik stok seviyesi zorunludur.'),
+            NumberRange(min=0, max=10000, message='Kritik stok seviyesi 0-10000 arasında olmalıdır.')
+        ]
+    )
+
+class StokHareketForm(BaseForm):
+    """Enhanced stock movement form"""
+    urun_id = SelectField(
+        'Ürün', 
+        validators=[DataRequired(message='Ürün seçimi zorunludur.')]
+    )
+    
+    hareket_tipi = SelectField(
+        'Hareket Tipi', 
+        validators=[DataRequired(message='Hareket tipi seçimi zorunludur.')]
+    )
+    
+    miktar = IntegerField(
+        'Miktar', 
+        validators=[
+            DataRequired(message='Miktar zorunludur.'),
+            NumberRange(min=1, max=1000000, message='Miktar 1-1000000 arasında olmalıdır.')
+        ]
+    )
+    
+    aciklama = TextAreaField(
+        'Açıklama', 
+        validators=[
+            Optional(),
+            Length(max=500, message='Açıklama 500 karakterden uzun olamaz.')
+        ]
+    )
+
+class MinibarKontrolForm(BaseForm):
+    """Enhanced minibar control form"""
+    oda_id = SelectField(
+        'Oda', 
+        validators=[DataRequired(message='Oda seçimi zorunludur.')]
+    )
+    
+    islem_tipi = SelectField(
+        'İşlem Tipi', 
+        validators=[DataRequired(message='İşlem tipi seçimi zorunludur.')]
+    )
+    
+    aciklama = TextAreaField(
+        'Açıklama', 
+        validators=[
+            Optional(),
+            Length(max=500, message='Açıklama 500 karakterden uzun olamaz.')
+        ]
+    )
+    
+    # Dynamic fields will be added based on selected products
+    @classmethod
+    def create_dynamic_fields(cls, urun_ids):
+        """Create dynamic fields for product quantities"""
+        for urun_id in urun_ids:
+            # Quantity field
+            field_name = f'miktar_{urun_id}'
+            setattr(cls, field_name, IntegerField(
+                f'Miktar_{urun_id}',
+                validators=[Optional()]
+            ))
+            
+            # Starting stock field
+            field_name = f'baslangic_{urun_id}'
+            setattr(cls, field_name, IntegerField(
+                f'Başlangıç Stok_{urun_id}',
+                validators=[Optional()]
+            ))
+            
+            # Ending stock field
+            field_name = f'bitis_{urun_id}'
+            setattr(cls, field_name, IntegerField(
+                f'Bitiş Stok_{urun_id}',
+                validators=[Optional()]
+            ))
+
+class OtelForm(BaseForm):
+    """Otel tanımlama/düzenleme formu"""
+    otel_adi = StringField(
+        'Otel Adı',
+        validators=[
+            DataRequired(message='Otel adı zorunludur.'),
+            Length(min=2, max=200, message='Otel adı 2-200 karakter arasında olmalıdır.')
+        ]
+    )
+
+    adres = TextAreaField(
+        'Adres',
+        validators=[
+            DataRequired(message='Adres zorunludur.'),
+            Length(min=10, max=500, message='Adres 10-500 karakter arasında olmalıdır.')
+        ]
+    )
+
+    telefon = StringField(
+        'Telefon',
+        validators=[
+            DataRequired(message='Telefon numarası zorunludur.'),
+            Length(min=10, max=20, message='Telefon numarası 10-20 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[\d\s\-\+\(\)\.]+$', 'Geçerli bir telefon numarası giriniz.')
+        ]
+    )
+
+    email = StringField(
+        'E-posta',
+        validators=[
+            Optional(),
+            Email(message='Geçerli bir e-posta adresi giriniz.'),
+            Length(max=100, message='E-posta adresi 100 karakterden uzun olamaz.')
+        ]
+    )
+
+    vergi_no = StringField(
+        'Vergi Numarası',
+        validators=[
+            Optional(),
+            Length(max=50, message='Vergi numarası 50 karakterden uzun olamaz.')
+        ]
+    )
+
+class KatForm(BaseForm):
+    """Kat tanımlama/düzenleme formu"""
+    kat_adi = StringField(
+        'Kat Adı',
+        validators=[
+            DataRequired(message='Kat adı zorunludur.'),
+            Length(min=1, max=50, message='Kat adı 1-50 karakter arasında olmalıdır.')
+        ]
+    )
+
+    kat_no = IntegerField(
+        'Kat Numarası',
+        validators=[
+            DataRequired(message='Kat numarası zorunludur.'),
+            NumberRange(min=-5, max=100, message='Kat numarası -5 ile 100 arasında olmalıdır.')
+        ]
+    )
+
+    aciklama = TextAreaField(
+        'Açıklama',
+        validators=[
+            Optional(),
+            Length(max=500, message='Açıklama 500 karakterden uzun olamaz.')
+        ]
+    )
+
+class OdaForm(BaseForm):
+    """Oda tanımlama/düzenleme formu"""
+    kat_id = SelectField(
+        'Kat',
+        coerce=int,
+        validators=[DataRequired(message='Kat seçimi zorunludur.')]
+    )
+
+    oda_no = StringField(
+        'Oda Numarası',
+        validators=[
+            DataRequired(message='Oda numarası zorunludur.'),
+            Length(min=1, max=20, message='Oda numarası 1-20 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-Z0-9\-]+$', 'Oda numarası sadece harf, rakam ve tire içerebilir.')
+        ]
+    )
+
+    oda_tipi = StringField(
+        'Oda Tipi',
+        validators=[
+            Optional(),
+            Length(max=50, message='Oda tipi 50 karakterden uzun olamaz.')
+        ]
+    )
+
+    kapasite = IntegerField(
+        'Kapasite',
+        validators=[
+            Optional(),
+            NumberRange(min=1, max=20, message='Kapasite 1-20 arasında olmalıdır.')
+        ]
+    )
+
+class UrunGrupForm(BaseForm):
+    """Ürün grubu tanımlama/düzenleme formu"""
+    grup_adi = StringField(
+        'Grup Adı',
+        validators=[
+            DataRequired(message='Grup adı zorunludur.'),
+            Length(min=2, max=100, message='Grup adı 2-100 karakter arasında olmalıdır.')
+        ]
+    )
+
+    aciklama = TextAreaField(
+        'Açıklama',
+        validators=[
+            Optional(),
+            Length(max=500, message='Açıklama 500 karakterden uzun olamaz.')
+        ]
+    )
+
+class ZimmetForm(BaseForm):
+    """Personel zimmet formu"""
+    personel_id = SelectField(
+        'Personel',
+        coerce=int,
+        validators=[DataRequired(message='Personel seçimi zorunludur.')]
+    )
+
+    aciklama = TextAreaField(
+        'Açıklama',
+        validators=[
+            Optional(),
+            Length(max=500, message='Açıklama 500 karakterden uzun olamaz.')
+        ]
+    )

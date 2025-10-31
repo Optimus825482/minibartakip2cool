@@ -11,6 +11,7 @@
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-6">Yeni Stok Girişi</h3>
 
             <form method="POST" class="space-y-6">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
                         <label for="urun_id" class="block text-sm font-medium text-slate-700">
@@ -78,39 +79,62 @@
     <!-- Son Stok Hareketleri -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">Son Stok Hareketleri</h3>
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg leading-6 font-medium text-slate-900">Son Stok Hareketleri</h3>
+                <div class="flex items-center gap-2 text-sm text-slate-600">
+                    <span class="font-medium" data-stats-for="stok-hareketleri-table" data-stat="total">{{
+                        stok_hareketleri|length }}</span>
+                    <span>Toplam Hareket</span>
+                </div>
+            </div>
 
             {% if stok_hareketleri %}
-            <div class="overflow-hidden">
-                <table class="min-w-full divide-y divide-slate-200">
+            <div class="table-wrapper">
+                <table id="stok-hareketleri-table" class="min-w-full divide-y divide-slate-200">
                     <thead class="bg-slate-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden lg:table-cell">
                                 Tarih</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 Ürün</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 Hareket Tipi</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 Miktar</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">
                                 İşlem Yapan</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden xl:table-cell">
                                 Açıklama</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider no-sort">
                                 İşlemler</th>
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-slate-200">
                         {% for hareket in stok_hareketleri %}
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                {{ hareket.islem_tarihi.strftime('%d.%m.%Y %H:%M') }}
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td
+                                class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 hidden lg:table-cell">
+                                <div class="flex items-center">
+                                    <svg class="w-4 h-4 mr-1 text-slate-400" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                                        </path>
+                                    </svg>
+                                    {{ hareket.islem_tarihi.strftime('%d.%m.%Y %H:%M') }}
+                                </div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                                 {{ hareket.urun.urun_adi }}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                                 {% if hareket.hareket_tipi == 'giris' %}
                                 <span
                                     class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
@@ -133,31 +157,47 @@
                                 </span>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                {{ hareket.miktar }} {{ hareket.urun.birim }}
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500">
+                                <span
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                    {{ hareket.miktar }} {{ hareket.urun.birim }}
+                                </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                            <td
+                                class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
                                 {% if hareket.islem_yapan %}
-                                {{ hareket.islem_yapan.ad }} {{ hareket.islem_yapan.soyad }}
+                                <div class="flex items-center">
+                                    <svg class="w-4 h-4 mr-1 text-slate-400" fill="none" stroke="currentColor"
+                                        viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z">
+                                        </path>
+                                    </svg>
+                                    {{ hareket.islem_yapan.ad }} {{ hareket.islem_yapan.soyad }}
+                                </div>
                                 {% else %}
-                                -
+                                <span class="text-slate-400">-</span>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 text-sm text-slate-500">
-                                {{ hareket.aciklama if hareket.aciklama else '-' }}
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm text-slate-500 hidden xl:table-cell">
+                                <span class="max-w-xs truncate block">{{ hareket.aciklama if hareket.aciklama else '-'
+                                    }}</span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                                <a href="{{ url_for('stok_duzenle', hareket_id=hareket.id) }}"
-                                    class="text-slate-600 hover:text-slate-900">
-                                    Düzenle
-                                </a>
-                                <form method="POST" action="{{ url_for('stok_sil', hareket_id=hareket.id) }}"
-                                    class="inline">
-                                    <button type="submit" class="text-red-600 hover:text-red-900"
-                                        onclick="return confirm('Bu stok hareketini silmek istediğinizden emin misiniz?')">
-                                        Sil
-                                    </button>
-                                </form>
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium">
+                                <div class="flex flex-col sm:flex-row gap-2">
+                                    <a href="{{ url_for('stok_duzenle', hareket_id=hareket.id) }}"
+                                        class="text-slate-600 hover:text-slate-900 whitespace-nowrap">
+                                        Düzenle
+                                    </a>
+                                    <form method="POST" action="{{ url_for('stok_sil', hareket_id=hareket.id) }}"
+                                        class="inline">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                                        <button type="submit" class="text-red-600 hover:text-red-900 whitespace-nowrap"
+                                            onclick="return confirm('Bu stok hareketini silmek istediğinizden emin misiniz?')">
+                                            Sil
+                                        </button>
+                                    </form>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -178,4 +218,30 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener( 'DOMContentLoaded', function () {
+        const stokTable = document.getElementById( 'stok-hareketleri-table' );
+        if ( stokTable ) {
+            new TableSearchFilter( 'stok-hareketleri-table', {
+                searchPlaceholder: 'Ürün adı, hareket tipi, işlem yapan veya açıklama ile ara...',
+                filters: [
+                    {
+                        columnIndex: 2, // Hareket Tipi sütunu
+                        label: 'Hareket Tipi',
+                        options: [
+                            { value: 'Giriş', label: 'Giriş' },
+                            { value: 'Çıkış', label: 'Çıkış' },
+                            { value: 'Devir', label: 'Devir' },
+                            { value: 'Sayım', label: 'Sayım' }
+                        ]
+                    }
+                ],
+                defaultItemsPerPage: 25
+            } );
+        }
+    } );
+</script>
 {% endblock %}

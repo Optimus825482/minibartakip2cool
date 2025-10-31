@@ -127,20 +127,26 @@
             <!-- Seçilen Ürünler -->
             <div id="secilen_urunler_ilk_dolum" class="hidden">
                 <h4 class="text-md font-medium text-slate-900 mb-3">Seçilen Ürünler</h4>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ürün Adı
-                                </th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Grup</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Miktar</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">İşlem</th>
-                            </tr>
-                        </thead>
-                        <tbody id="urun_listesi_ilk_dolum" class="bg-white divide-y divide-slate-200">
-                        </tbody>
-                    </table>
+                <div class="table-wrapper">
+                    <div class="min-w-full overflow-hidden rounded-lg border border-slate-200">
+                        <table id="secilen-urunler-table" class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ürün
+                                        Adı
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Grup
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Miktar
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">İşlem
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="urun_listesi_ilk_dolum" class="bg-white divide-y divide-slate-200">
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <div class="mt-6 flex justify-end space-x-3">
@@ -166,23 +172,30 @@
 
             <!-- Minibar İçeriği Listesi -->
             <div id="minibar_icerik_container">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-slate-200">
-                        <thead class="bg-slate-50">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ürün Adı
-                                </th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Grup</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Mevcut Stok
-                                </th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Birim</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">İşlem</th>
-                            </tr>
-                        </thead>
-                        <tbody id="minibar_icerik_tbody" class="bg-white divide-y divide-slate-200">
-                            <!-- JavaScript ile doldurulacak -->
-                        </tbody>
-                    </table>
+                <div class="table-wrapper">
+                    <div class="min-w-full overflow-hidden rounded-lg border border-slate-200">
+                        <table id="minibar-icerik-table" class="min-w-full divide-y divide-slate-200">
+                            <thead class="bg-slate-50">
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ürün
+                                        Adı
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Grup
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Mevcut
+                                        Stok
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Birim
+                                    </th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">İşlem
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="minibar_icerik_tbody" class="bg-white divide-y divide-slate-200">
+                                <!-- JavaScript ile doldurulacak -->
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -229,12 +242,16 @@
                             <!-- YENİ: Gerçek Mevcut Stok Girişi -->
                             <div class="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
                                 <label for="gercek_mevcut_stok" class="block text-sm font-medium text-slate-700 mb-2">
-                                    <svg class="inline w-4 h-4 mr-1 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                                    <svg class="inline w-4 h-4 mr-1 text-yellow-600" fill="currentColor"
+                                        viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd"
+                                            d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                                            clip-rule="evenodd"></path>
                                     </svg>
                                     Minibar'da Şu An Kaç Adet Var? <span class="text-red-500">*</span>
                                 </label>
-                                <p class="text-xs text-slate-600 mb-2">Lütfen minibar'ı kontrol edip gerçek sayımı giriniz</p>
+                                <p class="text-xs text-slate-600 mb-2">Lütfen minibar'ı kontrol edip gerçek sayımı
+                                    giriniz</p>
                                 <input type="number" id="gercek_mevcut_stok" min="0" step="0.01" required
                                     class="appearance-none block w-full px-3 py-2 border border-yellow-300 rounded-md focus:outline-none focus:ring-yellow-500 focus:border-yellow-500 sm:text-sm"
                                     placeholder="Örn: 1 (gerçek sayım)">
@@ -266,6 +283,128 @@
     </div>
 </div>
 
+<!-- Onay Modal (Doldurma İşlemi) -->
+<div id="onay_modal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 transform transition-all">
+        <!-- Modal Header -->
+        <div class="bg-blue-600 text-white px-6 py-4 rounded-t-lg">
+            <div class="flex items-center">
+                <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 class="text-lg font-semibold">Doldurma İşlemi Onayı</h3>
+            </div>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-6">
+            <div class="mb-4 p-4 bg-blue-50 rounded-md">
+                <p class="text-sm text-blue-800 mb-3 font-semibold">
+                    İşlem Özeti:
+                </p>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between border-b border-blue-200 pb-2">
+                        <span class="font-medium text-slate-700">Ürün:</span>
+                        <span id="onay_urun_adi" class="font-semibold text-slate-900">-</span>
+                    </div>
+                    <div class="flex justify-between border-b border-blue-200 pb-2">
+                        <span class="font-medium text-slate-700">Kayıtlı Stok:</span>
+                        <span id="onay_kayitli_stok" class="font-semibold text-slate-900">-</span>
+                    </div>
+                    <div class="flex justify-between border-b border-blue-200 pb-2">
+                        <span class="font-medium text-slate-700">Gerçek Mevcut:</span>
+                        <span id="onay_gercek_mevcut" class="font-semibold text-green-600">-</span>
+                    </div>
+                    <div class="flex justify-between border-b border-orange-200 pb-2">
+                        <span class="font-medium text-slate-700">Tüketim:</span>
+                        <span id="onay_tuketim" class="font-semibold text-orange-600">-</span>
+                    </div>
+                    <div class="flex justify-between border-b border-blue-200 pb-2 mt-3 pt-2">
+                        <span class="font-medium text-slate-700">Eklenecek:</span>
+                        <span id="onay_eklenecek" class="font-semibold text-blue-600">-</span>
+                    </div>
+                    <div class="flex justify-between pt-2">
+                        <span class="font-medium text-slate-700">Yeni Stok:</span>
+                        <span id="onay_yeni_stok" class="font-bold text-green-600 text-lg">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                <p class="text-sm text-yellow-800">
+                    <strong>⚠️ Dikkat:</strong> Zimmetinizden <span id="onay_zimmet_dusum"
+                        class="font-semibold">-</span> düşülecektir.
+                </p>
+            </div>
+
+            <p class="mt-4 text-center text-slate-700 font-medium">
+                Bu işlemi onaylıyor musunuz?
+            </p>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="bg-slate-50 px-6 py-4 rounded-b-lg flex justify-end space-x-3">
+            <button type="button" id="onay_iptal_btn"
+                class="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500">
+                <svg class="inline-block w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                İptal
+            </button>
+            <button type="button" id="onay_onayla_btn"
+                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <svg class="inline-block w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Evet, Onayla
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Başarı Modal -->
+<div id="basari_modal" class="fixed inset-0 bg-slate-900 bg-opacity-50 hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all">
+        <!-- Modal Header -->
+        <div class="bg-green-600 text-white px-6 py-4 rounded-t-lg">
+            <div class="flex items-center">
+                <svg class="w-8 h-8 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 class="text-xl font-bold">İşlem Başarılı!</h3>
+            </div>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-6">
+            <div class="mb-4 p-4 bg-green-50 rounded-md border border-green-200">
+                <p id="basari_mesaj" class="text-green-800 font-semibold text-center text-lg">
+                    ✅ Doldurma işlemi başarıyla tamamlandı!
+                </p>
+            </div>
+
+            <div class="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                <p class="text-sm text-blue-800 text-center">
+                    <strong>ℹ️ Bilgi:</strong> Minibar içeriği güncellendi ve zimmetinizden düşüldü.
+                </p>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="bg-slate-50 px-6 py-4 rounded-b-lg flex justify-center">
+            <button type="button" id="basari_tamam_btn"
+                class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 font-medium">
+                <svg class="inline-block w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Tamam
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     let secilenOdaId = null;
     let secilenIslemTipi = null;
@@ -273,6 +412,10 @@
     let mevcutZimmetler = {};
     let aktifUrunId = null;
     let aktifUrunBilgi = null;
+
+    // CSRF Token
+    const csrfToken = '{{ csrf_token() }}';
+    console.log( 'CSRF Token:', csrfToken );
 
     // Kat değiştiğinde
     document.getElementById( 'kat_id' ).addEventListener( 'change', async function () {
@@ -432,11 +575,11 @@
         document.getElementById( 'gercek_mevcut_stok' ).value = '';
         document.getElementById( 'doldurma_miktar' ).value = '';
         document.getElementById( 'doldurma_modal' ).classList.remove( 'hidden' );
-        
+
         // Focus yap
-        setTimeout(() => {
+        setTimeout( () => {
             document.getElementById( 'gercek_mevcut_stok' ).focus();
-        }, 100);
+        }, 100 );
     }
 
     // Modal kapat
@@ -446,8 +589,8 @@
         aktifUrunBilgi = null;
     }
 
-    // Modal onay
-    document.getElementById( 'modal_onayla_btn' ).addEventListener( 'click', async function () {
+    // Modal onay - validasyon ve onay modal'ını göster
+    document.getElementById( 'modal_onayla_btn' ).addEventListener( 'click', function () {
         const gercekMevcutStok = parseFloat( document.getElementById( 'gercek_mevcut_stok' ).value );
         const miktar = parseFloat( document.getElementById( 'doldurma_miktar' ).value );
 
@@ -477,30 +620,44 @@
 
         // Tüketim hesaplama
         const kayitliStok = aktifUrunBilgi.mevcutStok;
-        const tuketim = Math.max(0, kayitliStok - gercekMevcutStok);
+        const tuketim = Math.max( 0, kayitliStok - gercekMevcutStok );
         const yeniStok = gercekMevcutStok + miktar;
 
-        // Onay mesajı
-        const onay = confirm(
-            `DOLDURMA İŞLEMİ ÖZET:\n\n` +
-            `Ürün: ${aktifUrunBilgi.urunAdi}\n\n` +
-            `Kayıtlı Stok: ${kayitliStok} ${aktifUrunBilgi.birim}\n` +
-            `Gerçek Mevcut: ${gercekMevcutStok} ${aktifUrunBilgi.birim}\n` +
-            `Tüketim: ${tuketim} ${aktifUrunBilgi.birim}\n\n` +
-            `Eklenecek: ${miktar} ${aktifUrunBilgi.birim}\n` +
-            `Yeni Stok: ${yeniStok} ${aktifUrunBilgi.birim}\n\n` +
-            `Zimmetinizden ${miktar} ${aktifUrunBilgi.birim} düşülecek.\n\n` +
-            `Onaylıyor musunuz?`
-        );
+        // Onay modal'ını doldur
+        document.getElementById( 'onay_urun_adi' ).textContent = aktifUrunBilgi.urunAdi;
+        document.getElementById( 'onay_kayitli_stok' ).textContent = `${kayitliStok} ${aktifUrunBilgi.birim}`;
+        document.getElementById( 'onay_gercek_mevcut' ).textContent = `${gercekMevcutStok} ${aktifUrunBilgi.birim}`;
+        document.getElementById( 'onay_tuketim' ).textContent = `${tuketim} ${aktifUrunBilgi.birim}`;
+        document.getElementById( 'onay_eklenecek' ).textContent = `${miktar} ${aktifUrunBilgi.birim}`;
+        document.getElementById( 'onay_yeni_stok' ).textContent = `${yeniStok} ${aktifUrunBilgi.birim}`;
+        document.getElementById( 'onay_zimmet_dusum' ).textContent = `${miktar} ${aktifUrunBilgi.birim}`;
 
-        if ( !onay ) return;
+        // Doldurma modal'ını gizle ve onay modal'ını göster
+        document.getElementById( 'doldurma_modal' ).classList.add( 'hidden' );
+        document.getElementById( 'onay_modal' ).classList.remove( 'hidden' );
+    } );
+
+    // Onay modal - iptal butonu
+    document.getElementById( 'onay_iptal_btn' ).addEventListener( 'click', function () {
+        document.getElementById( 'onay_modal' ).classList.add( 'hidden' );
+        document.getElementById( 'doldurma_modal' ).classList.remove( 'hidden' );
+    } );
+
+    // Onay modal - onayla butonu (API'ye gönder)
+    document.getElementById( 'onay_onayla_btn' ).addEventListener( 'click', async function () {
+        const gercekMevcutStok = parseFloat( document.getElementById( 'gercek_mevcut_stok' ).value );
+        const miktar = parseFloat( document.getElementById( 'doldurma_miktar' ).value );
+
+        // Onay modal'ını gizle
+        document.getElementById( 'onay_modal' ).classList.add( 'hidden' );
 
         // API'ye gönder
         try {
             const response = await fetch( '/api/minibar-doldur', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
                 },
                 body: JSON.stringify( {
                     oda_id: secilenOdaId,
@@ -511,21 +668,70 @@
                 } )
             } );
 
+            console.log( 'Response status:', response.status );
+            console.log( 'Response ok:', response.ok );
+
             const data = await response.json();
+            console.log( 'Response data:', data );
 
             if ( data.success ) {
-                alert( data.message );
+                // Başarı mesajını göster
+                document.getElementById( 'basari_mesaj' ).textContent = data.message;
+                document.getElementById( 'basari_modal' ).classList.remove( 'hidden' );
                 closeModal();
-                // Listeyi yeniden yükle
-                await loadMinibarIcerigi( secilenOdaId );
-                // Zimmet bilgilerini yeniden yükle
-                await loadZimmetBilgileri();
             } else {
+                console.error( 'API Error:', data.error );
                 alert( 'Hata: ' + data.error );
+                document.getElementById( 'doldurma_modal' ).classList.remove( 'hidden' );
             }
         } catch ( error ) {
-            console.error( 'Hata:', error );
-            alert( 'İşlem sırasında bir hata oluştu!' );
+            console.error( 'Fetch Error:', error );
+            alert( 'İşlem sırasında bir hata oluştu: ' + error.message );
+            document.getElementById( 'doldurma_modal' ).classList.remove( 'hidden' );
+        }
+    } );
+
+    // Başarı modal - tamam butonu
+    document.getElementById( 'basari_tamam_btn' ).addEventListener( 'click', async function () {
+        document.getElementById( 'basari_modal' ).classList.add( 'hidden' );
+        // Listeyi yeniden yükle
+        await loadMinibarIcerigi( secilenOdaId );
+        // Zimmet bilgilerini yeniden yükle
+        await loadZimmetBilgileri();
+    } );
+
+    // Modal dışına tıklandığında kapat
+    document.getElementById( 'onay_modal' ).addEventListener( 'click', function ( e ) {
+        if ( e.target === this ) {
+            this.classList.add( 'hidden' );
+            document.getElementById( 'doldurma_modal' ).classList.remove( 'hidden' );
+        }
+    } );
+
+    document.getElementById( 'basari_modal' ).addEventListener( 'click', async function ( e ) {
+        if ( e.target === this ) {
+            this.classList.add( 'hidden' );
+            await loadMinibarIcerigi( secilenOdaId );
+            await loadZimmetBilgileri();
+        }
+    } );
+
+    // ESC tuşu ile modal'ları kapat
+    document.addEventListener( 'keydown', function ( e ) {
+        if ( e.key === 'Escape' ) {
+            const onayModal = document.getElementById( 'onay_modal' );
+            const basariModal = document.getElementById( 'basari_modal' );
+
+            if ( !onayModal.classList.contains( 'hidden' ) ) {
+                onayModal.classList.add( 'hidden' );
+                document.getElementById( 'doldurma_modal' ).classList.remove( 'hidden' );
+            }
+
+            if ( !basariModal.classList.contains( 'hidden' ) ) {
+                basariModal.classList.add( 'hidden' );
+                loadMinibarIcerigi( secilenOdaId );
+                loadZimmetBilgileri();
+            }
         }
     } );
 
@@ -687,6 +893,7 @@
         }
 
         const formData = new FormData();
+        formData.append( 'csrf_token', '{{ csrf_token() }}' );
         formData.append( 'oda_id', secilenOdaId );
         formData.append( 'islem_tipi', 'ilk_dolum' );
         formData.append( 'aciklama', 'İlk dolum' );
@@ -722,4 +929,71 @@
         updateIlkDolumListesi();
     }
 </script>
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/table-search-filter.js') }}"></script>
+<script>
+    // 1. Seçilen Ürünler Tablosu (İlk Dolum) - dinamik tablo
+    let secilenUrunlerFilter = null;
+    const originalUpdateIlkDolumListesi = updateIlkDolumListesi;
+
+    updateIlkDolumListesi = function () {
+        // Orijinal fonksiyonu çağır
+        originalUpdateIlkDolumListesi();
+
+        // Tablo varsa ve gösteriliyorsa, TableSearchFilter'ı başlat/güncelle
+        const container = document.getElementById( 'secilen_urunler_ilk_dolum' );
+        const tbody = document.getElementById( 'urun_listesi_ilk_dolum' );
+
+        if ( !container.classList.contains( 'hidden' ) && tbody.children.length > 0 ) {
+            setTimeout( () => {
+                // Var olan filter'ı kaldır
+                if ( secilenUrunlerFilter ) {
+                    secilenUrunlerFilter = null;
+                }
+
+                // Yeni filter oluştur
+                secilenUrunlerFilter = new TableSearchFilter( 'secilen-urunler-table', {
+                    searchPlaceholder: '🔍 Ürün adı, grup ara...',
+                    defaultItemsPerPage: 10,
+                    skipTableReload: true,
+                    paginationOptions: [10, 25, 50]
+                } );
+            }, 50 );
+        }
+    };
+
+    // 2. Minibar İçeriği Tablosu - dinamik tablo
+    let minibarIcerikFilter = null;
+    const originalLoadMinibarIcerigi = loadMinibarIcerigi;
+
+    loadMinibarIcerigi = async function ( odaId ) {
+        // Orijinal fonksiyonu çağır
+        await originalLoadMinibarIcerigi( odaId );
+
+        // Tablo yüklendikten sonra TableSearchFilter'ı başlat
+        const tbody = document.getElementById( 'minibar_icerik_tbody' );
+
+        // Veri var mı kontrol et (boş mesaj değilse)
+        if ( tbody.children.length > 0 &&
+            !tbody.querySelector( 'td[colspan="5"]' ) ) {
+
+            setTimeout( () => {
+                // Var olan filter'ı kaldır
+                if ( minibarIcerikFilter ) {
+                    minibarIcerikFilter = null;
+                }
+
+                // Yeni filter oluştur
+                minibarIcerikFilter = new TableSearchFilter( 'minibar-icerik-table', {
+                    searchPlaceholder: '🔍 Ürün adı, grup, birim ara...',
+                    defaultItemsPerPage: 10,
+                    skipTableReload: true,
+                    paginationOptions: [10, 25, 50]
+                } );
+            }, 50 );
+        }
+    };
+</script>
+{% endblock %}
 {% endblock %}
