@@ -14,15 +14,31 @@
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     <div>
+                        <label for="grup_id" class="block text-sm font-medium text-slate-700">
+                            Ürün Grubu <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-1">
+                            <select id="grup_id" required
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
+                                <option value="">Önce grup seçiniz...</option>
+                                {% for grup in gruplar %}
+                                <option value="{{ grup.id }}">{{ grup.grup_adi }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div>
                         <label for="urun_id" class="block text-sm font-medium text-slate-700">
                             Ürün <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-1">
-                            <select id="urun_id" name="urun_id" required
-                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
-                                <option value="">Ürün seçiniz...</option>
+                            <select id="urun_id" name="urun_id" required disabled
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm disabled:bg-slate-100 disabled:cursor-not-allowed">
+                                <option value="">Önce grup seçiniz...</option>
                                 {% for urun in urunler %}
-                                <option value="{{ urun.id }}">{{ urun.urun_adi }} ({{ urun.grup.grup_adi }})</option>
+                                <option value="{{ urun.id }}" data-grup-id="{{ urun.grup_id }}">{{ urun.urun_adi }}
+                                </option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -223,6 +239,53 @@
 {% block extra_scripts %}
 <script>
     document.addEventListener( 'DOMContentLoaded', function () {
+        // Grup seçimine göre ürün filtresi
+        const grupSelect = document.getElementById( 'grup_id' );
+        const urunSelect = document.getElementById( 'urun_id' );
+        const allUrunOptions = Array.from( urunSelect.querySelectorAll( 'option[data-grup-id]' ) );
+
+        grupSelect.addEventListener( 'change', function () {
+            const selectedGrupId = this.value;
+
+            // Ürün seçimini sıfırla
+            urunSelect.value = '';
+
+            // Tüm ürün seçeneklerini gizle
+            allUrunOptions.forEach( option => {
+                option.style.display = 'none';
+            } );
+
+            if ( selectedGrupId ) {
+                // Seçili gruba ait ürünleri göster (string karşılaştırması)
+                const filteredOptions = allUrunOptions.filter(
+                    option => String( option.dataset.grupId ) === String( selectedGrupId )
+                );
+
+                console.log( 'Seçilen Grup ID:', selectedGrupId );
+                console.log( 'Filtrelenen Ürünler:', filteredOptions.length );
+
+                filteredOptions.forEach( option => {
+                    option.style.display = 'block';
+                } );
+
+                // Ürün seçimini aktif et
+                urunSelect.disabled = false;
+                urunSelect.querySelector( 'option[value=""]' ).textContent = filteredOptions.length > 0
+                    ? 'Ürün seçiniz...'
+                    : 'Bu grupta ürün yok';
+
+                // Eğer sadece bir ürün varsa otomatik seç
+                if ( filteredOptions.length === 1 ) {
+                    urunSelect.value = filteredOptions[0].value;
+                }
+            } else {
+                // Grup seçilmemişse ürün seçimini devre dışı bırak
+                urunSelect.disabled = true;
+                urunSelect.querySelector( 'option[value=""]' ).textContent = 'Önce grup seçiniz...';
+            }
+        } );
+
+        // Tablo filtreleme
         const stokTable = document.getElementById( 'stok-hareketleri-table' );
         if ( stokTable ) {
             new TableSearchFilter( 'stok-hareketleri-table', {

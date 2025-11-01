@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify, send_file
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from datetime import datetime, timedelta, timezone
@@ -77,6 +77,21 @@ def ratelimit_handler(e):
     )
 
     return render_template('errors/429.html', error=e), 429
+
+
+# CSRF error handler - record and inform user
+@app.errorhandler(CSRFError)
+def handle_csrf_error(e):
+    try:
+        # Log the CSRF error for diagnostics
+        log_hata(e, modul='csrf', extra_info={'path': request.path, 'method': request.method})
+    except Exception:
+        # If logging fails, swallow to avoid masking the original error
+        pass
+
+    # Inform the user and redirect back
+    flash('Form doğrulaması başarısız oldu (CSRF). Lütfen sayfayı yenileyip tekrar deneyin.', 'danger')
+    return redirect(request.referrer or url_for('index'))
 
 # Context processor - tüm template'lere kullanıcı bilgisini gönder
 @app.context_processor
@@ -158,6 +173,18 @@ def setup():
             db.session.rollback()
             flash('Beklenmeyen bir hata oluştu. Sistem yöneticisine bildirildi.', 'danger')
             log_hata(e, modul='setup', extra_info={'form_data': form.data})
+
+    # Eğer POST yapıldı fakat form doğrulama başarısızsa, hata detaylarını loglayalım
+    if request.method == 'POST' and not form.validate_on_submit():
+        try:
+            # form.errors JSON-serializable olmayabilir, bu yüzden güvenli hale getir
+            errors = {k: v for k, v in (form.errors or {}).items()}
+            form_data = request.form.to_dict()
+            log_hata(Exception('Setup validation failed'), modul='setup', extra_info={'errors': errors, 'form_data': form_data})
+            flash('Form doğrulama hatası. Girdi alanlarını kontrol edin ve tekrar deneyin.', 'danger')
+        except Exception as e:
+            # Log kaydında da hata olursa yakala ama işlemi bozma
+            log_hata(e, modul='setup', extra_info={'note': 'logging_failed_on_validation'})
 
     return render_template('setup.html', form=form)
 
@@ -602,7 +629,14 @@ def otel_tanimla():
     from sqlalchemy.exc import OperationalError
 
     otel = Otel.query.first()
-    form = OtelForm(obj=otel)
+    form = OtelForm()
+    
+    # GET request - formu otel bilgileriyle doldur
+    if request.method == 'GET' and otel:
+        form.otel_adi.data = otel.ad
+        form.adres.data = otel.adres
+        form.telefon.data = otel.telefon
+        form.email.data = otel.email
 
     if form.validate_on_submit():
         try:
@@ -614,7 +648,6 @@ def otel_tanimla():
                 otel.adres = form.adres.data
                 otel.telefon = form.telefon.data
                 otel.email = form.email.data
-                otel.vergi_no = form.vergi_no.data
 
                 db.session.commit()
 
@@ -626,8 +659,7 @@ def otel_tanimla():
                     ad=form.otel_adi.data,
                     adres=form.adres.data,
                     telefon=form.telefon.data,
-                    email=form.email.data,
-                    vergi_no=form.vergi_no.data
+                    email=form.email.data
                 )
                 db.session.add(otel)
                 db.session.commit()
@@ -760,11 +792,12 @@ def oda_tanimla():
     from forms import OdaForm
     from sqlalchemy.exc import IntegrityError, OperationalError
 
-    form = OdaForm()
-
-    # Kat seçeneklerini doldur
+    # Kat seçeneklerini doldur (form oluşturmadan önce)
     katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
-    form.kat_id.choices = [(k.id, f'{k.kat_adi} (Kat {k.kat_no})') for k in katlar]
+    kat_choices = [(k.id, f'{k.kat_adi} (Kat {k.kat_no})') for k in katlar]
+    
+    form = OdaForm()
+    form.kat_id.choices = kat_choices
 
     if form.validate_on_submit():
         try:
@@ -807,11 +840,13 @@ def oda_duzenle(oda_id):
     from sqlalchemy.exc import IntegrityError, OperationalError
 
     oda = Oda.query.get_or_404(oda_id)
-    form = OdaForm(obj=oda)
-
-    # Kat seçeneklerini doldur
+    
+    # Kat seçeneklerini doldur (form oluşturmadan önce)
     katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
-    form.kat_id.choices = [(k.id, f'{k.kat_adi} (Kat {k.kat_no})') for k in katlar]
+    kat_choices = [(k.id, f'{k.kat_adi} (Kat {k.kat_no})') for k in katlar]
+    
+    form = OdaForm(obj=oda)
+    form.kat_id.choices = kat_choices
 
     if form.validate_on_submit():
         try:
@@ -1164,11 +1199,12 @@ def urunler():
     from forms import UrunForm
     from sqlalchemy.exc import IntegrityError
 
-    form = UrunForm()
-
-    # Grup seçeneklerini doldur
+    # Grup seçeneklerini doldur (form oluşturmadan önce)
     gruplar = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
-    form.grup_id.choices = [(g.id, g.grup_adi) for g in gruplar]
+    grup_choices = [(g.id, g.grup_adi) for g in gruplar]
+    
+    form = UrunForm()
+    form.grup_id.choices = grup_choices
 
     if form.validate_on_submit():
         try:
@@ -1224,9 +1260,10 @@ def urun_duzenle(urun_id):
 
     urun = Urun.query.get_or_404(urun_id)
     gruplar = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
+    grup_choices = [(g.id, g.grup_adi) for g in gruplar]
 
     form = UrunForm(obj=urun)
-    form.grup_id.choices = [(g.id, g.grup_adi) for g in gruplar]
+    form.grup_id.choices = grup_choices
 
     if form.validate_on_submit():
         try:
@@ -1392,12 +1429,17 @@ def stok_giris():
             db.session.rollback()
             flash(f'Hata oluştu: {str(e)}', 'danger')
     
+    # Aktif ürün gruplarını getir
+    gruplar = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
+    
+    # Aktif ürünleri grup ile birlikte getir
     urunler = Urun.query.filter_by(aktif=True).order_by(Urun.urun_adi).all()
     
     # Son stok hareketlerini getir
     stok_hareketleri = StokHareket.query.order_by(StokHareket.islem_tarihi.desc()).limit(50).all()
     
     return render_template('depo_sorumlusu/stok_giris.html', 
+                         gruplar=gruplar,
                          urunler=urunler, 
                          stok_hareketleri=stok_hareketleri)
 

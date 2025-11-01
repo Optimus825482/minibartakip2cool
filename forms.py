@@ -85,11 +85,11 @@ class SetupForm(BaseForm):
         ]
     )
     
-    adres = TextAreaField(
+    adres = StringField(
         'Adres', 
         validators=[
-            DataRequired(message='Adres zorunludur.'),
-            Length(min=10, max=500, message='Adres 10-500 karakter arasında olmalıdır.')
+            Optional(),
+            Length(max=500, message='Adres 500 karakterden uzun olamaz.')
         ]
     )
     
@@ -230,7 +230,12 @@ class PersonelForm(BaseForm):
     )
     
     rol = SelectField(
-        'Rol', 
+        'Rol',
+        choices=[
+            ('admin', 'Admin'),
+            ('depo_sorumlusu', 'Depo Sorumlusu'),
+            ('kat_sorumlusu', 'Kat Sorumlusu')
+        ],
         validators=[DataRequired(message='Rol seçimi zorunludur.')]
     )
     
@@ -379,6 +384,8 @@ class UrunForm(BaseForm):
     """Enhanced product form"""
     grup_id = SelectField(
         'Ürün Grubu', 
+        coerce=int,
+        choices=[],
         validators=[DataRequired(message='Ürün grubu seçimi zorunludur.')]
     )
     
@@ -401,6 +408,7 @@ class UrunForm(BaseForm):
     
     birim = SelectField(
         'Birim', 
+        choices=[('Adet', 'Adet'), ('Kutu', 'Kutu'), ('Şişe', 'Şişe'), ('Paket', 'Paket')],
         validators=[DataRequired(message='Birim seçimi zorunludur.')]
     )
     
@@ -415,12 +423,15 @@ class UrunForm(BaseForm):
 class StokHareketForm(BaseForm):
     """Enhanced stock movement form"""
     urun_id = SelectField(
-        'Ürün', 
+        'Ürün',
+        coerce=int,
+        choices=[],
         validators=[DataRequired(message='Ürün seçimi zorunludur.')]
     )
     
     hareket_tipi = SelectField(
-        'Hareket Tipi', 
+        'Hareket Tipi',
+        choices=[('giris', 'Giriş'), ('cikis', 'Çıkış')],
         validators=[DataRequired(message='Hareket tipi seçimi zorunludur.')]
     )
     
@@ -443,12 +454,15 @@ class StokHareketForm(BaseForm):
 class MinibarKontrolForm(BaseForm):
     """Enhanced minibar control form"""
     oda_id = SelectField(
-        'Oda', 
+        'Oda',
+        coerce=int,
+        choices=[],
         validators=[DataRequired(message='Oda seçimi zorunludur.')]
     )
     
     islem_tipi = SelectField(
-        'İşlem Tipi', 
+        'İşlem Tipi',
+        choices=[('kontrol', 'Kontrol'), ('dolum', 'Dolum')],
         validators=[DataRequired(message='İşlem tipi seçimi zorunludur.')]
     )
     
@@ -496,11 +510,11 @@ class OtelForm(BaseForm):
         ]
     )
 
-    adres = TextAreaField(
+    adres = StringField(
         'Adres',
         validators=[
-            DataRequired(message='Adres zorunludur.'),
-            Length(min=10, max=500, message='Adres 10-500 karakter arasında olmalıdır.')
+            Optional(),
+            Length(max=500, message='Adres 500 karakterden uzun olamaz.')
         ]
     )
 
@@ -519,14 +533,6 @@ class OtelForm(BaseForm):
             Optional(),
             Email(message='Geçerli bir e-posta adresi giriniz.'),
             Length(max=100, message='E-posta adresi 100 karakterden uzun olamaz.')
-        ]
-    )
-
-    vergi_no = StringField(
-        'Vergi Numarası',
-        validators=[
-            Optional(),
-            Length(max=50, message='Vergi numarası 50 karakterden uzun olamaz.')
         ]
     )
 
@@ -561,6 +567,7 @@ class OdaForm(BaseForm):
     kat_id = SelectField(
         'Kat',
         coerce=int,
+        choices=[],
         validators=[DataRequired(message='Kat seçimi zorunludur.')]
     )
 
@@ -612,6 +619,7 @@ class ZimmetForm(BaseForm):
     personel_id = SelectField(
         'Personel',
         coerce=int,
+        choices=[],
         validators=[DataRequired(message='Personel seçimi zorunludur.')]
     )
 
