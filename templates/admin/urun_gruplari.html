@@ -159,25 +159,23 @@
 {% block extra_scripts %}
 <script>
     document.addEventListener( 'DOMContentLoaded', function () {
-        window.tableSearchFilter_gruplar = new TableSearchFilter( {
-            tableId: 'gruplar-table',
-            searchInputId: 'gruplar-search',
-            searchPlaceholder: 'Grup adı veya açıklama ara...',
-            defaultItemsPerPage: 25,
-            itemsPerPageOptions: [10, 25, 50, 100],
-            noResultsMessage: 'Aradığınız kriterlere uygun grup bulunamadı',
-            filters: [
-                {
-                    column: 3,
-                    label: 'Durum',
-                    options: [
-                        { value: 'Aktif', label: 'Aktif' },
-                        { value: 'Pasif', label: 'Pasif' }
-                    ]
-                }
-            ],
-            sortable: true
-        } );
+        const gruplarTable = document.getElementById( 'gruplar-table' );
+        if ( gruplarTable ) {
+            window.tableSearchFilter_gruplar = new TableSearchFilter( 'gruplar-table', {
+                searchPlaceholder: 'Grup adı veya açıklama ara...',
+                defaultItemsPerPage: 25,
+                filters: [
+                    {
+                        columnIndex: 3,
+                        label: 'Durum',
+                        options: [
+                            { value: 'Aktif', label: 'Aktif' },
+                            { value: 'Pasif', label: 'Pasif' }
+                        ]
+                    }
+                ]
+            } );
+        }
     } );
 </script>
 {% endblock %}

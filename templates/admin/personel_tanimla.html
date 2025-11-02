@@ -217,34 +217,32 @@
 <script>
     // Personel tablosu için gelişmiş arama ve filtreleme
     document.addEventListener( 'DOMContentLoaded', function () {
-        window.tableSearchFilter_personel = new TableSearchFilter( {
-            tableId: 'personel-table',
-            searchInputId: 'personel-search',
-            searchPlaceholder: 'Ad, soyad, kullanıcı adı, email veya telefon ara...',
-            defaultItemsPerPage: 25,
-            itemsPerPageOptions: [10, 25, 50, 100],
-            noResultsMessage: 'Aradığınız kriterlere uygun kullanıcı bulunamadı',
-            filters: [
-                {
-                    column: 2,
-                    label: 'Rol',
-                    options: [
-                        { value: 'Admin', label: 'Admin' },
-                        { value: 'Depo Sorumlusu', label: 'Depo Sorumlusu' },
-                        { value: 'Kat Sorumlusu', label: 'Kat Sorumlusu' }
-                    ]
-                },
-                {
-                    column: 5,
-                    label: 'Durum',
-                    options: [
-                        { value: 'Aktif', label: 'Aktif' },
-                        { value: 'Pasif', label: 'Pasif' }
-                    ]
-                }
-            ],
-            sortable: true
-        } );
+        const personelTable = document.getElementById( 'personel-table' );
+        if ( personelTable ) {
+            window.tableSearchFilter_personel = new TableSearchFilter( 'personel-table', {
+                searchPlaceholder: 'Ad, soyad, kullanıcı adı, email veya telefon ara...',
+                defaultItemsPerPage: 25,
+                filters: [
+                    {
+                        columnIndex: 2,
+                        label: 'Rol',
+                        options: [
+                            { value: 'Admin', label: 'Admin' },
+                            { value: 'Depo Sorumlusu', label: 'Depo Sorumlusu' },
+                            { value: 'Kat Sorumlusu', label: 'Kat Sorumlusu' }
+                        ]
+                    },
+                    {
+                        columnIndex: 5,
+                        label: 'Durum',
+                        options: [
+                            { value: 'Aktif', label: 'Aktif' },
+                            { value: 'Pasif', label: 'Pasif' }
+                        ]
+                    }
+                ]
+            } );
+        }
     } );
 </script>
 {% endblock %}

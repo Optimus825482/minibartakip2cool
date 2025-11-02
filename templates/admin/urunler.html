@@ -381,35 +381,33 @@
     ];
 
     // Tablo arama ve filtreleme örneği
-    window.tableSearchFilter_urunler = new TableSearchFilter( {
-        tableId: 'urunler-table',
-        searchInputId: 'urunler-search',
-        searchPlaceholder: 'Ürün adı, barkod veya grup ara...',
-        defaultItemsPerPage: 25,
-        itemsPerPageOptions: [10, 25, 50, 100],
-        noResultsMessage: 'Aradığınız kriterlere uygun ürün bulunamadı',
-        filters: [
-            {
-                column: 1,
-                label: 'Grup',
-                options: grupOptions
-            },
-            {
-                column: 4,
-                label: 'Birim',
-                options: birimOptions
-            },
-            {
-                column: 5,
-                label: 'Durum',
-                options: [
-                    { value: 'Aktif', label: 'Aktif' },
-                    { value: 'Pasif', label: 'Pasif' }
-                ]
-            }
-        ],
-        sortable: true
-    } );
+    const urunlerTable = document.getElementById( 'urunler-table' );
+    if ( urunlerTable ) {
+        window.tableSearchFilter_urunler = new TableSearchFilter( 'urunler-table', {
+            searchPlaceholder: 'Ürün adı, barkod veya grup ara...',
+            defaultItemsPerPage: 25,
+            filters: [
+                {
+                    columnIndex: 1,
+                    label: 'Grup',
+                    options: grupOptions
+                },
+                {
+                    columnIndex: 3,
+                    label: 'Birim',
+                    options: birimOptions
+                },
+                {
+                    columnIndex: 5,
+                    label: 'Durum',
+                    options: [
+                        { value: 'Aktif', label: 'Aktif' },
+                        { value: 'Pasif', label: 'Pasif' }
+                    ]
+                }
+            ]
+        } );
+    }
     } );
 </script>
 {% endblock %}
