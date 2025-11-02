@@ -19,7 +19,7 @@
 
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
                     {{ render_field(form.kat_adi, placeholder="Örn: 1. Kat, Zemin Kat") }}
-                    {{ render_field(form.kat_no, placeholder="Örn: 1, 2, 3") }}
+                    {{ render_field(form.kat_no, placeholder="Örn: 0 (Zemin), 1, 2, 3") }}
 
                     <div class="sm:col-span-2">
                         {{ render_field(form.aciklama, placeholder="Kat hakkında ek bilgiler...") }}
@@ -73,7 +73,7 @@
                             <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500">
                                 <span
                                     class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                    {{ kat.kat_no }}. Kat
+                                    {% if kat.kat_no == 0 %}Zemin Kat{% else %}{{ kat.kat_no }}. Kat{% endif %}
                                 </span>
                             </td>
                             <td

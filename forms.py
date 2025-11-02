@@ -550,7 +550,7 @@ class KatForm(BaseForm):
         'Kat Numarası',
         validators=[
             DataRequired(message='Kat numarası zorunludur.'),
-            NumberRange(min=-5, max=100, message='Kat numarası -5 ile 100 arasında olmalıdır.')
+            NumberRange(min=-5, max=100, message='Kat numarası -5 ile 100 arasında olmalıdır. (0: Zemin Kat)')
         ]
     )
 

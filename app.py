@@ -1,7 +1,8 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, make_response, jsonify, send_file
 from flask_wtf.csrf import CSRFProtect, CSRFError
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
+# Rate limiter devre dışı bırakıldı
+# from flask_limiter import Limiter
+# from flask_limiter.util import get_remote_address
 from datetime import datetime, timedelta, timezone
 import os
 import io
@@ -29,14 +30,14 @@ app.config.from_object('config.Config')
 # CSRF Koruması Aktif
 csrf = CSRFProtect(app)
 
-# Rate Limiting Aktif
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"],
-    storage_uri="memory://",  # Production'da Redis kullanılmalı
-    strategy="fixed-window"
-)
+# Rate Limiting Devre Dışı (İhtiyaç halinde açılabilir)
+# limiter = Limiter(
+#     app=app,
+#     key_func=get_remote_address,
+#     default_limits=["200 per day", "50 per hour"],
+#     storage_uri="memory://",  # Production'da Redis kullanılmalı
+#     strategy="fixed-window"
+# )
 
 # Veritabanı başlat
 from models import db
@@ -116,7 +117,6 @@ def index():
 # Setup sayfası
 @app.route('/setup', methods=['GET', 'POST'])
 @setup_not_completed
-@limiter.limit("10 per hour")  # Rate limit: 10 deneme/saat
 def setup():
     from forms import SetupForm
     from sqlalchemy.exc import IntegrityError, OperationalError
@@ -191,7 +191,6 @@ def setup():
 # Login sayfası
 @app.route('/login', methods=['GET', 'POST'])
 @setup_required
-@limiter.limit("5 per minute")  # Rate limit: 5 deneme/dakika (Brute force koruması)
 def login():
     from forms import LoginForm
 
