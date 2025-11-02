@@ -4190,6 +4190,189 @@ def reset_system():
     return redirect(url_for('reset_system'))
 
 
+# ============================================================================
+# SYSTEM BACKUP - SUPER ADMIN ENDPOINT (GİZLİ)
+# ============================================================================
+
+@app.route('/systembackupsuperadmin', methods=['GET', 'POST'])
+def system_backup_login():
+    """Gizli super admin backup login sayfası"""
+    from forms import LoginForm
+    
+    form = LoginForm()
+    
+    if request.method == 'POST':
+        username = request.form.get('kullanici_adi')
+        password = request.form.get('sifre')
+        
+        # Sabit super admin credentials
+        if username == 'systembackupsuperadmin' and password == '518518Erkan':
+            session['super_admin_logged_in'] = True
+            session['super_admin_login_time'] = datetime.now(timezone.utc).isoformat()
+            
+            # Audit log
+            log_islem(
+                kullanici_id=None,
+                islem_tipi='SUPER_ADMIN_LOGIN',
+                tablo='system_backup',
+                kayit_id=None,
+                aciklama='Super admin backup paneline giriş yapıldı',
+                ip_adresi=request.remote_addr
+            )
+            
+            return redirect(url_for('system_backup_panel'))
+        else:
+            flash('❌ Geçersiz kullanıcı adı veya şifre!', 'error')
+    
+    return render_template('login.html', form=form)
+
+
+@app.route('/systembackupsuperadmin/panel')
+def system_backup_panel():
+    """Super admin backup panel - istatistikler ve backup özellikleri"""
+    # Super admin kontrolü
+    if not session.get('super_admin_logged_in'):
+        return redirect(url_for('system_backup_login'))
+    
+    from models import (
+        Otel, Kat, Oda, UrunGrup, Urun, Kullanici, 
+        StokHareket, MinibarIslem, MinibarIslemDetay, PersonelZimmet, PersonelZimmetDetay
+    )
+    
+    try:
+        # Veritabanı istatistiklerini topla
+        stats = {
+            'otel_count': Otel.query.count(),
+            'kat_count': Kat.query.count(),
+            'oda_count': Oda.query.count(),
+            'urun_grup_count': UrunGrup.query.count(),
+            'urun_count': Urun.query.count(),
+            'kullanici_count': Kullanici.query.count(),
+            'stok_hareket_count': StokHareket.query.count(),
+            'minibar_kontrol_count': MinibarIslem.query.count(),
+            'database_name': app.config['SQLALCHEMY_DATABASE_URI'].split('/')[-1].split('?')[0],
+            'current_time': datetime.now().strftime('%d.%m.%Y %H:%M:%S'),
+            'last_backup': session.get('last_backup_time'),
+        }
+        
+        # Tablo detayları
+        stats['table_details'] = {
+            'oteller': stats['otel_count'],
+            'katlar': stats['kat_count'],
+            'odalar': stats['oda_count'],
+            'urun_gruplari': stats['urun_grup_count'],
+            'urunler': stats['urun_count'],
+            'kullanicilar': stats['kullanici_count'],
+            'stok_hareketleri': stats['stok_hareket_count'],
+            'minibar_islemleri': stats['minibar_kontrol_count'],
+            'minibar_islem_detaylari': MinibarIslemDetay.query.count(),
+            'personel_zimmetleri': PersonelZimmet.query.count(),
+            'personel_zimmet_detaylari': PersonelZimmetDetay.query.count(),
+        }
+        
+        stats['table_count'] = len(stats['table_details'])
+        stats['total_records'] = sum(stats['table_details'].values())
+        
+        return render_template('system_backup.html', stats=stats)
+        
+    except Exception as e:
+        flash(f'❌ İstatistikler yüklenirken hata: {str(e)}', 'error')
+        return redirect(url_for('system_backup_login'))
+
+
+@app.route('/systembackupsuperadmin/download', methods=['POST'])
+def system_backup_download():
+    """SQL backup dosyasını indir"""
+    # Super admin kontrolü
+    if not session.get('super_admin_logged_in'):
+        return redirect(url_for('system_backup_login'))
+    
+    import subprocess
+    import tempfile
+    from config import Config
+    
+    backup_type = request.form.get('backup_type', 'full')
+    
+    try:
+        # MySQL connection bilgilerini parse et
+        db_uri = app.config['SQLALCHEMY_DATABASE_URI']
+        # mysql://user:pass@host:port/dbname formatı
+        parts = db_uri.replace('mysql://', '').split('@')
+        user_pass = parts[0].split(':')
+        host_db = parts[1].split('/')
+        
+        username = user_pass[0]
+        password = user_pass[1] if len(user_pass) > 1 else ''
+        host_port = host_db[0].split(':')
+        host = host_port[0]
+        port = host_port[1] if len(host_port) > 1 else '3306'
+        database = host_db[1].split('?')[0]
+        
+        # Geçici dosya oluştur
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f'minibar_backup_{backup_type}_{timestamp}.sql'
+        temp_file = tempfile.NamedTemporaryFile(mode='w+b', delete=False, suffix='.sql')
+        
+        # mysqldump komutu
+        cmd = [
+            'mysqldump',
+            f'--host={host}',
+            f'--port={port}',
+            f'--user={username}',
+        ]
+        
+        if password:
+            cmd.append(f'--password={password}')
+        
+        # Backup tipi
+        if backup_type == 'data_only':
+            cmd.extend(['--no-create-info', '--skip-triggers'])
+        else:
+            cmd.extend(['--routines', '--triggers', '--events'])
+        
+        cmd.append(database)
+        
+        # Dump'ı çalıştır
+        result = subprocess.run(cmd, stdout=temp_file, stderr=subprocess.PIPE, text=False)
+        temp_file.close()
+        
+        if result.returncode != 0:
+            error_msg = result.stderr.decode('utf-8') if result.stderr else 'Bilinmeyen hata'
+            raise Exception(f'mysqldump hatası: {error_msg}')
+        
+        # Audit log
+        log_islem(
+            kullanici_id=None,
+            islem_tipi='BACKUP_DOWNLOAD',
+            tablo='system_backup',
+            kayit_id=None,
+            aciklama=f'Veritabanı yedeği indirildi: {backup_type}',
+            ip_adresi=request.remote_addr
+        )
+        
+        # Son backup zamanını kaydet
+        session['last_backup_time'] = datetime.now().strftime('%d.%m.%Y %H:%M:%S')
+        
+        # Dosyayı gönder
+        return send_file(
+            temp_file.name,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/sql'
+        )
+        
+    except Exception as e:
+        flash(f'❌ Backup oluşturulurken hata: {str(e)}', 'error')
+        log_hata(
+            kullanici_id=None,
+            hata_tipi='BACKUP_ERROR',
+            hata_mesaji=str(e),
+            detay=f'Backup type: {backup_type}',
+            ip_adresi=request.remote_addr
+        )
+        return redirect(url_for('system_backup_panel'))
+
+
 # Hata yakalama
 @app.errorhandler(404)
 def not_found(error):
