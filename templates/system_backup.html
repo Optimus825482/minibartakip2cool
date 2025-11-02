@@ -254,8 +254,14 @@
     <script>
         // Show loading on form submit
         document.querySelectorAll( 'form' ).forEach( form => {
-            form.addEventListener( 'submit', function () {
+            form.addEventListener( 'submit', function ( e ) {
+                // Loading göster
                 document.getElementById( 'loadingOverlay' ).classList.remove( 'hidden' );
+
+                // 2 saniye sonra loading'i kapat (download başlamış olur)
+                setTimeout( () => {
+                    document.getElementById( 'loadingOverlay' ).classList.add( 'hidden' );
+                }, 2000 );
             } );
         } );
 
