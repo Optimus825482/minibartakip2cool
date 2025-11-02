@@ -4,8 +4,9 @@
  */
 
 class TableSearchFilter {
-    constructor(options) {
-        this.tableId = options.tableId;
+    constructor(tableId, options = {}) {
+        // YENİ API: İlk parametre tableId string, ikinci parametre options objesi
+        this.tableId = tableId;
         this.searchInputId = options.searchInputId;
         this.filters = options.filters || [];
         this.sortable = options.sortable !== false;
@@ -15,7 +16,17 @@ class TableSearchFilter {
         this.searchPlaceholder = options.searchPlaceholder || 'Ara...';
         
         this.table = document.getElementById(this.tableId);
+        if (!this.table) {
+            console.error(`TableSearchFilter: Tablo bulunamadı - ID: ${this.tableId}`);
+            return;
+        }
+        
         this.tbody = this.table.querySelector('tbody');
+        if (!this.tbody) {
+            console.error(`TableSearchFilter: tbody bulunamadı - Tablo ID: ${this.tableId}`);
+            return;
+        }
+        
         this.originalRows = Array.from(this.tbody.querySelectorAll('tr'));
         this.filteredRows = [...this.originalRows];
         
@@ -25,6 +36,11 @@ class TableSearchFilter {
         this.sortDirection = 'asc';
         this.searchTerm = '';
         this.activeFilters = {};
+        
+        // Global değişken olarak kaydet (onclick referansları için)
+        // ID'deki tire ve nokta karakterlerini underscore'a çevir
+        this.safeId = this.tableId.replace(/[-\.]/g, '_');
+        window[`tableSearchFilter_${this.safeId}`] = this;
         
         this.init();
     }
@@ -176,7 +192,7 @@ class TableSearchFilter {
             return `
                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-600 text-white">
                     <span>${filter.label}: ${option.label}</span>
-                    <button onclick="tableSearchFilter_${this.tableId}.removeFilter(${column})" 
+                    <button onclick="tableSearchFilter_${this.safeId}.removeFilter(${column})" 
                             class="hover:bg-slate-700 rounded-full p-0.5">
                         <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
@@ -383,7 +399,7 @@ class TableSearchFilter {
         
         const createButton = (page, text, disabled = false) => {
             return `
-                <button onclick="tableSearchFilter_${this.tableId}.goToPage(${page})"
+                <button onclick="tableSearchFilter_${this.safeId}.goToPage(${page})"
                         class="px-3 py-2 text-sm font-medium rounded-md transition-colors
                                ${disabled ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 
                                  page === this.currentPage ? 'bg-slate-600 text-white' : 

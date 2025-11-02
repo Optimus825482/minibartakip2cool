@@ -362,30 +362,28 @@
 <script>
     // Ürünler tablosu için gelişmiş arama ve filtreleme
     document.addEventListener( 'DOMContentLoaded', function () {
-        // Grup seçeneklerini dinamik olarak oluştur
-        const grupOptions = [
-            {% for grup in gruplar %}
-            { value: '{{ grup.grup_adi }}', label: '{{ grup.grup_adi }}' },
+        const urunlerTable = document.getElementById( 'urunler-table' );
+        if ( urunlerTable ) {
+            // Grup seçeneklerini dinamik olarak oluştur
+            const grupOptions = [
+                {% for grup in gruplar %}
+        { value: '{{ grup.grup_adi }}', label: '{{ grup.grup_adi }}' },
         {% endfor %}
+            ];
+
+        // Birim seçenekleri
+        const birimOptions = [
+            { value: 'Adet', label: 'Adet' },
+            { value: 'Kutu', label: 'Kutu' },
+            { value: 'Şişe', label: 'Şişe' },
+            { value: 'Gram', label: 'Gram' },
+            { value: 'Kilogram', label: 'Kilogram' },
+            { value: 'Litre', label: 'Litre' },
+            { value: 'Mililitre', label: 'Mililitre' }
         ];
 
-    // Birim seçenekleri
-    const birimOptions = [
-        { value: 'Adet', label: 'Adet' },
-        { value: 'Kutu', label: 'Kutu' },
-        { value: 'Şişe', label: 'Şişe' },
-        { value: 'Gram', label: 'Gram' },
-        { value: 'Kilogram', label: 'Kilogram' },
-        { value: 'Litre', label: 'Litre' },
-        { value: 'Mililitre', label: 'Mililitre' }
-    ];
-
-    // Tablo arama ve filtreleme örneği
-    const urunlerTable = document.getElementById( 'urunler-table' );
-    if ( urunlerTable ) {
         window.tableSearchFilter_urunler = new TableSearchFilter( 'urunler-table', {
             searchPlaceholder: 'Ürün adı, barkod veya grup ara...',
-            defaultItemsPerPage: 25,
             filters: [
                 {
                     columnIndex: 1,

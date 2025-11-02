@@ -69,7 +69,7 @@ class FormValidator {
 
         // Submit event listener
         this.form.addEventListener('submit', (e) => {
-            if (!this.validateForm()) {
+            if (!this.validateForm(true)) { // scroll ve focus sadece submit'te
                 e.preventDefault();
                 return false;
             }
@@ -262,8 +262,9 @@ class FormValidator {
 
     /**
      * Tüm formu validate et
+     * @param {boolean} scrollAndFocus - Scroll ve focus işlemlerini yap
      */
-    validateForm() {
+    validateForm(scrollAndFocus = false) {
         let isValid = true;
         let firstErrorField = null;
 
@@ -281,16 +282,16 @@ class FormValidator {
             }
         });
 
-        // Scroll to first error
-        if (!isValid && this.options.scrollToError && firstErrorField) {
+        // Scroll to first error - sadece scrollAndFocus=true olunca
+        if (scrollAndFocus && !isValid && this.options.scrollToError && firstErrorField) {
             firstErrorField.scrollIntoView({
                 behavior: 'smooth',
                 block: 'center'
             });
         }
 
-        // Focus first error
-        if (!isValid && this.options.focusFirstError && firstErrorField) {
+        // Focus first error - sadece scrollAndFocus=true olunca
+        if (scrollAndFocus && !isValid && this.options.focusFirstError && firstErrorField) {
             setTimeout(() => firstErrorField.focus(), 300);
         }
 
