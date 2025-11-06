@@ -5,14 +5,15 @@
 
 {% block content %}
 <div class="space-y-6">
-    <!-- İstatistik Kartları -->
-    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        <div class="bg-white overflow-hidden shadow rounded-lg">
-            <div class="p-5">
+    <!-- İstatistik Kartları - Tablet Optimized -->
+    <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:gap-5">
+        <!-- Toplam Zimmet Ürün Sayısı -->
+        <a href="{{ url_for('kat_sorumlusu_zimmet_stoklarim') }}" class="bg-white overflow-hidden shadow rounded-lg cursor-pointer">
+            <div class="p-4 md:p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-blue-500 rounded-md flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div class="w-10 h-10 md:w-12 md:h-12 bg-blue-500 rounded-md flex items-center justify-center">
+                            <svg class="w-6 h-6 md:w-7 md:h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                             </svg>
@@ -20,41 +21,64 @@
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-slate-500 truncate">Aktif Zimmetler</dt>
-                            <dd class="text-lg font-medium text-slate-900">{{ aktif_zimmetler }}</dd>
-                        </dl>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white overflow-hidden shadow rounded-lg">
-            <div class="p-5">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-green-500 rounded-md flex items-center justify-center">
-                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
-                                </path>
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-sm font-medium text-slate-500 truncate">Zimmet Toplam</dt>
+                            <dt class="text-sm font-medium text-slate-500 truncate">Toplam Zimmet Ürün</dt>
                             <dd class="text-lg font-medium text-slate-900">{{ zimmet_toplam }}</dd>
                         </dl>
                     </div>
                 </div>
             </div>
-        </div>
+        </a>
 
+        <!-- Kritik Stok Sayısı -->
+        <a href="{{ url_for('kat_sorumlusu_kritik_stoklar') }}" class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow cursor-pointer {% if kritik_stok_sayisi > 0 %}ring-2 ring-red-500{% endif %}">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 {% if kritik_stok_sayisi > 0 %}bg-red-500{% else %}bg-yellow-500{% endif %} rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-slate-500 truncate">Kritik Stok</dt>
+                            <dd class="text-lg font-medium {% if kritik_stok_sayisi > 0 %}text-red-600{% else %}text-slate-900{% endif %}">{{ kritik_stok_sayisi }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <!-- Stokout Ürün Sayısı -->
+        <a href="{{ url_for('kat_sorumlusu_kritik_stoklar') }}" class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow cursor-pointer {% if stokout_sayisi > 0 %}ring-2 ring-red-600{% endif %}">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 {% if stokout_sayisi > 0 %}bg-red-600{% else %}bg-green-500{% endif %} rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-slate-500 truncate">Stokout Ürün</dt>
+                            <dd class="text-lg font-medium {% if stokout_sayisi > 0 %}text-red-600{% else %}text-slate-900{% endif %}">{{ stokout_sayisi }}</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </a>
+
+        <!-- Bugünkü Kullanım -->
         <div class="bg-white overflow-hidden shadow rounded-lg">
             <div class="p-5">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
-                        <div class="w-8 h-8 bg-yellow-500 rounded-md flex items-center justify-center">
+                        <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
@@ -64,8 +88,8 @@
                     </div>
                     <div class="ml-5 w-0 flex-1">
                         <dl>
-                            <dt class="text-sm font-medium text-slate-500 truncate">Son İşlemler</dt>
-                            <dd class="text-lg font-medium text-slate-900">{{ son_islemler|length }}</dd>
+                            <dt class="text-sm font-medium text-slate-500 truncate">Bugünkü Kullanım</dt>
+                            <dd class="text-lg font-medium text-slate-900">{{ bugunun_kullanimi }}</dd>
                         </dl>
                     </div>
                 </div>
@@ -73,13 +97,13 @@
         </div>
     </div>
 
-    <!-- Hızlı İşlemler -->
+    <!-- Hızlı İşlemler - Tablet Optimized -->
     <div class="bg-white shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">Hızlı İşlemler</h3>
-            <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:gap-5">
                 <a href="{{ url_for('minibar_kontrol') }}"
-                    class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200">
+                    class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200 hover:border-blue-300 transition-colors">
                     <div>
                         <span class="rounded-lg inline-flex p-3 bg-blue-50 text-blue-700 ring-4 ring-white">
                             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -98,8 +122,8 @@
                     </div>
                 </a>
 
-                <a href="{{ url_for('zimmetim') }}"
-                    class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200">
+                <a href="{{ url_for('kat_sorumlusu_zimmet_stoklarim') }}"
+                    class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200 hover:border-green-300 transition-colors">
                     <div>
                         <span class="rounded-lg inline-flex p-3 bg-green-50 text-green-700 ring-4 ring-white">
                             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,31 +135,76 @@
                     <div class="mt-4">
                         <h3 class="text-lg font-medium">
                             <span class="absolute inset-0" aria-hidden="true"></span>
-                            Zimmetim
+                            Zimmet Stoklarım
                         </h3>
-                        <p class="mt-2 text-sm text-slate-500">Zimmetinizdeki ürünleri görüntüleyin</p>
+                        <p class="mt-2 text-sm text-slate-500">Detaylı stok takibi</p>
                     </div>
                 </a>
 
-                <a href="{{ url_for('kat_raporlar') }}"
-                    class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200">
+                <a href="{{ url_for('kat_sorumlusu_kritik_stoklar') }}"
+                    class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200 hover:border-red-300 transition-colors">
                     <div>
-                        <span class="rounded-lg inline-flex p-3 bg-yellow-50 text-yellow-700 ring-4 ring-white">
+                        <span class="rounded-lg inline-flex p-3 bg-red-50 text-red-700 ring-4 ring-white">
                             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
-                                </path>
+                                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                             </svg>
                         </span>
                     </div>
                     <div class="mt-4">
                         <h3 class="text-lg font-medium">
                             <span class="absolute inset-0" aria-hidden="true"></span>
-                            Raporlar
+                            Kritik Stoklar
                         </h3>
-                        <p class="mt-2 text-sm text-slate-500">Kişisel raporlarınızı görüntüleyin</p>
+                        <p class="mt-2 text-sm text-slate-500">Azalan ürünleri görüntüle</p>
                     </div>
                 </a>
+
+                <a href="{{ url_for('kat_sorumlusu_siparis_hazirla') }}"
+                    class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200 hover:border-purple-300 transition-colors">
+                    <div>
+                        <span class="rounded-lg inline-flex p-3 bg-purple-50 text-purple-700 ring-4 ring-white">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <div class="mt-4">
+                        <h3 class="text-lg font-medium">
+                            <span class="absolute inset-0" aria-hidden="true"></span>
+                            Sipariş Hazırla
+                        </h3>
+                        <p class="mt-2 text-sm text-slate-500">Otomatik sipariş oluştur</p>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grafikler - Tablet Optimized -->
+    <div class="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+        <!-- En Çok Kullanılan Ürünler -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-medium text-slate-900 mb-4">En Çok Kullanılan Ürünler (Son 7 Gün)</h3>
+            <div style="height: 300px;">
+                <canvas id="enCokUrunChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Zimmet Kullanım Durumu -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-medium text-slate-900 mb-4">Zimmet Kullanım Durumu</h3>
+            <div style="height: 300px;">
+                <canvas id="zimmetDurumChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Günlük Tüketim Trendi -->
+        <div class="bg-white shadow rounded-lg p-6">
+            <h3 class="text-lg font-medium text-slate-900 mb-4">Günlük Tüketim Trendi</h3>
+            <div style="height: 300px;">
+                <canvas id="gunlukTuketimChart"></canvas>
             </div>
         </div>
     </div>
@@ -202,6 +271,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
     // TableSearchFilter - Son Minibar İşlemleri
     {% if son_islemler %}
@@ -218,6 +288,112 @@
             ],
             defaultItemsPerPage: 10
         } );
+    }
+    {% endif %}
+
+    // Grafik: En Çok Kullanılan Ürünler
+    {% if en_cok_urun_labels %}
+    const enCokUrunCtx = document.getElementById('enCokUrunChart');
+    if (enCokUrunCtx) {
+        new Chart(enCokUrunCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ en_cok_urun_labels|tojson }},
+                datasets: [{
+                    label: 'Kullanım Miktarı',
+                    data: {{ en_cok_urun_miktarlar|tojson }},
+                    backgroundColor: 'rgba(59, 130, 246, 0.5)',
+                    borderColor: 'rgb(59, 130, 246)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // Grafik: Zimmet Kullanım Durumu
+    {% if zimmet_urun_labels %}
+    const zimmetDurumCtx = document.getElementById('zimmetDurumChart');
+    if (zimmetDurumCtx) {
+        new Chart(zimmetDurumCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Kullanılan', 'Kalan'],
+                datasets: [{
+                    data: [
+                        {{ zimmet_kullanilan|sum }},
+                        {{ zimmet_kalan|sum }}
+                    ],
+                    backgroundColor: [
+                        'rgba(239, 68, 68, 0.5)',
+                        'rgba(34, 197, 94, 0.5)'
+                    ],
+                    borderColor: [
+                        'rgb(239, 68, 68)',
+                        'rgb(34, 197, 94)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+    {% endif %}
+
+    // Grafik: Günlük Tüketim Trendi
+    {% if gunluk_labels %}
+    const gunlukTuketimCtx = document.getElementById('gunlukTuketimChart');
+    if (gunlukTuketimCtx) {
+        new Chart(gunlukTuketimCtx, {
+            type: 'line',
+            data: {
+                labels: {{ gunluk_labels|tojson }},
+                datasets: [{
+                    label: 'Günlük Tüketim',
+                    data: {{ gunluk_tuketim|tojson }},
+                    fill: true,
+                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                    borderColor: 'rgb(168, 85, 247)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
     }
     {% endif %}
 </script>

@@ -138,7 +138,12 @@ def verify_setup():
                 'minibar_islemleri',
                 'minibar_islem_detay',
                 'sistem_ayarlari',
-                'sistem_loglari'
+                'sistem_loglari',
+                'hata_loglari',
+                'audit_logs',
+                'otomatik_raporlar',
+                'minibar_dolum_talepleri',
+                'qr_kod_okutma_loglari'
             ]
             
             existing_tables = inspector.get_table_names()
@@ -188,6 +193,11 @@ def main():
     print("   1. Uygulamayı başlatın: python app.py")
     print("   2. Tarayıcıda açın: http://localhost:5014")
     print("   3. İlk kurulum sayfasından sistem yöneticisi oluşturun")
+    print()
+    print("⚠️  ÖNEMLİ NOT:")
+    print("   Eğer mevcut bir veritabanını güncelliyorsanız,")
+    print("   QR kod sistemi için migration çalıştırın:")
+    print("   python migrations/add_qr_kod_system.py")
     print()
     print("🚀 İyi çalışmalar!")
     print()

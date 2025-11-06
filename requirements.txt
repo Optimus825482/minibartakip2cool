@@ -12,3 +12,7 @@ WTForms==3.1.1
 email-validator==2.1.0
 gunicorn==21.2.0
 
+# QR Kod Sistemi
+qrcode[pil]==7.4.2
+Pillow==10.4.0
+bleach==6.0.0

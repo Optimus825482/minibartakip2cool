@@ -670,11 +670,15 @@
 }
 
     // Responsive chart resize
-    window.addEventListener( 'resize', function () {
-        Chart.instances.forEach( chart => {
-            chart.resize();
-        } );
-    } );
+    window.addEventListener('resize', function() {
+        // Chart.js v3+ kullanıyoruz, instances yerine manuel resize
+        if (typeof stokDurumChart !== 'undefined' && stokDurumChart) {
+            stokDurumChart.resize();
+        }
+        if (typeof hareketChart !== 'undefined' && hareketChart) {
+            hareketChart.resize();
+        }
+    });
 
     // TableSearchFilter - Son Katlar
     {% if son_katlar %}

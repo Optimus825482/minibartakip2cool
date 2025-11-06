@@ -57,11 +57,26 @@
     <meta name="msapplication-TileImage"
         content="{{ url_for('static', filename='icons/android/android-launchericon-144-144.png') }}">
 
+    <!-- Bootstrap CSS (for modals) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
 
+    <!-- jQuery CDN -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Bootstrap JS (for modals) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- SweetAlert2 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
     <!-- Tailwind Config -->
     <script>
@@ -548,7 +563,10 @@
                 <!-- Navigation -->
                 <nav class="flex-1 px-4 py-6 space-y-2 overflow-y-auto overflow-x-hidden">
                     {% if current_user %}
-                    {% if current_user.rol == 'sistem_yoneticisi' %}
+                    {% if current_user.rol == 'sistem_yoneticisi' or current_user.rol == 'admin' %}
+                    {% include 'components/admin_sidebar.html' %}
+
+                    {% elif False %} <!-- Eski kod kaldırıldı -->
                     <a href="{{ url_for('sistem_yoneticisi_dashboard') }}"
                         class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                         <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -649,6 +667,15 @@
                             </path>
                         </svg>
                         Oda Minibar Stokları
+                    </a>
+                    <a href="{{ url_for('admin_dolum_talepleri') }}"
+                        class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+                            </path>
+                        </svg>
+                        Dolum Talepleri
                     </a>
                     <a href="{{ url_for('admin_minibar_sifirla') }}"
                         class="flex items-center px-4 py-2 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
@@ -676,8 +703,7 @@
                     </a>
 
 
-                    {% elif current_user.rol == 'admin' %}
-                    <!-- Admin kullanıcıları da sistem yöneticisi menüsünü kullanır -->
+                    {% elif False %} <!-- Admin artık yukarıda include ediliyor -->
                     <a href="{{ url_for('sistem_yoneticisi_dashboard') }}"
                         class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                         <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -778,6 +804,15 @@
                             </path>
                         </svg>
                         Oda Minibar Stokları
+                    </a>
+                    <a href="{{ url_for('admin_dolum_talepleri') }}"
+                        class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+                            </path>
+                        </svg>
+                        Dolum Talepleri
                     </a>
                     <a href="{{ url_for('admin_minibar_sifirla') }}"
                         class="flex items-center px-4 py-2 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20">
@@ -862,48 +897,102 @@
                     </a>
 
                     {% elif current_user.rol == 'kat_sorumlusu' %}
+                    <!-- Ana Sayfa -->
                     <a href="{{ url_for('kat_sorumlusu_dashboard') }}"
-                        class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 rounded-lg text-base">
+                        <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
                         </svg>
-                        Panel
+                        Ana Sayfa
                     </a>
+
+                    <!-- Minibar Kontrol - EN ÖNEMLİ -->
+                    <div class="px-4 py-2 mt-4">
+                        <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                            Minibar Kontrol
+                        </p>
+                    </div>
+
                     <a href="{{ url_for('minibar_kontrol') }}"
-                        class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 rounded-lg text-base font-medium">
+                        <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
                             </path>
                         </svg>
-                        Minibar Kontrol
+                        Oda Kontrol
                     </a>
+
+                    <a href="{{ url_for('dolum_talepleri') }}"
+                        class="flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 rounded-lg text-base">
+                        <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9">
+                            </path>
+                        </svg>
+                        Dolum Talepleri
+                    </a>
+
                     <a href="{{ url_for('toplu_oda_doldurma') }}"
-                        class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 rounded-lg text-base">
+                        <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z">
                             </path>
                         </svg>
-                        Toplu Oda Doldurma
+                        Toplu Doldurma
                     </a>
-                    <a href="{{ url_for('zimmetim') }}"
-                        class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+
+                    <!-- Stok Yönetimi -->
+                    <div class="px-4 py-2 mt-4">
+                        <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                            Stok Yönetimi
+                        </p>
+                    </div>
+
+                    <a href="{{ url_for('kat_sorumlusu_zimmet_stoklarim') }}"
+                        class="flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 rounded-lg text-base">
+                        <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
                         </svg>
-                        Zimmetim
+                        Stoklarım
                     </a>
+
+                    <a href="{{ url_for('kat_sorumlusu_kritik_stoklar') }}"
+                        class="flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 rounded-lg text-base">
+                        <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                        Kritik Stoklar
+                    </a>
+
+                    <a href="{{ url_for('kat_sorumlusu_siparis_hazirla') }}"
+                        class="flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 rounded-lg text-base">
+                        <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                        </svg>
+                        Sipariş Ver
+                    </a>
+
+                    <!-- Raporlar -->
+                    <div class="px-4 py-2 mt-4">
+                        <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                            Raporlar
+                        </p>
+                    </div>
+
                     <a href="{{ url_for('kat_raporlar') }}"
-                        class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
-                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        class="flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 rounded-lg text-base">
+                        <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z">
                             </path>
                         </svg>
-                        Raporlar
+                        Raporlarım
                     </a>
                     <a href="{{ url_for('kat_bazli_rapor') }}"
                         class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
@@ -1495,6 +1584,147 @@
             } );
         } );
     </script>
+
+    <!-- Global Notification Functions -->
+    <script>
+        // SweetAlert2 Dark Mode Konfigürasyonu
+        const getSwalTheme = () => {
+            const isDark = document.documentElement.classList.contains('dark');
+            return {
+                background: isDark ? '#1e293b' : '#ffffff',
+                color: isDark ? '#f1f5f9' : '#0f172a',
+                confirmButtonColor: '#3b82f6',
+                cancelButtonColor: '#64748b',
+                customClass: {
+                    popup: isDark ? 'dark-swal' : '',
+                    confirmButton: 'px-6 py-2.5 rounded-lg font-medium transition-all hover:scale-105',
+                    cancelButton: 'px-6 py-2.5 rounded-lg font-medium transition-all hover:scale-105'
+                }
+            };
+        };
+
+        // Başarı Mesajı
+        window.showSuccess = (message, title = 'Başarılı!') => {
+            // Önceki modal'ı kapat
+            Swal.close();
+            // Yeni modal'ı göster
+            return Swal.fire({
+                icon: 'success',
+                title: title,
+                text: message,
+                timer: 3000,
+                timerProgressBar: true,
+                showConfirmButton: false,
+                ...getSwalTheme()
+            });
+        };
+
+        // Hata Mesajı
+        window.showError = (message, title = 'Hata!') => {
+            // Önceki modal'ı kapat
+            Swal.close();
+            // Yeni modal'ı göster
+            return Swal.fire({
+                icon: 'error',
+                title: title,
+                text: message,
+                confirmButtonText: 'Tamam',
+                ...getSwalTheme()
+            });
+        };
+
+        // Uyarı Mesajı
+        window.showWarning = (message, title = 'Dikkat!') => {
+            // Önceki modal'ı kapat
+            Swal.close();
+            // Yeni modal'ı göster
+            return Swal.fire({
+                icon: 'warning',
+                title: title,
+                text: message,
+                confirmButtonText: 'Tamam',
+                ...getSwalTheme()
+            });
+        };
+
+        // Bilgi Mesajı
+        window.showInfo = (message, title = 'Bilgi') => {
+            // Önceki modal'ı kapat
+            Swal.close();
+            // Yeni modal'ı göster
+            return Swal.fire({
+                icon: 'info',
+                title: title,
+                text: message,
+                confirmButtonText: 'Tamam',
+                ...getSwalTheme()
+            });
+        };
+
+        // Onay Mesajı (Promise döner)
+        window.showConfirm = (message, title = 'Emin misiniz?') => {
+            return Swal.fire({
+                icon: 'question',
+                title: title,
+                text: message,
+                showCancelButton: true,
+                confirmButtonText: 'Evet',
+                cancelButtonText: 'Hayır',
+                reverseButtons: true,
+                ...getSwalTheme()
+            });
+        };
+
+        // Loading Göster
+        window.showLoading = (message = 'İşlem yapılıyor...') => {
+            Swal.fire({
+                title: message,
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                },
+                ...getSwalTheme()
+            });
+        };
+
+        // Loading Kapat
+        window.hideLoading = () => {
+            Swal.close();
+        };
+    </script>
+
+    <!-- Dark Mode için SweetAlert2 Özel Stiller -->
+    <style>
+        .dark .swal2-popup {
+            background-color: #1e293b !important;
+            color: #f1f5f9 !important;
+        }
+        
+        .dark .swal2-title {
+            color: #f1f5f9 !important;
+        }
+        
+        .dark .swal2-html-container {
+            color: #cbd5e1 !important;
+        }
+        
+        .dark .swal2-icon.swal2-success [class^='swal2-success-line'] {
+            background-color: #10b981 !important;
+        }
+        
+        .dark .swal2-icon.swal2-success .swal2-success-ring {
+            border-color: rgba(16, 185, 129, 0.3) !important;
+        }
+        
+        .dark .swal2-icon.swal2-error [class^='swal2-x-mark-line'] {
+            background-color: #ef4444 !important;
+        }
+        
+        .dark .swal2-timer-progress-bar {
+            background: #3b82f6 !important;
+        }
+    </style>
 
     {% block extra_scripts %}{% endblock %}
 </body>

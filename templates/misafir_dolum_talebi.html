@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Minibar Dolum Talebi - Oda {{ oda.oda_no }}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .card {
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.3);
+            border: none;
+        }
+        .card-body {
+            padding: 2.5rem;
+        }
+        .icon-circle {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+        }
+        .icon-circle i {
+            font-size: 2.5rem;
+            color: white;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            padding: 12px;
+            font-size: 1.1rem;
+            border-radius: 10px;
+            transition: transform 0.2s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .alert {
+            border-radius: 10px;
+        }
+        #successMessage {
+            animation: slideIn 0.5s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-5">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="icon-circle">
+                            <i class="fas fa-wine-bottle"></i>
+                        </div>
+                        
+                        <h3 class="text-center mb-2">Minibar Dolum Talebi</h3>
+                        <p class="text-center text-muted mb-4">
+                            <i class="fas fa-door-open"></i> Oda <strong>{{ oda.oda_no }}</strong>
+                        </p>
+                        
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i>
+                            {{ oda.misafir_mesaji or 'Minibar dolum talebiniz en kısa sürede yerine getirilecektir.' }}
+                        </div>
+                        
+                        <form id="dolumTalebiForm">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            
+                            <div class="form-group">
+                                <label><i class="fas fa-comment"></i> Ek Not (Opsiyonel)</label>
+                                <textarea name="notlar" id="notlar" class="form-control" rows="3" 
+                                          placeholder="Özel bir talebiniz varsa buraya yazabilirsiniz..." 
+                                          maxlength="500"></textarea>
+                                <small class="form-text text-muted">
+                                    <span id="karakterSayaci">0/500</span> karakter
+                                </small>
+                            </div>
+                            
+                            <button type="submit" class="btn btn-primary btn-block btn-lg">
+                                <i class="fas fa-paper-plane"></i> Dolum Talebi Gönder
+                            </button>
+                        </form>
+                        
+                        <div id="successMessage" class="alert alert-success mt-3" style="display:none;">
+                            <i class="fas fa-check-circle"></i> 
+                            <strong>Talebiniz başarıyla gönderildi!</strong>
+                            <p class="mb-0 mt-2">En kısa sürede minibarınız doldurulacaktır.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Karakter sayacı
+        $('#notlar').on('input', function() {
+            const len = $(this).val().length;
+            $('#karakterSayaci').text(len + '/500');
+        });
+        
+        // Form submit
+        $('#dolumTalebiForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            const submitBtn = $(this).find('button[type="submit"]');
+            submitBtn.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Gönderiliyor...');
+            
+            $.ajax({
+                url: '/misafir/dolum-talebi/{{ token }}',
+                method: 'POST',
+                data: $(this).serialize(),
+                headers: {
+                    'X-CSRFToken': $('meta[name="csrf-token"]').attr('content')
+                },
+                success: function(response) {
+                    if (response.success) {
+                        $('#dolumTalebiForm').hide();
+                        $('#successMessage').show();
+                    } else {
+                        alert(response.message || 'Bir hata oluştu');
+                        submitBtn.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Dolum Talebi Gönder');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = 'Bir hata oluştu. Lütfen tekrar deneyin.';
+                    if (xhr.status === 429) {
+                        errorMsg = 'Çok fazla deneme. Lütfen 1 dakika bekleyin.';
+                    }
+                    alert(errorMsg);
+                    submitBtn.prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Dolum Talebi Gönder');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

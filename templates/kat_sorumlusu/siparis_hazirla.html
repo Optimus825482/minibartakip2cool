@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Sipariş Hazırla - Minibar Takip Sistemi{% endblock %}
+{% block page_title %}Sipariş Hazırla{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <div>
+            <h2 class="text-2xl font-bold text-slate-900">Otomatik Sipariş Hazırla</h2>
+            <p class="mt-1 text-sm text-slate-500">Kritik seviyedeki ürünler için sipariş listesi</p>
+        </div>
+        <a href="{{ url_for('kat_sorumlusu_kritik_stoklar') }}" 
+           class="inline-flex items-center px-4 py-2 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50">
+            Geri Dön
+        </a>
+    </div>
+
+    {% if siparis_bilgileri.siparis_listesi %}
+    <div class="bg-blue-50 border-l-4 border-blue-400 p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-blue-700">
+                    <strong>{{ siparis_bilgileri.toplam_urun_sayisi }}</strong> ürün için toplam 
+                    <strong>{{ siparis_bilgileri.toplam_miktar }}</strong> adet sipariş önerisi hazırlandı.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white shadow rounded-lg overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200">
+                <thead class="bg-slate-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ürün</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">Mevcut</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">Kritik</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">Önerilen</th>
+                        <th class="px-6 py-3 text-center text-xs font-medium text-slate-500 uppercase">Aciliyet</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-slate-200" id="siparisListesi">
+                    {% for urun in siparis_bilgileri.siparis_listesi %}
+                    <tr data-urun='{{ urun|tojson }}'>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-slate-900">{{ urun.urun_adi }}</div>
+                            <div class="text-sm text-slate-500">{{ urun.grup_adi }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center text-sm">{{ urun.mevcut_stok }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center text-sm">{{ urun.kritik_seviye }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <input type="number" value="{{ urun.onerilen_miktar }}" min="1" 
+                                   class="w-20 px-2 py-1 border border-slate-300 rounded text-center"
+                                   data-detay-id="{{ urun.detay_id }}">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-center">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                {% if urun.aciliyet == 'acil' %}bg-red-100 text-red-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                                {{ urun.aciliyet|upper }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="flex justify-end gap-3">
+        <button onclick="siparisiKaydet()" 
+                class="inline-flex items-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-purple-600 hover:bg-purple-700">
+            Siparişi Kaydet
+        </button>
+    </div>
+    {% else %}
+    <div class="bg-white shadow rounded-lg p-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <h3 class="mt-2 text-sm font-medium text-slate-900">Sipariş gerekmiyor!</h3>
+        <p class="mt-1 text-sm text-slate-500">Tüm stoklar yeterli seviyede.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+async function siparisiKaydet() {
+    const rows = document.querySelectorAll('#siparisListesi tr');
+    const siparisListesi = [];
+    
+    rows.forEach(row => {
+        const urunData = JSON.parse(row.dataset.urun);
+        const input = row.querySelector('input[type="number"]');
+        urunData.onerilen_miktar = parseInt(input.value);
+        siparisListesi.push(urunData);
+    });
+    
+    const aciklama = prompt('Sipariş için ek açıklama (opsiyonel):');
+    
+    try {
+        const response = await fetch('{{ url_for("kat_sorumlusu_siparis_hazirla") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({
+                siparis_listesi: siparisListesi,
+                aciklama: aciklama || ''
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert('✅ ' + data.message);
+            window.location.href = '{{ url_for("kat_sorumlusu_dashboard") }}';
+        } else {
+            alert('❌ ' + data.message);
+        }
+    } catch (error) {
+        alert('Bir hata oluştu: ' + error.message);
+    }
+}
+</script>
+{% endblock %}

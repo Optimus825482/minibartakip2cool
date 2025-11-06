@@ -630,3 +630,28 @@ class ZimmetForm(BaseForm):
             Length(max=500, message='Açıklama 500 karakterden uzun olamaz.')
         ]
     )
+
+class StokGirisForm(BaseForm):
+    """Stok giriş formu"""
+    urun_id = SelectField(
+        'Ürün',
+        coerce=int,
+        choices=[],
+        validators=[DataRequired(message='Ürün seçimi zorunludur.')]
+    )
+    
+    miktar = IntegerField(
+        'Miktar',
+        validators=[
+            DataRequired(message='Miktar zorunludur.'),
+            NumberRange(min=1, max=1000000, message='Miktar 1-1000000 arasında olmalıdır.')
+        ]
+    )
+    
+    aciklama = TextAreaField(
+        'Açıklama',
+        validators=[
+            Optional(),
+            Length(max=500, message='Açıklama 500 karakterden uzun olamaz.')
+        ]
+    )

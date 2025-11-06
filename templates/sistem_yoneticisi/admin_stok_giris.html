@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Stok Girişi - Admin Panel{% endblock %}
+{% block page_title %}Stok Girişi{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="bg-white shadow rounded-lg p-6">
+        <h2 class="text-2xl font-bold text-slate-900 mb-6">Yeni Stok Girişi</h2>
+        
+        <form method="POST" action="{{ url_for('admin_stok_giris') }}">
+            {{ form.hidden_tag() }}
+            
+            <div class="space-y-6">
+                <!-- Ürün Seçimi -->
+                <div>
+                    <label for="urun_id" class="block text-sm font-medium text-slate-700 mb-2">
+                        Ürün <span class="text-red-500">*</span>
+                    </label>
+                    <select name="urun_id" id="urun_id" required
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Ürün Seçin</option>
+                        {% for urun in urunler %}
+                        <option value="{{ urun.id }}">{{ urun.urun_adi }} ({{ urun.grup.grup_adi }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <!-- Miktar -->
+                <div>
+                    <label for="miktar" class="block text-sm font-medium text-slate-700 mb-2">
+                        Miktar <span class="text-red-500">*</span>
+                    </label>
+                    <input type="number" name="miktar" id="miktar" min="1" required
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Giriş miktarını girin">
+                </div>
+                
+                <!-- Açıklama -->
+                <div>
+                    <label for="aciklama" class="block text-sm font-medium text-slate-700 mb-2">
+                        Açıklama
+                    </label>
+                    <textarea name="aciklama" id="aciklama" rows="3"
+                        class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="İsteğe bağlı açıklama"></textarea>
+                </div>
+                
+                <!-- Butonlar -->
+                <div class="flex items-center justify-end space-x-4 pt-4">
+                    <a href="{{ url_for('admin_stok_hareketleri') }}"
+                        class="px-6 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors">
+                        İptal
+                    </a>
+                    <button type="submit"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+                        Stok Girişi Yap
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Son Stok Girişleri -->
+    <div class="mt-6 bg-white shadow rounded-lg p-6">
+        <h3 class="text-lg font-semibold text-slate-900 mb-4">Son Stok Girişleri</h3>
+        <div class="text-sm text-slate-600">
+            <a href="{{ url_for('admin_stok_hareketleri') }}" class="text-blue-600 hover:text-blue-800">
+                Tüm stok hareketlerini görüntüle →
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

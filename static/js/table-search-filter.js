@@ -46,6 +46,14 @@ class TableSearchFilter {
     }
     
     init() {
+        // Filter yapısını normalize et (columnIndex -> column)
+        this.filters = this.filters.map(filter => {
+            if (filter.columnIndex !== undefined && filter.column === undefined) {
+                filter.column = filter.columnIndex;
+            }
+            return filter;
+        });
+        
         this.createSearchBar();
         if (this.filters.length > 0) {
             this.createFilterBar();
@@ -187,8 +195,30 @@ class TableSearchFilter {
         
         container.classList.remove('hidden');
         container.innerHTML = Object.entries(this.activeFilters).map(([column, value]) => {
-            const filter = this.filters.find(f => f.column == column);
+            // column string olarak gelir, number'a çevir
+            const columnNum = parseInt(column);
+            const filter = this.filters.find(f => f.column === columnNum);
+            
+            // Filter bulunamazsa skip et
+            if (!filter) {
+                console.warn(`Filter bulunamadı: column=${column}`, this.filters);
+                return '';
+            }
+            
+            // Options kontrolü
+            if (!filter.options || !Array.isArray(filter.options)) {
+                console.warn(`Filter options eksik veya geçersiz:`, filter);
+                return '';
+            }
+            
             const option = filter.options.find(o => o.value === value);
+            
+            // Option bulunamazsa skip et
+            if (!option) {
+                console.warn(`Option bulunamadı: value=${value}`, filter.options);
+                return '';
+            }
+            
             return `
                 <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-slate-600 text-white">
                     <span>${filter.label}: ${option.label}</span>
@@ -200,7 +230,7 @@ class TableSearchFilter {
                     </button>
                 </span>
             `;
-        }).join('');
+        }).filter(html => html !== '').join('');
     }
     
     removeFilter(column) {

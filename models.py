@@ -85,6 +85,9 @@ class Kat(db.Model):
 class Oda(db.Model):
     """Odalar tablosu"""
     __tablename__ = 'odalar'
+    __table_args__ = (
+        db.Index('idx_qr_token', 'qr_kod_token'),
+    )
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     kat_id = db.Column(db.Integer, db.ForeignKey('katlar.id'), nullable=False)
@@ -94,8 +97,16 @@ class Oda(db.Model):
     aktif = db.Column(db.Boolean, default=True)
     olusturma_tarihi = db.Column(db.DateTime, default=datetime.utcnow)
     
+    # QR Kod Alanları
+    qr_kod_token = db.Column(db.String(64), unique=True, nullable=True)
+    qr_kod_gorsel = db.Column(db.Text, nullable=True)  # Base64 encoded PNG
+    qr_kod_olusturma_tarihi = db.Column(db.DateTime, nullable=True)
+    misafir_mesaji = db.Column(db.String(500), nullable=True)
+    
     # İlişkiler
     minibar_islemleri = db.relationship('MinibarIslem', backref='oda', lazy=True)
+    dolum_talepleri = db.relationship('MinibarDolumTalebi', backref='oda', lazy=True)
+    qr_okutma_loglari = db.relationship('QRKodOkutmaLog', backref='oda', lazy=True)
     
     def __repr__(self):
         return f'<Oda {self.oda_no}>'
@@ -191,6 +202,7 @@ class PersonelZimmetDetay(db.Model):
     kullanilan_miktar = db.Column(db.Integer, default=0)
     kalan_miktar = db.Column(db.Integer)
     iade_edilen_miktar = db.Column(db.Integer, default=0)
+    kritik_stok_seviyesi = db.Column(db.Integer, nullable=True)  # Kat sorumlusu tarafından belirlenen kritik seviye
     
     def __repr__(self):
         return f'<PersonelZimmetDetay #{self.id}>'
@@ -381,3 +393,48 @@ class OtomatikRapor(db.Model):
     def __repr__(self):
         return f'<OtomatikRapor {self.rapor_tipi} - {self.olusturma_tarihi}>'
 
+
+
+class MinibarDolumTalebi(db.Model):
+    """Misafir dolum talepleri tablosu"""
+    __tablename__ = 'minibar_dolum_talepleri'
+    __table_args__ = (
+        db.Index('idx_oda_durum', 'oda_id', 'durum'),
+        db.Index('idx_talep_tarihi', 'talep_tarihi'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    oda_id = db.Column(db.Integer, db.ForeignKey('odalar.id'), nullable=False)
+    talep_tarihi = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    durum = db.Column(db.Enum('beklemede', 'tamamlandi', 'iptal'), default='beklemede', nullable=False)
+    tamamlanma_tarihi = db.Column(db.DateTime, nullable=True)
+    notlar = db.Column(db.Text, nullable=True)
+    
+    def __repr__(self):
+        return f'<MinibarDolumTalebi #{self.id} - Oda {self.oda_id} - {self.durum}>'
+
+
+class QRKodOkutmaLog(db.Model):
+    """QR kod okutma geçmişi tablosu"""
+    __tablename__ = 'qr_kod_okutma_loglari'
+    __table_args__ = (
+        db.Index('idx_oda_tarih', 'oda_id', 'okutma_tarihi'),
+        db.Index('idx_kullanici_tarih', 'kullanici_id', 'okutma_tarihi'),
+        db.Index('idx_okutma_tipi', 'okutma_tipi'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    oda_id = db.Column(db.Integer, db.ForeignKey('odalar.id'), nullable=False)
+    kullanici_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id'), nullable=True)
+    okutma_tarihi = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    okutma_tipi = db.Column(db.Enum('kat_sorumlusu', 'misafir'), nullable=False)
+    ip_adresi = db.Column(db.String(50))
+    user_agent = db.Column(db.String(500))
+    basarili = db.Column(db.Boolean, default=True, nullable=False)
+    hata_mesaji = db.Column(db.Text, nullable=True)
+    
+    # İlişkiler
+    kullanici = db.relationship('Kullanici', backref='qr_okutma_loglari')
+    
+    def __repr__(self):
+        return f'<QRKodOkutmaLog #{self.id} - {self.okutma_tipi} - {self.okutma_tarihi}>'

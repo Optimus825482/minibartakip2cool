@@ -105,7 +105,10 @@ class ThemeManager {
             this.storeTheme(theme);
         }
         
-        this.updateSwitcherUI();
+        // Navbar icon'larını güncelle
+        if (this.darkIcon && this.lightIcon) {
+            this.updateNavbarIcons(this.darkIcon, this.lightIcon);
+        }
         
         // Custom event dispatch et
         window.dispatchEvent(new CustomEvent('themeChanged', { detail: { theme } }));

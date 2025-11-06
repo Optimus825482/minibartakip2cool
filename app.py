@@ -99,6 +99,11 @@ def handle_csrf_error(e):
 def inject_user():
     return dict(current_user=get_current_user())
 
+# Context processor - Python built-in fonksiyonları
+@app.context_processor
+def inject_builtins():
+    return dict(min=min, max=max)
+
 # Ana sayfa yönlendirmesi
 @app.route('/')
 def index():
@@ -662,6 +667,663 @@ def api_admin_verify_password():
         }), 500
 
 
+# ============================================
+# ADMİN DEPO YÖNETİMİ ROTALARI
+# ============================================
+
+@app.route('/admin/stok-giris', methods=['GET', 'POST'])
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def admin_stok_giris():
+    """Admin için stok giriş sayfası"""
+    from forms import StokGirisForm
+    
+    form = StokGirisForm()
+    
+    if form.validate_on_submit():
+        try:
+            # Stok hareketi oluştur
+            hareket = StokHareket(
+                urun_id=form.urun_id.data,
+                hareket_tipi='giris',
+                miktar=form.miktar.data,
+                aciklama=form.aciklama.data,
+                islem_yapan_id=session['kullanici_id']
+            )
+            db.session.add(hareket)
+            db.session.commit()
+            
+            # Audit log
+            from utils.audit import audit_create
+            audit_create(
+                tablo_adi='stok_hareketleri',
+                kayit_id=hareket.id,
+                yeni_deger=serialize_model(hareket),
+                aciklama='Admin stok girişi'
+            )
+            
+            # Log kaydı
+            log_islem('ekleme', 'stok_giris', {
+                'urun_id': hareket.urun_id,
+                'miktar': hareket.miktar,
+                'aciklama': hareket.aciklama
+            })
+            
+            flash('Stok girişi başarıyla kaydedildi.', 'success')
+            return redirect(url_for('admin_stok_giris'))
+            
+        except Exception as e:
+            db.session.rollback()
+            log_hata(e, modul='admin_stok_giris')
+            flash('Stok girişi sırasında hata oluştu.', 'danger')
+    
+    # Ürünleri getir
+    urunler = Urun.query.filter_by(aktif=True).order_by(Urun.urun_adi).all()
+    
+    return render_template('sistem_yoneticisi/admin_stok_giris.html',
+                         form=form,
+                         urunler=urunler)
+
+
+@app.route('/admin/stok-hareketleri')
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def admin_stok_hareketleri():
+    """Tüm stok hareketlerini listele"""
+    try:
+        # Filtreler
+        urun_id = request.args.get('urun_id', type=int)
+        hareket_tipi = request.args.get('hareket_tipi', '')
+        baslangic_tarih = request.args.get('baslangic_tarih', '')
+        bitis_tarih = request.args.get('bitis_tarih', '')
+        
+        # Sayfalama
+        sayfa = request.args.get('sayfa', 1, type=int)
+        per_page = 50
+        
+        # Sorgu oluştur
+        query = StokHareket.query.options(
+            db.joinedload(StokHareket.urun),
+            db.joinedload(StokHareket.islem_yapan)
+        )
+        
+        if urun_id:
+            query = query.filter(StokHareket.urun_id == urun_id)
+        if hareket_tipi:
+            query = query.filter(StokHareket.hareket_tipi == hareket_tipi)
+        if baslangic_tarih:
+            query = query.filter(StokHareket.islem_tarihi >= baslangic_tarih)
+        if bitis_tarih:
+            query = query.filter(StokHareket.islem_tarihi <= bitis_tarih)
+        
+        # Sayfalama
+        hareketler = query.order_by(StokHareket.islem_tarihi.desc()).paginate(
+            page=sayfa, per_page=per_page, error_out=False
+        )
+        
+        # Ürünler (filtre için)
+        urunler = Urun.query.filter_by(aktif=True).order_by(Urun.urun_adi).all()
+        
+        # Log kaydı
+        log_islem('goruntuleme', 'stok_hareketleri', {
+            'sayfa': sayfa,
+            'kayit_sayisi': hareketler.total
+        })
+        
+        return render_template('sistem_yoneticisi/admin_stok_hareketleri.html',
+                             hareketler=hareketler,
+                             urunler=urunler,
+                             urun_id=urun_id,
+                             hareket_tipi=hareket_tipi,
+                             baslangic_tarih=baslangic_tarih,
+                             bitis_tarih=bitis_tarih)
+        
+    except Exception as e:
+        log_hata(e, modul='admin_stok_hareketleri')
+        flash('Stok hareketleri yüklenirken hata oluştu.', 'danger')
+        return redirect(url_for('sistem_yoneticisi_dashboard'))
+
+
+@app.route('/admin/stok-hareket-duzenle/<int:hareket_id>', methods=['GET', 'POST'])
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def admin_stok_hareket_duzenle(hareket_id):
+    """Stok hareket kaydını düzenle"""
+    from forms import StokGirisForm
+    
+    hareket = db.session.get(StokHareket, hareket_id)
+    if not hareket:
+        flash('Stok hareketi bulunamadı.', 'danger')
+        return redirect(url_for('admin_stok_hareketleri'))
+    
+    # Eski değeri sakla
+    eski_deger = serialize_model(hareket)
+    
+    form = StokGirisForm(obj=hareket)
+    
+    if form.validate_on_submit():
+        try:
+            hareket.urun_id = form.urun_id.data
+            hareket.miktar = form.miktar.data
+            hareket.aciklama = form.aciklama.data
+            
+            db.session.commit()
+            
+            # Audit log
+            from utils.audit import audit_update
+            audit_update(
+                tablo_adi='stok_hareketleri',
+                kayit_id=hareket.id,
+                eski_deger=eski_deger,
+                yeni_deger=serialize_model(hareket),
+                aciklama='Admin stok hareket düzenleme'
+            )
+            
+            # Log kaydı
+            log_islem('guncelleme', 'stok_hareketi', {
+                'hareket_id': hareket.id,
+                'urun_id': hareket.urun_id
+            })
+            
+            flash('Stok hareketi başarıyla güncellendi.', 'success')
+            return redirect(url_for('admin_stok_hareketleri'))
+            
+        except Exception as e:
+            db.session.rollback()
+            log_hata(e, modul='admin_stok_hareket_duzenle')
+            flash('Güncelleme sırasında hata oluştu.', 'danger')
+    
+    urunler = Urun.query.filter_by(aktif=True).order_by(Urun.urun_adi).all()
+    
+    return render_template('sistem_yoneticisi/admin_stok_hareket_duzenle.html',
+                         form=form,
+                         hareket=hareket,
+                         urunler=urunler)
+
+
+@app.route('/admin/stok-hareket-sil/<int:hareket_id>', methods=['POST'])
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def admin_stok_hareket_sil(hareket_id):
+    """Stok hareket kaydını sil"""
+    try:
+        hareket = db.session.get(StokHareket, hareket_id)
+        if not hareket:
+            return jsonify({'success': False, 'message': 'Stok hareketi bulunamadı'}), 404
+        
+        # Eski değeri sakla
+        eski_deger = serialize_model(hareket)
+        
+        # Sil
+        db.session.delete(hareket)
+        db.session.commit()
+        
+        # Audit log
+        from utils.audit import audit_delete
+        audit_delete(
+            tablo_adi='stok_hareketleri',
+            kayit_id=hareket_id,
+            eski_deger=eski_deger,
+            aciklama='Admin stok hareket silme'
+        )
+        
+        # Log kaydı
+        log_islem('silme', 'stok_hareketi', {
+            'hareket_id': hareket_id,
+            'urun_id': hareket.urun_id
+        })
+        
+        flash('Stok hareketi başarıyla silindi.', 'success')
+        return jsonify({'success': True, 'message': 'Stok hareketi silindi'})
+        
+    except Exception as e:
+        db.session.rollback()
+        log_hata(e, modul='admin_stok_hareket_sil')
+        return jsonify({'success': False, 'message': 'Silme işlemi başarısız'}), 500
+
+
+@app.route('/admin/personel-zimmetleri')
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def admin_personel_zimmetleri():
+    """Tüm personel zimmet kayıtlarını listele"""
+    try:
+        # Filtreler
+        personel_id = request.args.get('personel_id', type=int)
+        durum = request.args.get('durum', '')
+        
+        # Sayfalama
+        sayfa = request.args.get('sayfa', 1, type=int)
+        per_page = 50
+        
+        # Sorgu oluştur
+        query = PersonelZimmet.query.options(
+            db.joinedload(PersonelZimmet.personel),
+            db.joinedload(PersonelZimmet.teslim_eden),
+            db.joinedload(PersonelZimmet.detaylar).joinedload(PersonelZimmetDetay.urun)
+        )
+        
+        if personel_id:
+            query = query.filter(PersonelZimmet.personel_id == personel_id)
+        if durum:
+            query = query.filter(PersonelZimmet.durum == durum)
+        
+        # Sayfalama
+        zimmetler = query.order_by(PersonelZimmet.zimmet_tarihi.desc()).paginate(
+            page=sayfa, per_page=per_page, error_out=False
+        )
+        
+        # Personeller (filtre için)
+        personeller = Kullanici.query.filter(
+            Kullanici.rol.in_(['depo_sorumlusu', 'kat_sorumlusu']),
+            Kullanici.aktif.is_(True)
+        ).order_by(Kullanici.ad, Kullanici.soyad).all()
+        
+        # Log kaydı
+        log_islem('goruntuleme', 'personel_zimmetleri', {
+            'sayfa': sayfa,
+            'kayit_sayisi': zimmetler.total
+        })
+        
+        return render_template('sistem_yoneticisi/admin_personel_zimmetleri.html',
+                             zimmetler=zimmetler,
+                             personeller=personeller,
+                             personel_id=personel_id,
+                             durum=durum)
+        
+    except Exception as e:
+        log_hata(e, modul='admin_personel_zimmetleri')
+        flash('Zimmet kayıtları yüklenirken hata oluştu.', 'danger')
+        return redirect(url_for('sistem_yoneticisi_dashboard'))
+
+
+@app.route('/admin/zimmet-detay/<int:zimmet_id>')
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def admin_zimmet_detay(zimmet_id):
+    """Zimmet detaylarını görüntüle"""
+    try:
+        zimmet = db.session.get(PersonelZimmet, zimmet_id)
+        if not zimmet:
+            flash('Zimmet kaydı bulunamadı.', 'danger')
+            return redirect(url_for('admin_personel_zimmetleri'))
+        
+        # Detayları eager load ile getir
+        zimmet = PersonelZimmet.query.options(
+            db.joinedload(PersonelZimmet.personel),
+            db.joinedload(PersonelZimmet.teslim_eden),
+            db.joinedload(PersonelZimmet.detaylar).joinedload(PersonelZimmetDetay.urun)
+        ).get(zimmet_id)
+        
+        # Log kaydı
+        log_islem('goruntuleme', 'zimmet_detay', {
+            'zimmet_id': zimmet_id,
+            'personel_id': zimmet.personel_id
+        })
+        
+        return render_template('sistem_yoneticisi/admin_zimmet_detay.html',
+                             zimmet=zimmet)
+        
+    except Exception as e:
+        log_hata(e, modul='admin_zimmet_detay')
+        flash('Zimmet detayları yüklenirken hata oluştu.', 'danger')
+        return redirect(url_for('admin_personel_zimmetleri'))
+
+
+@app.route('/admin/zimmet-iade/<int:zimmet_id>', methods=['POST'])
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def admin_zimmet_iade(zimmet_id):
+    """Zimmet iade işlemi"""
+    try:
+        zimmet = db.session.get(PersonelZimmet, zimmet_id)
+        if not zimmet:
+            return jsonify({'success': False, 'message': 'Zimmet bulunamadı'}), 404
+        
+        if zimmet.durum != 'aktif':
+            return jsonify({'success': False, 'message': 'Sadece aktif zimmetler iade edilebilir'}), 400
+        
+        # İade edilen miktarları al
+        data = request.get_json()
+        iade_miktarlari = data.get('iade_miktarlari', {})
+        
+        # Her detay için iade işlemi
+        for detay in zimmet.detaylar:
+            detay_id = str(detay.id)
+            if detay_id in iade_miktarlari:
+                iade_miktar = int(iade_miktarlari[detay_id])
+                if iade_miktar > 0:
+                    # İade miktarını güncelle
+                    detay.iade_edilen_miktar += iade_miktar
+                    detay.kalan_miktar = detay.miktar - detay.kullanilan_miktar - detay.iade_edilen_miktar
+                    
+                    # Stok hareketine ekle
+                    hareket = StokHareket(
+                        urun_id=detay.urun_id,
+                        hareket_tipi='giris',
+                        miktar=iade_miktar,
+                        aciklama=f'Zimmet iadesi - {zimmet.personel.ad} {zimmet.personel.soyad}',
+                        islem_yapan_id=session['kullanici_id']
+                    )
+                    db.session.add(hareket)
+        
+        # Zimmet durumunu güncelle
+        zimmet.durum = 'tamamlandi'
+        db.session.commit()
+        
+        # Audit log
+        from utils.audit import audit_update
+        audit_update(
+            tablo_adi='personel_zimmet',
+            kayit_id=zimmet_id,
+            eski_deger={'durum': 'aktif'},
+            yeni_deger={'durum': 'tamamlandi'},
+            aciklama='Admin zimmet iade işlemi'
+        )
+        
+        # Log kaydı
+        log_islem('guncelleme', 'zimmet_iade', {
+            'zimmet_id': zimmet_id,
+            'personel_id': zimmet.personel_id
+        })
+        
+        flash('Zimmet iade işlemi başarıyla tamamlandı.', 'success')
+        return jsonify({'success': True, 'message': 'İade işlemi tamamlandı'})
+        
+    except Exception as e:
+        db.session.rollback()
+        log_hata(e, modul='admin_zimmet_iade')
+        return jsonify({'success': False, 'message': 'İade işlemi başarısız'}), 500
+
+
+@app.route('/admin/zimmet-iptal/<int:zimmet_id>', methods=['POST'])
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def admin_zimmet_iptal(zimmet_id):
+    """Zimmet kaydını iptal et"""
+    try:
+        zimmet = db.session.get(PersonelZimmet, zimmet_id)
+        if not zimmet:
+            return jsonify({'success': False, 'message': 'Zimmet bulunamadı'}), 404
+        
+        if zimmet.durum != 'aktif':
+            return jsonify({'success': False, 'message': 'Sadece aktif zimmetler iptal edilebilir'}), 400
+        
+        # Eski değeri sakla
+        eski_deger = serialize_model(zimmet)
+        
+        # Stok hareketlerini geri al
+        for detay in zimmet.detaylar:
+            # Kullanılmayan miktarı depoya geri ekle
+            geri_alinacak = detay.miktar - detay.kullanilan_miktar - detay.iade_edilen_miktar
+            if geri_alinacak > 0:
+                hareket = StokHareket(
+                    urun_id=detay.urun_id,
+                    hareket_tipi='giris',
+                    miktar=geri_alinacak,
+                    aciklama=f'Zimmet iptali - {zimmet.personel.ad} {zimmet.personel.soyad}',
+                    islem_yapan_id=session['kullanici_id']
+                )
+                db.session.add(hareket)
+        
+        # Zimmet durumunu iptal et
+        zimmet.durum = 'iptal'
+        db.session.commit()
+        
+        # Audit log
+        from utils.audit import audit_update
+        audit_update(
+            tablo_adi='personel_zimmet',
+            kayit_id=zimmet_id,
+            eski_deger=eski_deger,
+            yeni_deger=serialize_model(zimmet),
+            aciklama='Admin zimmet iptal işlemi'
+        )
+        
+        # Log kaydı
+        log_islem('guncelleme', 'zimmet_iptal', {
+            'zimmet_id': zimmet_id,
+            'personel_id': zimmet.personel_id
+        })
+        
+        flash('Zimmet kaydı başarıyla iptal edildi.', 'success')
+        return jsonify({'success': True, 'message': 'Zimmet iptal edildi'})
+        
+    except Exception as e:
+        db.session.rollback()
+        log_hata(e, modul='admin_zimmet_iptal')
+        return jsonify({'success': False, 'message': 'İptal işlemi başarısız'}), 500
+
+
+# ============================================
+# ADMİN MİNİBAR YÖNETİMİ ROTALARI
+# ============================================
+
+@app.route('/admin/minibar-islemleri')
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def admin_minibar_islemleri():
+    """Tüm minibar işlemlerini listele"""
+    try:
+        # Filtreler
+        oda_id = request.args.get('oda_id', type=int)
+        personel_id = request.args.get('personel_id', type=int)
+        islem_tipi = request.args.get('islem_tipi', '')
+        baslangic_tarih = request.args.get('baslangic_tarih', '')
+        bitis_tarih = request.args.get('bitis_tarih', '')
+        
+        # Sayfalama
+        sayfa = request.args.get('sayfa', 1, type=int)
+        per_page = 50
+        
+        # Sorgu oluştur
+        query = MinibarIslem.query.options(
+            db.joinedload(MinibarIslem.oda).joinedload(Oda.kat),
+            db.joinedload(MinibarIslem.personel),
+            db.joinedload(MinibarIslem.detaylar).joinedload(MinibarIslemDetay.urun)
+        )
+        
+        if oda_id:
+            query = query.filter(MinibarIslem.oda_id == oda_id)
+        if personel_id:
+            query = query.filter(MinibarIslem.personel_id == personel_id)
+        if islem_tipi:
+            query = query.filter(MinibarIslem.islem_tipi == islem_tipi)
+        if baslangic_tarih:
+            query = query.filter(MinibarIslem.islem_tarihi >= baslangic_tarih)
+        if bitis_tarih:
+            query = query.filter(MinibarIslem.islem_tarihi <= bitis_tarih)
+        
+        # Sayfalama
+        islemler = query.order_by(MinibarIslem.islem_tarihi.desc()).paginate(
+            page=sayfa, per_page=per_page, error_out=False
+        )
+        
+        # Odalar ve personeller (filtre için)
+        odalar = Oda.query.filter_by(aktif=True).order_by(Oda.oda_no).all()
+        personeller = Kullanici.query.filter(
+            Kullanici.rol.in_(['depo_sorumlusu', 'kat_sorumlusu']),
+            Kullanici.aktif.is_(True)
+        ).order_by(Kullanici.ad, Kullanici.soyad).all()
+        
+        # Log kaydı
+        log_islem('goruntuleme', 'minibar_islemleri', {
+            'sayfa': sayfa,
+            'kayit_sayisi': islemler.total
+        })
+        
+        return render_template('sistem_yoneticisi/admin_minibar_islemleri.html',
+                             islemler=islemler,
+                             odalar=odalar,
+                             personeller=personeller,
+                             oda_id=oda_id,
+                             personel_id=personel_id,
+                             islem_tipi=islem_tipi,
+                             baslangic_tarih=baslangic_tarih,
+                             bitis_tarih=bitis_tarih)
+        
+    except Exception as e:
+        log_hata(e, modul='admin_minibar_islemleri')
+        flash('Minibar işlemleri yüklenirken hata oluştu.', 'danger')
+        return redirect(url_for('sistem_yoneticisi_dashboard'))
+
+
+@app.route('/api/minibar-islem-detay/<int:islem_id>')
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def api_minibar_islem_detay(islem_id):
+    """Minibar işlem detaylarını JSON olarak döndür"""
+    from flask import jsonify
+    try:
+        islem = db.session.query(MinibarIslem).options(
+            db.joinedload(MinibarIslem.oda).joinedload(Oda.kat),
+            db.joinedload(MinibarIslem.personel),
+            db.joinedload(MinibarIslem.detaylar).joinedload(MinibarIslemDetay.urun)
+        ).filter_by(id=islem_id).first()
+        
+        if not islem:
+            return jsonify({'success': False, 'message': 'Minibar işlemi bulunamadı'}), 404
+        
+        # Log kaydı
+        log_islem('goruntuleme', 'minibar_islem_detay', {
+            'islem_id': islem_id,
+            'oda_id': islem.oda_id
+        })
+        
+        # JSON formatında döndür
+        return jsonify({
+            'success': True,
+            'islem': {
+                'id': islem.id,
+                'oda_no': islem.oda.oda_no,
+                'kat_adi': islem.oda.kat.kat_adi,
+                'islem_tipi': islem.islem_tipi,
+                'islem_tarihi': islem.islem_tarihi.strftime('%d.%m.%Y %H:%M'),
+                'personel': f"{islem.personel.ad} {islem.personel.soyad}",
+                'aciklama': islem.aciklama or '',
+                'detaylar': [
+                    {
+                        'urun_adi': detay.urun.urun_adi,
+                        'baslangic_stok': detay.baslangic_stok,
+                        'eklenen_miktar': detay.eklenen_miktar,
+                        'tuketim': detay.tuketim,
+                        'bitis_stok': detay.bitis_stok
+                    }
+                    for detay in islem.detaylar
+                ]
+            }
+        })
+        
+    except Exception as e:
+        log_hata(e, modul='api_minibar_islem_detay')
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/admin/minibar-islem-sil/<int:islem_id>', methods=['DELETE', 'POST'])
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def admin_minibar_islem_sil(islem_id):
+    """Minibar işlem kaydını sil ve stok hareketlerini geri al"""
+    try:
+        islem = db.session.get(MinibarIslem, islem_id)
+        if not islem:
+            return jsonify({'success': False, 'message': 'İşlem bulunamadı'}), 404
+        
+        # Eski değeri sakla
+        eski_deger = serialize_model(islem)
+        
+        # Stok hareketlerini geri al
+        for detay in islem.detaylar:
+            if detay.eklenen_miktar > 0:
+                # Eklenen miktarı depoya geri ekle
+                hareket = StokHareket(
+                    urun_id=detay.urun_id,
+                    hareket_tipi='giris',
+                    miktar=detay.eklenen_miktar,
+                    aciklama=f'Minibar işlem iptali - Oda {islem.oda.oda_no}',
+                    islem_yapan_id=session['kullanici_id']
+                )
+                db.session.add(hareket)
+        
+        # İşlemi sil
+        db.session.delete(islem)
+        db.session.commit()
+        
+        # Audit log
+        from utils.audit import audit_delete
+        audit_delete(
+            tablo_adi='minibar_islemleri',
+            kayit_id=islem_id,
+            eski_deger=eski_deger,
+            aciklama='Admin minibar işlem silme'
+        )
+        
+        # Log kaydı
+        log_islem('silme', 'minibar_islem', {
+            'islem_id': islem_id,
+            'oda_id': islem.oda_id
+        })
+        
+        flash('Minibar işlemi başarıyla silindi ve stoklar geri alındı.', 'success')
+        return jsonify({'success': True, 'message': 'İşlem silindi'})
+        
+    except Exception as e:
+        db.session.rollback()
+        log_hata(e, modul='admin_minibar_islem_sil')
+        return jsonify({'success': False, 'message': 'Silme işlemi başarısız'}), 500
+
+
+@app.route('/admin/minibar-durumlari')
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def admin_minibar_durumlari():
+    """Tüm odaların minibar durumlarını özet olarak göster"""
+    try:
+        # Kat filtresi
+        kat_id = request.args.get('kat_id', type=int)
+        
+        # Odaları getir
+        query = Oda.query.options(
+            db.joinedload(Oda.kat)
+        ).filter_by(aktif=True)
+        
+        if kat_id:
+            query = query.filter(Oda.kat_id == kat_id)
+        
+        odalar = query.order_by(Oda.oda_no).all()
+        
+        # Her oda için son minibar işlemini getir
+        oda_durumlari = []
+        for oda in odalar:
+            son_islem = MinibarIslem.query.filter_by(oda_id=oda.id).order_by(
+                MinibarIslem.islem_tarihi.desc()
+            ).first()
+            
+            oda_durumlari.append({
+                'oda': oda,
+                'son_islem': son_islem
+            })
+        
+        # Katlar (filtre için)
+        katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+        
+        # Log kaydı
+        log_islem('goruntuleme', 'minibar_durumlari', {
+            'kat_id': kat_id,
+            'oda_sayisi': len(odalar)
+        })
+        
+        return render_template('sistem_yoneticisi/admin_minibar_durumlari.html',
+                             oda_durumlari=oda_durumlari,
+                             katlar=katlar,
+                             kat_id=kat_id)
+        
+    except Exception as e:
+        log_hata(e, modul='admin_minibar_durumlari')
+        flash('Minibar durumları yüklenirken hata oluştu.', 'danger')
+        return redirect(url_for('sistem_yoneticisi_dashboard'))
+
+
 # Admin paneli kaldırıldı - Sistem Yöneticisi paneli kullanılıyor
 
 # Depo Sorumlusu Panel
@@ -789,9 +1451,13 @@ def depo_dashboard():
 
 # Kat Sorumlusu Panel
 @app.route('/kat-sorumlusu')
+@app.route('/kat-sorumlusu/dashboard')
 @login_required
 @role_required('kat_sorumlusu')
 def kat_sorumlusu_dashboard():
+    from utils.helpers import get_kat_sorumlusu_kritik_stoklar
+    from datetime import datetime, timedelta
+    
     kullanici_id = session['kullanici_id']
     
     # İstatistikler
@@ -808,12 +1474,42 @@ def kat_sorumlusu_dashboard():
         PersonelZimmet.durum == 'aktif'
     ).scalar() or 0
     
+    # Kritik stok bilgileri
+    kritik_stoklar = get_kat_sorumlusu_kritik_stoklar(kullanici_id)
+    kritik_stok_sayisi = kritik_stoklar['istatistik']['kritik_sayisi']
+    stokout_sayisi = kritik_stoklar['istatistik']['stokout_sayisi']
+    
+    # Bugünkü kullanım (son 24 saat)
+    bugun_baslangic = datetime.now() - timedelta(days=1)
+    bugunun_kullanimi = db.session.query(
+        db.func.sum(MinibarIslemDetay.eklenen_miktar)
+    ).join(MinibarIslem).filter(
+        MinibarIslem.personel_id == kullanici_id,
+        MinibarIslem.islem_tarihi >= bugun_baslangic
+    ).scalar() or 0
+    
     # Son minibar işlemleri
     son_islemler = MinibarIslem.query.filter_by(
         personel_id=kullanici_id
     ).order_by(MinibarIslem.islem_tarihi.desc()).limit(10).all()
     
-    # Grafik verileri
+    # Grafik verileri - En çok kullanılan 5 ürün (son 7 gün)
+    yedi_gun_once = datetime.now() - timedelta(days=7)
+    en_cok_kullanilan = db.session.query(
+        Urun.urun_adi,
+        db.func.sum(MinibarIslemDetay.eklenen_miktar).label('toplam')
+    ).join(MinibarIslemDetay, MinibarIslemDetay.urun_id == Urun.id).join(
+        MinibarIslem, MinibarIslem.id == MinibarIslemDetay.islem_id
+    ).filter(
+        MinibarIslem.personel_id == kullanici_id,
+        MinibarIslem.islem_tarihi >= yedi_gun_once
+    ).group_by(Urun.id, Urun.urun_adi).order_by(
+        db.desc('toplam')
+    ).limit(5).all()
+    
+    en_cok_urun_labels = [u[0] for u in en_cok_kullanilan]
+    en_cok_urun_miktarlar = [float(u[1] or 0) for u in en_cok_kullanilan]
+    
     # Zimmet kullanım durumu (ürün bazlı)
     zimmet_urunler = db.session.query(
         Urun.urun_adi,
@@ -830,6 +1526,25 @@ def kat_sorumlusu_dashboard():
     zimmet_urun_labels = [u[0] for u in zimmet_urunler]
     zimmet_kullanilan = [float(u[2] or 0) for u in zimmet_urunler]
     zimmet_kalan = [float(u[3] or 0) for u in zimmet_urunler]
+    
+    # Günlük tüketim trendi (son 7 gün)
+    gunluk_tuketim = []
+    gunluk_labels = []
+    for i in range(6, -1, -1):
+        gun = datetime.now() - timedelta(days=i)
+        gun_baslangic = gun.replace(hour=0, minute=0, second=0, microsecond=0)
+        gun_bitis = gun_baslangic + timedelta(days=1)
+        
+        tuketim = db.session.query(
+            db.func.sum(MinibarIslemDetay.eklenen_miktar)
+        ).join(MinibarIslem).filter(
+            MinibarIslem.personel_id == kullanici_id,
+            MinibarIslem.islem_tarihi >= gun_baslangic,
+            MinibarIslem.islem_tarihi < gun_bitis
+        ).scalar() or 0
+        
+        gunluk_tuketim.append(float(tuketim))
+        gunluk_labels.append(gun.strftime('%d.%m'))
     
     # Minibar işlem tipi dağılımı
     islem_ilk_dolum = MinibarIslem.query.filter_by(
@@ -848,10 +1563,17 @@ def kat_sorumlusu_dashboard():
     return render_template('kat_sorumlusu/dashboard.html',
                          aktif_zimmetler=aktif_zimmetler,
                          zimmet_toplam=zimmet_detaylari,
+                         kritik_stok_sayisi=kritik_stok_sayisi,
+                         stokout_sayisi=stokout_sayisi,
+                         bugunun_kullanimi=int(bugunun_kullanimi),
                          son_islemler=son_islemler,
+                         en_cok_urun_labels=en_cok_urun_labels,
+                         en_cok_urun_miktarlar=en_cok_urun_miktarlar,
                          zimmet_urun_labels=zimmet_urun_labels,
                          zimmet_kullanilan=zimmet_kullanilan,
                          zimmet_kalan=zimmet_kalan,
+                         gunluk_tuketim=gunluk_tuketim,
+                         gunluk_labels=gunluk_labels,
                          islem_ilk_dolum=islem_ilk_dolum,
                          islem_kontrol=islem_kontrol,
                          islem_doldurma=islem_doldurma)
@@ -1040,14 +1762,20 @@ def oda_tanimla():
             oda = Oda(
                 kat_id=form.kat_id.data,
                 oda_no=form.oda_no.data,
-                oda_tipi=form.oda_tipi.data,
-                kapasite=form.kapasite.data
+                oda_tipi=form.oda_tipi.data if hasattr(form, 'oda_tipi') else None,
+                kapasite=form.kapasite.data if hasattr(form, 'kapasite') else None
             )
             db.session.add(oda)
             db.session.commit()
 
             # Audit Trail
-            audit_create('oda', oda.id, oda)
+            audit_create('odalar', oda.id, serialize_model(oda))
+            
+            # Log kaydı
+            log_islem('ekleme', 'oda', {
+                'oda_id': oda.id,
+                'oda_no': oda.oda_no
+            })
 
             flash('Oda başarıyla eklendi.', 'success')
             return redirect(url_for('oda_tanimla'))
@@ -1077,7 +1805,59 @@ def oda_duzenle(oda_id):
 
     oda = Oda.query.get_or_404(oda_id)
     
-    # Kat seçeneklerini doldur (form oluşturmadan önce)
+    # AJAX isteği kontrolü
+    if request.method == 'POST' and request.is_json or request.form.get('ajax'):
+        try:
+            # AJAX ile gelen veri
+            if request.is_json:
+                data = request.get_json()
+            else:
+                data = request.form
+            
+            # Eski değerleri kaydet
+            eski_deger = serialize_model(oda)
+            
+            # Güncelle
+            oda.kat_id = int(data.get('kat_id'))
+            oda.oda_no = data.get('oda_no', '').strip()
+            
+            if not oda.oda_no:
+                return jsonify({
+                    'success': False,
+                    'message': 'Oda numarası boş olamaz'
+                }), 400
+            
+            db.session.commit()
+            
+            # Audit Trail
+            audit_update('odalar', oda.id, eski_deger, serialize_model(oda))
+            
+            # Log kaydı
+            log_islem('guncelleme', 'oda', {
+                'oda_id': oda.id,
+                'oda_no': oda.oda_no
+            })
+            
+            return jsonify({
+                'success': True,
+                'message': 'Oda başarıyla güncellendi'
+            })
+            
+        except IntegrityError:
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'message': 'Bu oda numarası başka bir oda tarafından kullanılıyor'
+            }), 400
+        except Exception as e:
+            db.session.rollback()
+            log_hata(e, modul='oda_duzenle', extra_info={'oda_id': oda_id})
+            return jsonify({
+                'success': False,
+                'message': 'Oda güncellenirken hata oluştu'
+            }), 500
+    
+    # Normal form isteği (eski sayfa için)
     katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
     kat_choices = [(k.id, f'{k.kat_adi} (Kat {k.kat_no})') for k in katlar]
     
@@ -1858,6 +2638,21 @@ def personel_zimmet():
                          urun_gruplari=urun_gruplari, 
                          aktif_zimmetler=aktif_zimmetler)
 
+# AJAX endpoint - Tüm odaları getir
+@app.route('/api/odalar')
+@login_required
+@role_required('sistem_yoneticisi', 'admin', 'kat_sorumlusu', 'depo_sorumlusu')
+def api_odalar():
+    from flask import jsonify
+    odalar = Oda.query.options(
+        db.joinedload(Oda.kat)
+    ).filter_by(aktif=True).order_by(Oda.oda_no).all()
+    return jsonify([{
+        'id': oda.id,
+        'oda_no': oda.oda_no,
+        'kat_adi': oda.kat.kat_adi
+    } for oda in odalar])
+
 # AJAX endpoint - Kata göre odaları getir
 @app.route('/api/odalar-by-kat/<int:kat_id>')
 @login_required
@@ -1870,19 +2665,413 @@ def odalar_by_kat(kat_id):
         'oda_numarasi': oda.oda_no
     } for oda in odalar])
 
+# AJAX endpoint - Ürün gruplarını getir
+@app.route('/api/urun-gruplari')
+@login_required
+@role_required('sistem_yoneticisi', 'admin', 'depo_sorumlusu', 'kat_sorumlusu')
+def api_urun_gruplari():
+    from flask import jsonify
+    gruplar = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
+    return jsonify([{
+        'id': grup.id,
+        'grup_adi': grup.grup_adi
+    } for grup in gruplar])
+
+# AJAX endpoint - Tüm ürünleri getir
+@app.route('/api/urunler')
+@login_required
+@role_required('sistem_yoneticisi', 'admin', 'depo_sorumlusu', 'kat_sorumlusu')
+def api_urunler():
+    from flask import jsonify
+    urunler = Urun.query.filter_by(aktif=True).order_by(Urun.urun_adi).all()
+    
+    # Her ürün için stok miktarını hesapla
+    urun_listesi = []
+    for urun in urunler:
+        giris_toplam = db.session.query(db.func.sum(StokHareket.miktar)).filter(
+            StokHareket.urun_id == urun.id,
+            StokHareket.hareket_tipi.in_(['giris', 'devir', 'sayim'])
+        ).scalar() or 0
+        
+        cikis_toplam = db.session.query(db.func.sum(StokHareket.miktar)).filter(
+            StokHareket.urun_id == urun.id,
+            StokHareket.hareket_tipi == 'cikis'
+        ).scalar() or 0
+        
+        stok_miktari = giris_toplam - cikis_toplam
+        
+        urun_listesi.append({
+            'id': urun.id,
+            'urun_adi': urun.urun_adi,
+            'grup_adi': urun.grup.grup_adi if urun.grup else '',
+            'birim': urun.birim,
+            'kritik_stok_seviyesi': urun.kritik_stok_seviyesi,
+            'stok_miktari': stok_miktari
+        })
+    
+    return jsonify(urun_listesi)
+
 # AJAX endpoint - Gruba göre ürünleri getir
 @app.route('/api/urunler-by-grup/<int:grup_id>')
 @login_required
-@role_required('depo_sorumlusu', 'kat_sorumlusu')
+@role_required('sistem_yoneticisi', 'admin', 'depo_sorumlusu', 'kat_sorumlusu')
 def urunler_by_grup(grup_id):
     from flask import jsonify
     urunler = Urun.query.filter_by(grup_id=grup_id, aktif=True).order_by(Urun.urun_adi).all()
-    return jsonify([{
-        'id': urun.id,
-        'urun_adi': urun.urun_adi,
-        'birim': urun.birim,
-        'kritik_stok_seviyesi': urun.kritik_stok_seviyesi
-    } for urun in urunler])
+    
+    # Her ürün için stok miktarını hesapla
+    urun_listesi = []
+    for urun in urunler:
+        giris_toplam = db.session.query(db.func.sum(StokHareket.miktar)).filter(
+            StokHareket.urun_id == urun.id,
+            StokHareket.hareket_tipi.in_(['giris', 'devir', 'sayim'])
+        ).scalar() or 0
+        
+        cikis_toplam = db.session.query(db.func.sum(StokHareket.miktar)).filter(
+            StokHareket.urun_id == urun.id,
+            StokHareket.hareket_tipi == 'cikis'
+        ).scalar() or 0
+        
+        stok_miktari = giris_toplam - cikis_toplam
+        
+        urun_listesi.append({
+            'id': urun.id,
+            'urun_adi': urun.urun_adi,
+            'birim': urun.birim,
+            'kritik_stok_seviyesi': urun.kritik_stok_seviyesi,
+            'stok_miktari': stok_miktari
+        })
+    
+    return jsonify(urun_listesi)
+
+# AJAX endpoint - Stok girişi yap
+@app.route('/api/stok-giris', methods=['POST'])
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def api_stok_giris():
+    from flask import jsonify, request
+    try:
+        data = request.get_json()
+        
+        urun_id = data.get('urun_id')
+        miktar = data.get('miktar')
+        aciklama = data.get('aciklama', '')
+        
+        if not urun_id or not miktar:
+            return jsonify({'success': False, 'message': 'Ürün ve miktar zorunludur'}), 400
+        
+        # Ürün kontrolü
+        urun = db.session.get(Urun, urun_id)
+        if not urun:
+            return jsonify({'success': False, 'message': 'Ürün bulunamadı'}), 404
+        
+        # Stok hareketi oluştur
+        hareket = StokHareket(
+            urun_id=urun_id,
+            hareket_tipi='giris',
+            miktar=miktar,
+            aciklama=aciklama,
+            islem_yapan_id=session['kullanici_id']
+        )
+        db.session.add(hareket)
+        db.session.commit()
+        
+        # Audit log
+        from utils.audit import audit_create
+        audit_create(
+            tablo_adi='stok_hareketleri',
+            kayit_id=hareket.id,
+            yeni_deger=serialize_model(hareket),
+            aciklama='API üzerinden stok girişi'
+        )
+        
+        # Log kaydı
+        log_islem('ekleme', 'stok_giris_api', {
+            'urun_id': urun_id,
+            'miktar': miktar,
+            'aciklama': aciklama
+        })
+        
+        return jsonify({
+            'success': True,
+            'message': 'Stok girişi başarıyla kaydedildi',
+            'hareket_id': hareket.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        log_hata(e, modul='api_stok_giris')
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# AJAX endpoint - Minibar işlemi kaydet
+@app.route('/api/minibar-islem-kaydet', methods=['POST'])
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def api_minibar_islem_kaydet():
+    from flask import jsonify, request
+    try:
+        data = request.get_json()
+        
+        oda_id = data.get('oda_id')
+        islem_tipi = data.get('islem_tipi')
+        aciklama = data.get('aciklama', '')
+        detaylar = data.get('detaylar', [])
+        
+        if not oda_id or not islem_tipi:
+            return jsonify({'success': False, 'message': 'Oda ve işlem tipi zorunludur'}), 400
+        
+        # Oda kontrolü
+        oda = db.session.get(Oda, oda_id)
+        if not oda:
+            return jsonify({'success': False, 'message': 'Oda bulunamadı'}), 404
+        
+        # Minibar işlemi oluştur
+        minibar_islem = MinibarIslem(
+            oda_id=oda_id,
+            personel_id=session['kullanici_id'],
+            islem_tipi=islem_tipi,
+            aciklama=aciklama
+        )
+        db.session.add(minibar_islem)
+        db.session.flush()
+        
+        # Detayları kaydet ve stok hareketleri oluştur
+        for detay_data in detaylar:
+            urun_id = detay_data.get('urun_id')
+            baslangic_stok = detay_data.get('baslangic_stok', 0)
+            bitis_stok = detay_data.get('bitis_stok', 0)
+            tuketim = detay_data.get('tuketim', 0)
+            
+            # Minibar işlem detayı
+            detay = MinibarIslemDetay(
+                islem_id=minibar_islem.id,
+                urun_id=urun_id,
+                baslangic_stok=baslangic_stok,
+                bitis_stok=bitis_stok,
+                tuketim=tuketim
+            )
+            db.session.add(detay)
+            
+            # Tüketim varsa stok hareketi oluştur
+            if tuketim > 0:
+                stok_hareket = StokHareket(
+                    urun_id=urun_id,
+                    hareket_tipi='cikis',
+                    miktar=tuketim,
+                    aciklama=f'Minibar tüketimi - Oda: {oda.oda_no}',
+                    islem_yapan_id=session['kullanici_id']
+                )
+                db.session.add(stok_hareket)
+        
+        db.session.commit()
+        
+        # Audit log
+        from utils.audit import audit_create
+        audit_create(
+            tablo_adi='minibar_islemleri',
+            kayit_id=minibar_islem.id,
+            yeni_deger=serialize_model(minibar_islem),
+            aciklama='API üzerinden minibar işlemi'
+        )
+        
+        # Log kaydı
+        log_islem('ekleme', 'minibar_islem_api', {
+            'oda_id': oda_id,
+            'islem_tipi': islem_tipi,
+            'detay_sayisi': len(detaylar)
+        })
+        
+        return jsonify({
+            'success': True,
+            'message': 'Minibar işlemi başarıyla kaydedildi',
+            'islem_id': minibar_islem.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        log_hata(e, modul='api_minibar_islem_kaydet')
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# AJAX endpoint - İlk Dolum İşlemi (Her oda için sadece bir kez)
+@app.route('/api/minibar-ilk-dolum', methods=['POST'])
+@login_required
+@role_required('sistem_yoneticisi', 'admin', 'depo_sorumlusu')
+def api_minibar_ilk_dolum():
+    from flask import jsonify, request
+    try:
+        data = request.get_json()
+        
+        oda_id = data.get('oda_id')
+        aciklama = data.get('aciklama', '')
+        urunler = data.get('urunler', [])  # [{'urun_id': 1, 'miktar': 5}, ...]
+        
+        if not oda_id:
+            return jsonify({'success': False, 'message': 'Oda seçimi zorunludur'}), 400
+        
+        if not urunler:
+            return jsonify({'success': False, 'message': 'En az bir ürün seçmelisiniz'}), 400
+        
+        # Oda kontrolü
+        oda = db.session.get(Oda, oda_id)
+        if not oda:
+            return jsonify({'success': False, 'message': 'Oda bulunamadı'}), 404
+        
+        # Bu oda için hangi ürünlere ilk dolum yapılmış kontrol et
+        mevcut_ilk_dolumlar = db.session.query(MinibarIslemDetay.urun_id).join(
+            MinibarIslem
+        ).filter(
+            MinibarIslem.oda_id == oda_id,
+            MinibarIslem.islem_tipi == 'ilk_dolum'
+        ).all()
+        
+        mevcut_urun_idler = {detay.urun_id for detay in mevcut_ilk_dolumlar}
+        
+        # Gelen ürünlerden hangilerine daha önce ilk dolum yapılmış kontrol et
+        tekrar_urunler = []
+        for urun_data in urunler:
+            urun_id = urun_data.get('urun_id')
+            if urun_id in mevcut_urun_idler:
+                urun = db.session.get(Urun, urun_id)
+                if urun:
+                    tekrar_urunler.append(urun.urun_adi)
+        
+        if tekrar_urunler:
+            return jsonify({
+                'success': False,
+                'message': f'Bu oda için şu ürünlere daha önce ilk dolum yapılmış: {", ".join(tekrar_urunler)}'
+            }), 400
+        
+        # Minibar işlemi oluştur
+        minibar_islem = MinibarIslem(
+            oda_id=oda_id,
+            personel_id=session['kullanici_id'],
+            islem_tipi='ilk_dolum',
+            aciklama=aciklama or 'İlk dolum işlemi'
+        )
+        db.session.add(minibar_islem)
+        db.session.flush()
+        
+        # Her ürün için detay ve stok hareketi oluştur
+        for urun_data in urunler:
+            urun_id = urun_data.get('urun_id')
+            miktar = urun_data.get('miktar', 0)
+            
+            if miktar <= 0:
+                continue
+            
+            # Ürün kontrolü
+            urun = db.session.get(Urun, urun_id)
+            if not urun:
+                continue
+            
+            # Depo stok miktarını hesapla
+            giris_toplam = db.session.query(db.func.sum(StokHareket.miktar)).filter(
+                StokHareket.urun_id == urun_id,
+                StokHareket.hareket_tipi.in_(['giris', 'devir', 'sayim'])
+            ).scalar() or 0
+            
+            cikis_toplam = db.session.query(db.func.sum(StokHareket.miktar)).filter(
+                StokHareket.urun_id == urun_id,
+                StokHareket.hareket_tipi == 'cikis'
+            ).scalar() or 0
+            
+            mevcut_stok = giris_toplam - cikis_toplam
+            
+            # Depo stok kontrolü
+            if mevcut_stok < miktar:
+                db.session.rollback()
+                return jsonify({
+                    'success': False,
+                    'message': f'{urun.urun_adi} için yeterli stok yok (Mevcut: {mevcut_stok}, İstenen: {miktar})'
+                }), 400
+            
+            # Minibar işlem detayı
+            detay = MinibarIslemDetay(
+                islem_id=minibar_islem.id,
+                urun_id=urun_id,
+                baslangic_stok=0,
+                bitis_stok=miktar,
+                tuketim=0,
+                eklenen_miktar=miktar
+            )
+            db.session.add(detay)
+            
+            # Depodan çıkış hareketi
+            stok_hareket = StokHareket(
+                urun_id=urun_id,
+                hareket_tipi='cikis',
+                miktar=miktar,
+                aciklama=f'İlk dolum - Oda: {oda.oda_no}',
+                islem_yapan_id=session['kullanici_id']
+            )
+            db.session.add(stok_hareket)
+        
+        db.session.commit()
+        
+        # Audit log
+        from utils.audit import audit_create
+        audit_create(
+            tablo_adi='minibar_islemleri',
+            kayit_id=minibar_islem.id,
+            yeni_deger=serialize_model(minibar_islem),
+            aciklama='İlk dolum işlemi'
+        )
+        
+        # Log kaydı
+        log_islem('ekleme', 'minibar_ilk_dolum', {
+            'oda_id': oda_id,
+            'urun_sayisi': len(urunler)
+        })
+        
+        return jsonify({
+            'success': True,
+            'message': f'{oda.oda_no} numaralı oda için ilk dolum başarıyla tamamlandı',
+            'islem_id': minibar_islem.id
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        log_hata(e, modul='api_minibar_ilk_dolum')
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+# AJAX endpoint - İlk dolum yapılmış ürünleri getir
+@app.route('/api/minibar-ilk-dolum-kontrol/<int:oda_id>')
+@login_required
+@role_required('sistem_yoneticisi', 'admin', 'depo_sorumlusu')
+def api_minibar_ilk_dolum_kontrol(oda_id):
+    from flask import jsonify
+    try:
+        # Bu oda için hangi ürünlere ilk dolum yapılmış?
+        ilk_dolum_detaylar = db.session.query(
+            MinibarIslemDetay.urun_id,
+            Urun.urun_adi,
+            MinibarIslem.islem_tarihi
+        ).join(
+            MinibarIslem, MinibarIslemDetay.islem_id == MinibarIslem.id
+        ).join(
+            Urun, MinibarIslemDetay.urun_id == Urun.id
+        ).filter(
+            MinibarIslem.oda_id == oda_id,
+            MinibarIslem.islem_tipi == 'ilk_dolum'
+        ).all()
+        
+        ilk_dolum_urunler = [
+            {
+                'urun_id': detay.urun_id,
+                'urun_adi': detay.urun_adi,
+                'tarih': detay.islem_tarihi.strftime('%d.%m.%Y %H:%M')
+            }
+            for detay in ilk_dolum_detaylar
+        ]
+        
+        return jsonify({
+            'success': True,
+            'ilk_dolum_urunler': ilk_dolum_urunler
+        })
+        
+    except Exception as e:
+        log_hata(e, modul='api_minibar_ilk_dolum_kontrol')
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 # AJAX endpoint - Ürün stok bilgisini getir
 @app.route('/api/urun-stok/<int:urun_id>')
@@ -2466,7 +3655,23 @@ def depo_raporlar():
                          urunler=urunler,
                          personeller=personeller)
 
-# Kat Sorumlusu Rotaları
+# Dolum Talepleri Rotaları
+@app.route('/dolum-talepleri')
+@login_required
+@role_required('kat_sorumlusu')
+def dolum_talepleri():
+    """Kat Sorumlusu - Dolum talepleri sayfası"""
+    return render_template('kat_sorumlusu/dolum_talepleri.html')
+
+
+@app.route('/sistem-yoneticisi/dolum-talepleri')
+@login_required
+@role_required('sistem_yoneticisi', 'admin')
+def admin_dolum_talepleri():
+    """Admin - Dolum talepleri sayfası"""
+    return render_template('sistem_yoneticisi/dolum_talepleri.html')
+
+
 @app.route('/minibar-kontrol', methods=['GET', 'POST'])
 @login_required
 @role_required('kat_sorumlusu')
@@ -2703,7 +3908,7 @@ def minibar_urunler():
 
 @app.route('/api/minibar-icerigi/<int:oda_id>')
 @login_required
-@role_required('kat_sorumlusu')
+@role_required('sistem_yoneticisi', 'admin', 'kat_sorumlusu')
 def api_minibar_icerigi(oda_id):
     """Odanın mevcut minibar içeriğini döndür (son işleme göre)"""
     try:
@@ -4056,7 +5261,7 @@ def api_tuketim_trendleri():
 
 @app.route('/sistem-yoneticisi/audit-trail')
 @login_required
-@role_required('sistem_yoneticisi')
+@role_required('sistem_yoneticisi', 'admin')
 def audit_trail():
     """Audit Trail - Denetim İzi Sayfası"""
     from models import AuditLog, Kullanici
@@ -4122,7 +5327,7 @@ def audit_trail():
 
 @app.route('/sistem-yoneticisi/audit-trail/<int:log_id>')
 @login_required
-@role_required('sistem_yoneticisi')
+@role_required('sistem_yoneticisi', 'admin')
 def audit_trail_detail(log_id):
     """Audit Log Detay API"""
     from models import AuditLog
@@ -4154,7 +5359,7 @@ def audit_trail_detail(log_id):
 
 @app.route('/sistem-yoneticisi/audit-trail/export')
 @login_required
-@role_required('sistem_yoneticisi')
+@role_required('sistem_yoneticisi', 'admin')
 def audit_trail_export():
     """Audit Trail Excel Export"""
     from models import AuditLog
@@ -4886,6 +6091,284 @@ def init_database():
         print()
         print("🔧 Lütfen 'python init_db.py' komutunu çalıştırın.")
         return False
+
+
+# ============================================
+# KAT SORUMLUSU STOK YÖNETİMİ ROTALARI
+# ============================================
+
+@app.route('/kat-sorumlusu/zimmet-stoklarim')
+@login_required
+@role_required('kat_sorumlusu')
+def kat_sorumlusu_zimmet_stoklarim():
+    """Zimmet stok listesi sayfası"""
+    from utils.helpers import get_kat_sorumlusu_zimmet_stoklari
+    
+    try:
+        kullanici_id = session['kullanici_id']
+        
+        # Zimmet stoklarını getir
+        zimmet_stoklari = get_kat_sorumlusu_zimmet_stoklari(kullanici_id)
+        
+        # Log kaydı
+        log_islem('goruntuleme', 'zimmet_stoklari', {
+            'kullanici_id': kullanici_id,
+            'zimmet_sayisi': len(zimmet_stoklari)
+        })
+        
+        return render_template('kat_sorumlusu/zimmet_stoklarim.html',
+                             zimmet_stoklari=zimmet_stoklari)
+        
+    except Exception as e:
+        log_hata(e, modul='kat_sorumlusu_stok')
+        flash('Zimmet stokları yüklenirken hata oluştu.', 'danger')
+        return redirect(url_for('kat_sorumlusu_dashboard'))
+
+
+@app.route('/kat-sorumlusu/kritik-stoklar')
+@login_required
+@role_required('kat_sorumlusu')
+def kat_sorumlusu_kritik_stoklar():
+    """Kritik stoklar sayfası"""
+    from utils.helpers import get_kat_sorumlusu_kritik_stoklar
+    
+    try:
+        kullanici_id = session['kullanici_id']
+        
+        # Kritik stokları getir
+        kritik_stoklar = get_kat_sorumlusu_kritik_stoklar(kullanici_id)
+        
+        # Log kaydı
+        log_islem('goruntuleme', 'kritik_stoklar', {
+            'kullanici_id': kullanici_id,
+            'stokout_sayisi': kritik_stoklar['istatistik']['stokout_sayisi'],
+            'kritik_sayisi': kritik_stoklar['istatistik']['kritik_sayisi']
+        })
+        
+        return render_template('kat_sorumlusu/kritik_stoklar.html',
+                             kritik_stoklar=kritik_stoklar)
+        
+    except Exception as e:
+        log_hata(e, modul='kat_sorumlusu_stok')
+        flash('Kritik stoklar yüklenirken hata oluştu.', 'danger')
+        return redirect(url_for('kat_sorumlusu_dashboard'))
+
+
+@app.route('/kat-sorumlusu/siparis-hazirla', methods=['GET', 'POST'])
+@login_required
+@role_required('kat_sorumlusu')
+def kat_sorumlusu_siparis_hazirla():
+    """Sipariş hazırlama sayfası"""
+    from utils.helpers import olustur_otomatik_siparis, kaydet_siparis_talebi
+    
+    try:
+        kullanici_id = session['kullanici_id']
+        
+        if request.method == 'POST':
+            # Sipariş listesini al
+            siparis_data = request.get_json()
+            siparis_listesi = siparis_data.get('siparis_listesi', [])
+            aciklama = siparis_data.get('aciklama', '')
+            
+            # Sipariş talebini kaydet
+            sonuc = kaydet_siparis_talebi(kullanici_id, siparis_listesi, aciklama)
+            
+            return jsonify(sonuc)
+        
+        # GET request - Otomatik sipariş listesi oluştur
+        siparis_bilgileri = olustur_otomatik_siparis(kullanici_id)
+        
+        # Log kaydı
+        log_islem('goruntuleme', 'siparis_hazirla', {
+            'kullanici_id': kullanici_id,
+            'urun_sayisi': siparis_bilgileri['toplam_urun_sayisi']
+        })
+        
+        return render_template('kat_sorumlusu/siparis_hazirla.html',
+                             siparis_bilgileri=siparis_bilgileri)
+        
+    except Exception as e:
+        log_hata(e, modul='kat_sorumlusu_stok')
+        if request.method == 'POST':
+            return jsonify({'success': False, 'message': 'Bir hata oluştu'}), 500
+        flash('Sipariş hazırlama sayfası yüklenirken hata oluştu.', 'danger')
+        return redirect(url_for('kat_sorumlusu_dashboard'))
+
+
+@app.route('/kat-sorumlusu/urun-gecmisi/<int:urun_id>')
+@login_required
+@role_required('kat_sorumlusu')
+def kat_sorumlusu_urun_gecmisi(urun_id):
+    """Ürün kullanım geçmişi sayfası"""
+    from utils.helpers import get_zimmet_urun_gecmisi
+    
+    try:
+        kullanici_id = session['kullanici_id']
+        
+        # Tarih filtresi
+        gun_sayisi = request.args.get('gun_sayisi', 30, type=int)
+        
+        # Ürün geçmişini getir
+        gecmis = get_zimmet_urun_gecmisi(kullanici_id, urun_id, gun_sayisi)
+        
+        if not gecmis:
+            flash('Ürün bulunamadı.', 'danger')
+            return redirect(url_for('kat_sorumlusu_zimmet_stoklarim'))
+        
+        # Log kaydı
+        log_islem('goruntuleme', 'urun_gecmisi', {
+            'kullanici_id': kullanici_id,
+            'urun_id': urun_id,
+            'gun_sayisi': gun_sayisi
+        })
+        
+        return render_template('kat_sorumlusu/urun_gecmisi.html',
+                             gecmis=gecmis,
+                             gun_sayisi=gun_sayisi)
+        
+    except Exception as e:
+        log_hata(e, modul='kat_sorumlusu_stok', extra_info={'urun_id': urun_id})
+        flash('Ürün geçmişi yüklenirken hata oluştu.', 'danger')
+        return redirect(url_for('kat_sorumlusu_zimmet_stoklarim'))
+
+
+@app.route('/kat-sorumlusu/zimmet-export')
+@login_required
+@role_required('kat_sorumlusu')
+def kat_sorumlusu_zimmet_export():
+    """Zimmet stoklarını Excel'e export et"""
+    from utils.helpers import export_zimmet_stok_excel
+    
+    try:
+        kullanici_id = session['kullanici_id']
+        
+        # Excel dosyasını oluştur
+        excel_buffer = export_zimmet_stok_excel(kullanici_id)
+        
+        if not excel_buffer:
+            flash('Excel dosyası oluşturulamadı.', 'danger')
+            return redirect(url_for('kat_sorumlusu_zimmet_stoklarim'))
+        
+        # Log kaydı
+        log_islem('export', 'zimmet_stoklari', {
+            'kullanici_id': kullanici_id,
+            'format': 'excel'
+        })
+        
+        filename = f'zimmet_stoklari_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+        
+        return send_file(
+            excel_buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        
+    except Exception as e:
+        log_hata(e, modul='kat_sorumlusu_stok')
+        flash('Excel export işlemi başarısız oldu.', 'danger')
+        return redirect(url_for('kat_sorumlusu_zimmet_stoklarim'))
+
+
+@app.route('/api/kat-sorumlusu/kritik-seviye-guncelle', methods=['POST'])
+@login_required
+@role_required('kat_sorumlusu')
+def api_kat_sorumlusu_kritik_seviye_guncelle():
+    """AJAX - Kritik seviye güncelleme"""
+    from utils.helpers import guncelle_kritik_seviye
+    
+    try:
+        data = request.get_json()
+        zimmet_detay_id = data.get('zimmet_detay_id')
+        kritik_seviye = data.get('kritik_seviye')
+        
+        if not zimmet_detay_id or not kritik_seviye:
+            return jsonify({
+                'success': False,
+                'message': 'Eksik parametreler'
+            }), 400
+        
+        # Kritik seviyeyi güncelle
+        sonuc = guncelle_kritik_seviye(zimmet_detay_id, int(kritik_seviye))
+        
+        if sonuc['success']:
+            return jsonify(sonuc)
+        else:
+            return jsonify(sonuc), 400
+        
+    except Exception as e:
+        log_hata(e, modul='kat_sorumlusu_stok')
+        return jsonify({
+            'success': False,
+            'message': 'Bir hata oluştu'
+        }), 500
+
+
+@app.route('/api/kat-sorumlusu/siparis-kaydet', methods=['POST'])
+@login_required
+@role_required('kat_sorumlusu')
+def api_kat_sorumlusu_siparis_kaydet():
+    """AJAX - Sipariş talebini kaydet"""
+    from utils.helpers import kaydet_siparis_talebi
+    
+    try:
+        data = request.get_json()
+        siparis_listesi = data.get('siparis_listesi', [])
+        aciklama = data.get('aciklama', '')
+        
+        # Validasyon
+        if not siparis_listesi or len(siparis_listesi) == 0:
+            return jsonify({
+                'success': False,
+                'message': 'Sipariş listesi boş olamaz'
+            }), 400
+        
+        # Sipariş talebini kaydet
+        personel_id = session.get('kullanici_id')
+        sonuc = kaydet_siparis_talebi(personel_id, siparis_listesi, aciklama)
+        
+        if sonuc['success']:
+            # Log kaydı
+            log_islem('ekleme', 'siparis_talebi', {
+                'personel_id': personel_id,
+                'urun_sayisi': len(siparis_listesi),
+                'aciklama': aciklama
+            })
+            return jsonify(sonuc)
+        else:
+            return jsonify(sonuc), 400
+        
+    except Exception as e:
+        log_hata(e, modul='kat_sorumlusu_stok', extra_info={
+            'function': 'api_kat_sorumlusu_siparis_kaydet',
+            'personel_id': session.get('kullanici_id')
+        })
+        return jsonify({
+            'success': False,
+            'message': 'Sipariş kaydedilirken bir hata oluştu'
+        }), 500
+
+
+# ============================================
+# QR KOD SİSTEMİ ROTALARI
+# ============================================
+
+# Admin QR route'larını kaydet
+from routes.admin_qr_routes import register_admin_qr_routes
+register_admin_qr_routes(app)
+
+# Kat Sorumlusu QR route'larını kaydet
+from routes.kat_sorumlusu_qr_routes import register_kat_sorumlusu_qr_routes
+register_kat_sorumlusu_qr_routes(app)
+
+# Misafir QR route'larını kaydet
+from routes.misafir_qr_routes import register_misafir_qr_routes
+register_misafir_qr_routes(app)
+
+# Dolum talebi route'larını kaydet
+from routes.dolum_talebi_routes import register_dolum_talebi_routes
+register_dolum_talebi_routes(app)
+
 
 if __name__ == '__main__':
     print()
