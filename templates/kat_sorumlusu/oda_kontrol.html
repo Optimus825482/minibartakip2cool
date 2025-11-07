@@ -1,0 +1,834 @@
+{% extends "base.html" %}
+
+{% block title %}Oda Kontrol - Minibar Takip Sistemi{% endblock %}
+{% block page_title %}Oda Kontrol{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Kat ve Oda Seçimi -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-lg leading-6 font-medium text-slate-900">Kat ve Oda Seçimi</h3>
+                <button onclick="qrIleBaslat()" 
+                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                    </svg>
+                    QR Kod ile Başla
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                    <label for="kat_id" class="block text-sm font-medium text-slate-700">
+                        Kat <span class="text-red-500">*</span>
+                    </label>
+                    <div class="mt-1">
+                        <select id="kat_id" required
+                            class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
+                            <option value="">Kat seçiniz...</option>
+                            {% for kat in katlar %}
+                            <option value="{{ kat.id }}">{{ kat.kat_adi }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="oda_id" class="block text-sm font-medium text-slate-700">
+                        Oda <span class="text-red-500">*</span>
+                    </label>
+                    <div class="mt-1">
+                        <select id="oda_id" required disabled
+                            class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
+                            <option value="">Önce kat seçiniz...</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ürün Listesi -->
+    <div id="urun_listesi_container" class="hidden bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="text-lg leading-6 font-medium text-slate-900">Minibar İçeriği</h3>
+                    <p class="mt-1 text-sm text-slate-500">
+                        Oda: <span id="secili_oda_no" class="font-semibold">-</span> | 
+                        Kat: <span id="secili_kat_adi" class="font-semibold">-</span>
+                    </p>
+                </div>
+                <div id="loading_spinner" class="hidden">
+                    <svg class="animate-spin h-5 w-5 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Boş Durum Mesajı -->
+            <div id="bos_durum_mesaji" class="hidden text-center py-12">
+                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path>
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-slate-900">Minibar Boş</h3>
+                <p class="mt-1 text-sm text-slate-500">Bu minibar'da henüz ürün bulunmamaktadır.</p>
+                <div class="mt-6">
+                    <a href="/kat-sorumlusu/ilk-dolum" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                        <svg class="-ml-1 mr-2 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                        </svg>
+                        İlk Dolum Yap
+                    </a>
+                </div>
+            </div>
+
+            <!-- Ürün Tablosu -->
+            <div id="urun_tablosu" class="hidden">
+                <div class="overflow-hidden rounded-lg border border-slate-200">
+                    <table class="min-w-full divide-y divide-slate-200">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    Ürün Adı
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    Mevcut Miktar
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    Birim
+                                </th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                    İşlem
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody id="urun_tbody" class="bg-white divide-y divide-slate-200">
+                            <!-- JavaScript ile doldurulacak -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Yeniden Dolum Modalı -->
+<div id="yeniden_dolum_modal" class="fixed inset-0 bg-slate-900 bg-opacity-75 hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 transform transition-all">
+        <!-- Modal Header -->
+        <div class="bg-indigo-600 text-white px-6 py-4 rounded-t-lg">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    <h3 class="text-lg font-semibold">Yeniden Dolum</h3>
+                </div>
+                <button onclick="yenidenDolumModalKapat()" class="text-white hover:text-slate-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-6">
+            <div class="mb-4 p-4 bg-slate-50 rounded-md border border-slate-200">
+                <p class="text-sm text-slate-600">
+                    <span class="font-semibold text-slate-700">Ürün:</span> 
+                    <span id="modal_urun_adi" class="text-slate-900">-</span>
+                </p>
+                <p class="text-sm text-slate-600 mt-2">
+                    <span class="font-semibold text-slate-700">Mevcut Miktar:</span> 
+                    <span id="modal_mevcut_miktar" class="text-slate-900">-</span> 
+                    <span id="modal_birim" class="text-slate-900">-</span>
+                </p>
+            </div>
+
+            <div>
+                <label for="eklenecek_miktar" class="block text-sm font-medium text-slate-700 mb-2">
+                    Eklenecek Miktar <span class="text-red-500">*</span>
+                </label>
+                <input type="number" id="eklenecek_miktar" min="0" step="0.01" required
+                    class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="Kaç adet ekleyeceksiniz?">
+                <p class="mt-1 text-xs text-slate-500">Zimmetinizden düşülecek miktar</p>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="bg-slate-50 px-6 py-4 rounded-b-lg flex justify-end space-x-3">
+            <button type="button" onclick="yenidenDolumModalKapat()"
+                class="inline-flex items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                İptal
+            </button>
+            <button type="button" id="dolum_yap_btn" onclick="dolumYap()"
+                class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                Dolum Yap
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Onay Modalı -->
+<div id="onay_modal" class="fixed inset-0 bg-slate-900 bg-opacity-75 hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 transform transition-all">
+        <!-- Modal Header -->
+        <div class="bg-green-600 text-white px-6 py-4 rounded-t-lg">
+            <div class="flex items-center">
+                <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <h3 class="text-lg font-semibold">İşlem Onayı</h3>
+            </div>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-6">
+            <div class="mb-4 p-4 bg-white rounded-md border border-slate-200">
+                <p class="text-sm text-slate-600 mb-3 font-semibold">İşlem Özeti</p>
+                <div class="space-y-3 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Ürün:</span>
+                        <span id="onay_urun_adi" class="font-semibold text-slate-900">-</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Mevcut Miktar:</span>
+                        <span id="onay_mevcut_miktar" class="font-semibold text-slate-900">-</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-slate-600">Eklenecek:</span>
+                        <span id="onay_eklenecek_miktar" class="font-semibold text-green-600">+<span id="onay_eklenecek_value">-</span></span>
+                    </div>
+                    <div class="flex justify-between pt-2 border-t border-slate-200">
+                        <span class="text-slate-600 font-medium">Yeni Toplam:</span>
+                        <span id="onay_yeni_miktar" class="font-bold text-green-600 text-lg">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-3 bg-yellow-50 border border-yellow-200 rounded-md flex items-start">
+                <svg class="w-5 h-5 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <p class="text-sm text-yellow-800">
+                    <strong>Dikkat:</strong> Zimmetinizden <span id="onay_zimmet_dusum" class="font-semibold">-</span> düşülecektir.
+                </p>
+            </div>
+
+            <p class="mt-4 text-center text-slate-700 font-medium">
+                Bu işlemi onaylıyor musunuz?
+            </p>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="bg-slate-50 px-6 py-4 rounded-b-lg flex justify-center space-x-3">
+            <button type="button" onclick="onayModalKapat()"
+                class="inline-flex items-center px-6 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+                İptal
+            </button>
+            <button type="button" id="onay_btn" onclick="islemOnayla()"
+                class="inline-flex items-center px-6 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+                Evet, Onayla
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- QR Okuyucu Modal -->
+<div id="qr_modal" class="fixed inset-0 bg-slate-900 bg-opacity-75 hidden z-50 flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+        <div class="bg-indigo-600 text-white px-6 py-4 rounded-t-lg">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-semibold">QR Kod Okut</h3>
+                <button onclick="qrModalKapat()" class="text-white hover:text-slate-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <div class="p-6">
+            <div id="qr_reader" class="w-full"></div>
+            <p class="mt-4 text-sm text-slate-600 text-center">
+                Oda kapısındaki QR kodu kameranıza gösterin
+            </p>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Animasyonlar */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .animate-fade-in {
+        animation: fadeIn 0.3s ease-out;
+    }
+    
+    /* Modal animasyonları */
+    #yeniden_dolum_modal:not(.hidden),
+    #onay_modal:not(.hidden),
+    #qr_modal:not(.hidden) {
+        animation: fadeIn 0.2s ease-out;
+    }
+    
+    /* Tablo satır hover efekti */
+    #urun_tbody tr {
+        transition: background-color 0.2s ease;
+    }
+    
+    #urun_tbody tr:hover {
+        background-color: #f8fafc;
+    }
+    
+    /* Buton loading state */
+    .btn-loading {
+        position: relative;
+        pointer-events: none;
+        opacity: 0.6;
+    }
+    
+    .btn-loading::after {
+        content: "";
+        position: absolute;
+        width: 16px;
+        height: 16px;
+        top: 50%;
+        left: 50%;
+        margin-left: -8px;
+        margin-top: -8px;
+        border: 2px solid #ffffff;
+        border-radius: 50%;
+        border-top-color: transparent;
+        animation: spin 0.6s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* Responsive tablo */
+    @media (max-width: 640px) {
+        #urun_tablosu table {
+            font-size: 0.875rem;
+        }
+        
+        #urun_tablosu th,
+        #urun_tablosu td {
+            padding: 0.75rem 0.5rem;
+        }
+    }
+    
+    /* Modal responsive */
+    @media (max-width: 640px) {
+        #yeniden_dolum_modal > div,
+        #onay_modal > div,
+        #qr_modal > div {
+            max-width: 95%;
+        }
+    }
+    
+    /* Focus states (accessibility) */
+    button:focus,
+    select:focus,
+    input:focus {
+        outline: 2px solid #6366f1;
+        outline-offset: 2px;
+    }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="https://unpkg.com/html5-qrcode"></script>
+<script>
+console.log('=== INLINE SCRIPT BAŞLADI ===');
+
+// CSRF Token
+const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+console.log('CSRF Token:', csrfToken);
+
+// Global değişkenler
+let secilenOdaId = null;
+let secilenOdaNo = null;
+let secilenKatAdi = null;
+let aktifUrun = null;
+let qrScanner = null;
+
+/**
+ * Sayfa yüklendiğinde
+ */
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM yüklendi');
+    
+    // Kat seçimi event listener
+    const katSelect = document.getElementById('kat_id');
+    if (katSelect) {
+        katSelect.addEventListener('change', katSecildi);
+        console.log('Kat select event listener eklendi');
+    } else {
+        console.error('kat_id elementi bulunamadı!');
+    }
+    
+    // Oda seçimi event listener
+    const odaSelect = document.getElementById('oda_id');
+    if (odaSelect) {
+        odaSelect.addEventListener('change', odaSecildi);
+        console.log('Oda select event listener eklendi');
+    } else {
+        console.error('oda_id elementi bulunamadı!');
+    }
+});
+
+/**
+ * Kat seçildiğinde odaları yükle
+ */
+async function katSecildi() {
+    const katId = document.getElementById('kat_id').value;
+    const odaSelect = document.getElementById('oda_id');
+    
+    console.log('Kat seçildi:', katId);
+    
+    // Reset
+    odaSelect.innerHTML = '<option value="">Oda seçiniz...</option>';
+    odaSelect.disabled = true;
+    urunListesiniGizle();
+    
+    if (!katId) {
+        console.log('Kat ID boş, işlem iptal');
+        return;
+    }
+    
+    try {
+        console.log('Odalar getiriliyor...');
+        const response = await fetch(`/kat-odalari?kat_id=${katId}`);
+        const data = await response.json();
+        
+        console.log('API yanıtı:', data);
+        
+        if (data.success && data.odalar && data.odalar.length > 0) {
+            console.log(`${data.odalar.length} oda bulundu`);
+            data.odalar.forEach(oda => {
+                const option = document.createElement('option');
+                option.value = oda.id;
+                option.textContent = oda.oda_no;
+                odaSelect.appendChild(option);
+            });
+            odaSelect.disabled = false;
+        } else {
+            console.log('Oda bulunamadı');
+            odaSelect.innerHTML = '<option value="">Bu katta oda yok</option>';
+        }
+    } catch (error) {
+        console.error('Hata:', error);
+        hataGoster('Odalar yüklenirken bir hata oluştu');
+    }
+}
+
+/**
+ * Oda seçildiğinde ürünleri getir
+ */
+async function odaSecildi() {
+    const odaId = document.getElementById('oda_id').value;
+    
+    if (!odaId) {
+        urunListesiniGizle();
+        return;
+    }
+    
+    secilenOdaId = odaId;
+    await minibarUrunleriniGetir(odaId);
+}
+
+/**
+ * Minibar ürünlerini API'den getir
+ */
+async function minibarUrunleriniGetir(odaId) {
+    loadingGoster();
+    
+    try {
+        const response = await fetch('/api/kat-sorumlusu/minibar-urunler', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ oda_id: odaId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            secilenOdaNo = data.data.oda_no;
+            secilenKatAdi = data.data.kat_adi;
+            
+            if (data.data.urunler.length === 0) {
+                bosDurumGoster();
+            } else {
+                urunListesiGoster(data.data.urunler);
+            }
+        } else {
+            hataGoster(data.message || 'Ürünler yüklenirken hata oluştu');
+        }
+    } catch (error) {
+        console.error('Hata:', error);
+        hataGoster('Ürünler yüklenirken bir hata oluştu');
+    } finally {
+        loadingGizle();
+    }
+}
+
+/**
+ * Ürün listesini göster
+ */
+function urunListesiGoster(urunler) {
+    document.getElementById('urun_listesi_container').classList.remove('hidden');
+    document.getElementById('bos_durum_mesaji').classList.add('hidden');
+    document.getElementById('urun_tablosu').classList.remove('hidden');
+    
+    document.getElementById('secili_oda_no').textContent = secilenOdaNo;
+    document.getElementById('secili_kat_adi').textContent = secilenKatAdi;
+    
+    const tbody = document.getElementById('urun_tbody');
+    tbody.innerHTML = '';
+    
+    urunler.forEach(urun => {
+        const tr = document.createElement('tr');
+        tr.className = 'cursor-pointer transition-colors';
+        tr.onclick = () => uruneTiklandi(urun);
+        
+        tr.innerHTML = `
+            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                ${urun.urun_adi}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                ${urun.mevcut_miktar}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                ${urun.birim}
+            </td>
+            <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                <button onclick="event.stopPropagation(); uruneTiklandi(${JSON.stringify(urun).replace(/"/g, '&quot;')})"
+                    class="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                    <svg class="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                    </svg>
+                    Dolum Yap
+                </button>
+            </td>
+        `;
+        
+        tbody.appendChild(tr);
+    });
+}
+
+/**
+ * Boş durum mesajını göster
+ */
+function bosDurumGoster() {
+    document.getElementById('urun_listesi_container').classList.remove('hidden');
+    document.getElementById('bos_durum_mesaji').classList.remove('hidden');
+    document.getElementById('urun_tablosu').classList.add('hidden');
+    
+    document.getElementById('secili_oda_no').textContent = secilenOdaNo;
+    document.getElementById('secili_kat_adi').textContent = secilenKatAdi;
+}
+
+/**
+ * Ürün listesini gizle
+ */
+function urunListesiniGizle() {
+    document.getElementById('urun_listesi_container').classList.add('hidden');
+    secilenOdaId = null;
+    secilenOdaNo = null;
+    secilenKatAdi = null;
+}
+
+/**
+ * Ürüne tıklandığında yeniden dolum modalını aç
+ */
+function uruneTiklandi(urun) {
+    aktifUrun = urun;
+    yenidenDolumModalAc(urun);
+}
+
+/**
+ * Yeniden dolum modalını aç
+ */
+function yenidenDolumModalAc(urun) {
+    document.getElementById('modal_urun_adi').textContent = urun.urun_adi;
+    document.getElementById('modal_mevcut_miktar').textContent = urun.mevcut_miktar;
+    document.getElementById('modal_birim').textContent = urun.birim;
+    document.getElementById('eklenecek_miktar').value = '';
+    
+    document.getElementById('yeniden_dolum_modal').classList.remove('hidden');
+    document.getElementById('eklenecek_miktar').focus();
+}
+
+/**
+ * Yeniden dolum modalını kapat
+ */
+function yenidenDolumModalKapat() {
+    document.getElementById('yeniden_dolum_modal').classList.add('hidden');
+    // aktifUrun'u burada null yapma, onay modalı için gerekli!
+}
+
+/**
+ * Dolum yap butonuna tıklandığında
+ */
+function dolumYap() {
+    const eklenecekMiktar = parseFloat(document.getElementById('eklenecek_miktar').value);
+    
+    if (!eklenecekMiktar || eklenecekMiktar <= 0) {
+        hataGoster('Lütfen geçerli bir miktar giriniz');
+        return;
+    }
+    
+    onayModalAc(eklenecekMiktar);
+}
+
+/**
+ * Onay modalını aç
+ */
+function onayModalAc(eklenecekMiktar) {
+    const mevcutMiktar = aktifUrun.mevcut_miktar;
+    // DOĞRU MANTIK: Yeni toplam = Mevcut (değişmez, başlangıca dönüyor)
+    // Çünkü: Şu anki gerçek = Mevcut - Eklenecek
+    // Dolum sonrası = Şu anki + Eklenecek = (Mevcut - Eklenecek) + Eklenecek = Mevcut
+    const yeniMiktar = mevcutMiktar;  // Toplam değişmez!
+    
+    document.getElementById('onay_urun_adi').textContent = aktifUrun.urun_adi;
+    document.getElementById('onay_mevcut_miktar').textContent = `${mevcutMiktar} ${aktifUrun.birim}`;
+    document.getElementById('onay_eklenecek_value').textContent = eklenecekMiktar;
+    document.getElementById('onay_yeni_miktar').textContent = `${yeniMiktar} ${aktifUrun.birim}`;
+    document.getElementById('onay_zimmet_dusum').textContent = `${eklenecekMiktar} ${aktifUrun.birim} ${aktifUrun.urun_adi}`;
+    
+    yenidenDolumModalKapat();
+    document.getElementById('onay_modal').classList.remove('hidden');
+}
+
+/**
+ * Onay modalını kapat
+ */
+function onayModalKapat() {
+    document.getElementById('onay_modal').classList.add('hidden');
+    aktifUrun = null;  // Onay modalı kapanınca temizle
+}
+
+/**
+ * İşlemi onayla ve API'ye gönder
+ */
+async function islemOnayla() {
+    const eklenecekMiktar = parseFloat(document.getElementById('eklenecek_miktar').value);
+    
+    if (!aktifUrun) {
+        hataGoster('Ürün bilgisi bulunamadı');
+        return;
+    }
+    
+    document.getElementById('onay_btn').disabled = true;
+    
+    try {
+        const response = await fetch('/api/kat-sorumlusu/yeniden-dolum', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                oda_id: secilenOdaId,
+                urun_id: aktifUrun.urun_id,
+                eklenecek_miktar: eklenecekMiktar
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            basariGoster(data.message || 'Dolum işlemi başarıyla tamamlandı');
+            onayModalKapat();
+            aktifUrun = null;  // İşlem başarılı, temizle
+            await minibarUrunleriniGetir(secilenOdaId);
+        } else {
+            hataGoster(data.message || 'İşlem sırasında bir hata oluştu');
+        }
+    } catch (error) {
+        console.error('Hata:', error);
+        hataGoster('İşlem sırasında bir hata oluştu. Lütfen tekrar deneyiniz');
+    } finally {
+        document.getElementById('onay_btn').disabled = false;
+    }
+}
+
+/**
+ * QR kod okutmayı başlat
+ */
+function qrIleBaslat() {
+    document.getElementById('qr_modal').classList.remove('hidden');
+    
+    if (!qrScanner) {
+        qrScanner = new Html5Qrcode("qr_reader");
+    }
+    
+    qrScanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        onQrCodeScanned,
+        onQrCodeError
+    ).catch(err => {
+        console.error('QR okuyucu başlatılamadı:', err);
+        hataGoster('Kamera erişimi sağlanamadı');
+        qrModalKapat();
+    });
+}
+
+/**
+ * QR kod okunduğunda
+ */
+async function onQrCodeScanned(decodedText) {
+    if (qrScanner) {
+        qrScanner.stop();
+    }
+    
+    qrModalKapat();
+    
+    try {
+        const response = await fetch('/api/kat-sorumlusu/qr-parse', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ token: decodedText })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('kat_id').value = data.data.kat_id;
+            await katSecildi();
+            
+            document.getElementById('oda_id').value = data.data.oda_id;
+            await odaSecildi();
+            
+            basariGoster(`Oda ${data.data.oda_no} seçildi`);
+        } else {
+            hataGoster(data.message || 'QR kod okunamadı');
+        }
+    } catch (error) {
+        console.error('Hata:', error);
+        hataGoster('QR kod işlenirken hata oluştu');
+    }
+}
+
+/**
+ * QR kod okuma hatası
+ */
+function onQrCodeError(error) {
+    console.debug('QR okuma hatası:', error);
+}
+
+/**
+ * QR modalını kapat
+ */
+function qrModalKapat() {
+    if (qrScanner) {
+        qrScanner.stop().catch(err => console.error('QR durdurma hatası:', err));
+    }
+    document.getElementById('qr_modal').classList.add('hidden');
+}
+
+/**
+ * Loading spinner göster
+ */
+function loadingGoster() {
+    document.getElementById('loading_spinner').classList.remove('hidden');
+}
+
+/**
+ * Loading spinner gizle
+ */
+function loadingGizle() {
+    document.getElementById('loading_spinner').classList.add('hidden');
+}
+
+/**
+ * Başarı mesajı göster (Toast)
+ */
+function basariGoster(mesaj) {
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+    toast.innerHTML = `
+        <div class="flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            <span>${mesaj}</span>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+/**
+ * Hata mesajı göster (Toast)
+ */
+function hataGoster(mesaj) {
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-red-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-fade-in';
+    toast.innerHTML = `
+        <div class="flex items-center">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+            <span>${mesaj}</span>
+        </div>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+
+// ESC tuşu ile modal kapatma (accessibility)
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        if (!document.getElementById('yeniden_dolum_modal').classList.contains('hidden')) {
+            yenidenDolumModalKapat();
+        }
+        if (!document.getElementById('onay_modal').classList.contains('hidden')) {
+            onayModalKapat();
+        }
+        if (!document.getElementById('qr_modal').classList.contains('hidden')) {
+            qrModalKapat();
+        }
+    }
+});
+</script>
+{% endblock %}

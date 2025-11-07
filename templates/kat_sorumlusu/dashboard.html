@@ -102,10 +102,29 @@
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 mb-4">Hızlı İşlemler</h3>
             <div class="grid grid-cols-2 gap-4 md:grid-cols-4 lg:gap-5">
-                <a href="{{ url_for('minibar_kontrol') }}"
+                <a href="{{ url_for('ilk_dolum') }}"
                     class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200 hover:border-blue-300 transition-colors">
                     <div>
                         <span class="rounded-lg inline-flex p-3 bg-blue-50 text-blue-700 ring-4 ring-white">
+                            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                        </span>
+                    </div>
+                    <div class="mt-4">
+                        <h3 class="text-lg font-medium">
+                            <span class="absolute inset-0" aria-hidden="true"></span>
+                            İlk Dolum
+                        </h3>
+                        <p class="mt-2 text-sm text-slate-500">Boş minibar'a ilk ürün ekle</p>
+                    </div>
+                </a>
+
+                <a href="{{ url_for('oda_kontrol') }}"
+                    class="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200 hover:border-indigo-300 transition-colors">
+                    <div>
+                        <span class="rounded-lg inline-flex p-3 bg-indigo-50 text-indigo-700 ring-4 ring-white">
                             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01">
@@ -116,9 +135,9 @@
                     <div class="mt-4">
                         <h3 class="text-lg font-medium">
                             <span class="absolute inset-0" aria-hidden="true"></span>
-                            Minibar Kontrol
+                            Oda Kontrol
                         </h3>
-                        <p class="mt-2 text-sm text-slate-500">Oda minibarını kontrol edin</p>
+                        <p class="mt-2 text-sm text-slate-500">Minibar kontrolü ve yeniden dolum</p>
                     </div>
                 </a>
 

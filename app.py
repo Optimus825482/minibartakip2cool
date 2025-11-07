@@ -6350,6 +6350,313 @@ def api_kat_sorumlusu_siparis_kaydet():
 
 
 # ============================================
+# ODA KONTROL VE YENİDEN DOLUM ROTALARI
+# ============================================
+
+@app.route('/kat-sorumlusu/ilk-dolum', methods=['GET', 'POST'])
+@login_required
+@role_required('kat_sorumlusu')
+def ilk_dolum():
+    """İlk dolum sayfası - boş minibar'lara ilk ürün ekleme"""
+    try:
+        katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+        urun_gruplari = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
+        return render_template('kat_sorumlusu/ilk_dolum.html', katlar=katlar, urun_gruplari=urun_gruplari)
+    except Exception as e:
+        log_hata(e, modul='ilk_dolum')
+        flash('Sayfa yüklenirken bir hata oluştu.', 'danger')
+        return redirect(url_for('kat_sorumlusu_dashboard'))
+
+
+@app.route('/kat-sorumlusu/oda-kontrol')
+@login_required
+@role_required('kat_sorumlusu')
+def oda_kontrol():
+    """Oda kontrol sayfası - sadece görüntüleme ve yeniden dolum"""
+    try:
+        katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+        return render_template('kat_sorumlusu/oda_kontrol.html', katlar=katlar)
+    except Exception as e:
+        log_hata(e, modul='oda_kontrol')
+        flash('Sayfa yüklenirken bir hata oluştu.', 'danger')
+        return redirect(url_for('kat_sorumlusu_dashboard'))
+
+
+@app.route('/api/kat-sorumlusu/minibar-urunler', methods=['POST'])
+@login_required
+@role_required('kat_sorumlusu')
+def api_minibar_urunler():
+    """Seçilen odanın minibar ürünlerini getir"""
+    try:
+        data = request.get_json() or {}
+        oda_id = data.get('oda_id')
+        
+        # Validasyon
+        if not oda_id:
+            return jsonify({
+                'success': False,
+                'message': 'Oda ID gerekli'
+            }), 400
+        
+        # Oda kontrolü
+        oda = db.session.get(Oda, oda_id)
+        if not oda:
+            return jsonify({
+                'success': False,
+                'message': 'Oda bulunamadı'
+            }), 404
+        
+        # Odanın son minibar işlemini sorgula
+        son_islem = MinibarIslem.query.filter_by(
+            oda_id=oda_id
+        ).order_by(MinibarIslem.id.desc()).first()
+        
+        # Boş minibar durumu
+        if not son_islem:
+            return jsonify({
+                'success': True,
+                'data': {
+                    'oda_no': oda.oda_no,
+                    'kat_adi': oda.kat.kat_adi,
+                    'urunler': []
+                },
+                'message': 'Bu minibar\'da henüz ürün bulunmamaktadır'
+            })
+        
+        # İşlem detaylarından ürün listesini getir
+        urunler = []
+        for detay in son_islem.detaylar:
+            urun = db.session.get(Urun, detay.urun_id)
+            if urun:
+                # Mevcut miktar hesaplama
+                mevcut_miktar = detay.bitis_stok if detay.bitis_stok is not None else 0
+                
+                urunler.append({
+                    'urun_id': urun.id,
+                    'urun_adi': urun.urun_adi,
+                    'birim': urun.birim,
+                    'mevcut_miktar': mevcut_miktar,
+                    'zimmet_detay_id': detay.zimmet_detay_id
+                })
+        
+        # Log kaydı
+        log_islem('goruntuleme', 'oda_minibar_urunler', {
+            'oda_id': oda_id,
+            'oda_no': oda.oda_no,
+            'urun_sayisi': len(urunler)
+        })
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'oda_no': oda.oda_no,
+                'kat_adi': oda.kat.kat_adi,
+                'urunler': urunler
+            }
+        })
+        
+    except ValueError as e:
+        log_hata(e, modul='minibar_urunler', extra_info={'oda_id': oda_id})
+        return jsonify({
+            'success': False,
+            'message': 'Geçersiz parametre'
+        }), 400
+    except Exception as e:
+        log_hata(e, modul='minibar_urunler')
+        return jsonify({
+            'success': False,
+            'message': 'Ürünler yüklenirken bir hata oluştu'
+        }), 500
+
+
+@app.route('/api/kat-sorumlusu/yeniden-dolum', methods=['POST'])
+@login_required
+@role_required('kat_sorumlusu')
+def api_yeniden_dolum():
+    """Yeniden dolum işlemi"""
+    try:
+        data = request.get_json() or {}
+        oda_id = data.get('oda_id')
+        urun_id = data.get('urun_id')
+        eklenecek_miktar = data.get('eklenecek_miktar')
+        
+        # Validasyon
+        if not all([oda_id, urun_id, eklenecek_miktar]):
+            return jsonify({
+                'success': False,
+                'message': 'Eksik parametre'
+            }), 400
+        
+        # Miktar kontrolü
+        try:
+            eklenecek_miktar = float(eklenecek_miktar)
+            if eklenecek_miktar <= 0:
+                return jsonify({
+                    'success': False,
+                    'message': 'Lütfen geçerli bir miktar giriniz'
+                }), 400
+        except (ValueError, TypeError):
+            return jsonify({
+                'success': False,
+                'message': 'Geçersiz miktar formatı'
+            }), 400
+        
+        # Oda ve ürün kontrolü
+        oda = db.session.get(Oda, oda_id)
+        urun = db.session.get(Urun, urun_id)
+        
+        if not oda:
+            return jsonify({
+                'success': False,
+                'message': 'Oda bulunamadı'
+            }), 404
+        
+        if not urun:
+            return jsonify({
+                'success': False,
+                'message': 'Ürün bulunamadı'
+            }), 404
+        
+        # Kullanıcının zimmet stoğunu kontrol et
+        kullanici_id = session['kullanici_id']
+        
+        # Aktif zimmetlerde bu ürünü ara
+        zimmet_detaylar = db.session.query(PersonelZimmetDetay).join(
+            PersonelZimmet, PersonelZimmetDetay.zimmet_id == PersonelZimmet.id
+        ).filter(
+            PersonelZimmet.personel_id == kullanici_id,
+            PersonelZimmet.durum == 'aktif',
+            PersonelZimmetDetay.urun_id == urun_id
+        ).all()
+        
+        if not zimmet_detaylar:
+            return jsonify({
+                'success': False,
+                'message': f'Stoğunuzda {urun.urun_adi} bulunmamaktadır'
+            }), 422
+        
+        # Toplam kalan miktarı hesapla
+        toplam_kalan = sum(detay.kalan_miktar or 0 for detay in zimmet_detaylar)
+        
+        if toplam_kalan < eklenecek_miktar:
+            return jsonify({
+                'success': False,
+                'message': f'Stoğunuzda yeterli {urun.urun_adi} bulunmamaktadır. Mevcut: {toplam_kalan}, İstenen: {eklenecek_miktar}'
+            }), 422
+        
+        # Odanın son minibar işlemini bul
+        son_islem = MinibarIslem.query.filter_by(
+            oda_id=oda_id
+        ).order_by(MinibarIslem.id.desc()).first()
+        
+        # Mevcut stok bilgisini al (şu anki gerçek miktar)
+        mevcut_stok = 0
+        baslangic_stok_ilk_dolum = 0
+        if son_islem:
+            for detay in son_islem.detaylar:
+                if detay.urun_id == urun_id:
+                    mevcut_stok = detay.bitis_stok if detay.bitis_stok is not None else 0
+                    # İlk dolumdan bu yana toplam ne kadar eklendi
+                    if son_islem.islem_tipi == 'ilk_dolum':
+                        baslangic_stok_ilk_dolum = detay.bitis_stok
+                    break
+        
+        # Transaction başlat
+        try:
+            # Zimmetlerden düş (FIFO mantığı)
+            kalan_miktar = eklenecek_miktar
+            for zimmet_detay in zimmet_detaylar:
+                if kalan_miktar <= 0:
+                    break
+                
+                detay_kalan = zimmet_detay.kalan_miktar or 0
+                if detay_kalan > 0:
+                    kullanilacak = min(detay_kalan, kalan_miktar)
+                    zimmet_detay.kullanilan_miktar = (zimmet_detay.kullanilan_miktar or 0) + kullanilacak
+                    zimmet_detay.kalan_miktar = (zimmet_detay.miktar or 0) - zimmet_detay.kullanilan_miktar
+                    kalan_miktar -= kullanilacak
+            
+            # Yeni minibar işlemi oluştur
+            yeni_islem = MinibarIslem(
+                oda_id=oda_id,
+                personel_id=kullanici_id,
+                islem_tipi='doldurma',
+                aciklama=f'Yeniden dolum: {urun.urun_adi}'
+            )
+            db.session.add(yeni_islem)
+            db.session.flush()  # ID'yi almak için
+            
+            # DOĞRU MANTIK:
+            # Mevcut stok (DB'de kayıtlı) = 3 şişe
+            # Eklenecek miktar (kat sorumlusu giriyor) = 1 şişe
+            # Şu anki gerçek miktar = Mevcut - Eklenecek = 3 - 1 = 2 şişe (misafir 1 içmiş)
+            # Yeni stok = Mevcut (değişmez, tekrar başlangıca dönüyor) = 3 şişe
+            # Tüketim = Eklenecek miktar = 1 şişe
+            
+            su_anki_gercek_miktar = mevcut_stok - eklenecek_miktar
+            yeni_stok = mevcut_stok  # Toplam değişmez, başlangıca dönüyor
+            tuketim_miktari = eklenecek_miktar  # Eklenen miktar kadar tüketim olmuştur
+            
+            # İşlem detayı oluştur
+            islem_detay = MinibarIslemDetay(
+                islem_id=yeni_islem.id,
+                urun_id=urun_id,
+                baslangic_stok=su_anki_gercek_miktar,  # Şu anki gerçek miktar (dolum öncesi)
+                bitis_stok=yeni_stok,  # Dolum sonrası miktar (başlangıca dönüyor)
+                eklenen_miktar=eklenecek_miktar,
+                tuketim=tuketim_miktari,  # Tüketim kaydı oluştur
+                zimmet_detay_id=zimmet_detaylar[0].id if zimmet_detaylar else None
+            )
+            db.session.add(islem_detay)
+            
+            # Commit
+            db.session.commit()
+            
+            # Audit Trail
+            audit_create('minibar_islem', yeni_islem.id, yeni_islem)
+            
+            # Log kaydı
+            log_islem('ekleme', 'yeniden_dolum', {
+                'oda_id': oda_id,
+                'oda_no': oda.oda_no,
+                'urun_id': urun_id,
+                'urun_adi': urun.urun_adi,
+                'eklenecek_miktar': eklenecek_miktar,
+                'yeni_stok': yeni_stok
+            })
+            
+            # Kalan zimmet miktarını hesapla
+            kalan_zimmet = sum(detay.kalan_miktar or 0 for detay in zimmet_detaylar)
+            
+            return jsonify({
+                'success': True,
+                'message': 'Dolum işlemi başarıyla tamamlandı',
+                'data': {
+                    'yeni_miktar': yeni_stok,
+                    'kalan_zimmet': kalan_zimmet
+                }
+            })
+            
+        except Exception as e:
+            db.session.rollback()
+            raise
+        
+    except ValueError as e:
+        log_hata(e, modul='yeniden_dolum', extra_info={'oda_id': oda_id, 'urun_id': urun_id})
+        return jsonify({
+            'success': False,
+            'message': str(e)
+        }), 400
+    except Exception as e:
+        log_hata(e, modul='yeniden_dolum')
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': 'İşlem sırasında bir hata oluştu. Lütfen tekrar deneyiniz'
+        }), 500
+
+
+# ============================================
 # QR KOD SİSTEMİ ROTALARI
 # ============================================
 
