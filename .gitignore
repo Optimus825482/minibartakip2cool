@@ -70,3 +70,9 @@ migration_*.py
 
 # Railway Sync (localhost only - contains production credentials)
 templates/railway_sync.html
+
+# Refactoring temporary files
+route_list.txt
+scripts/remove_*.py
+scripts/clean_*.py
+scripts/compare_*.py
