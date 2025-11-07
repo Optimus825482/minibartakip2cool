@@ -404,6 +404,82 @@
     </div>
 </div>
 
+<!-- QR Okuyucu Modal -->
+<div id="qr_modal" class="fixed inset-0 bg-slate-900 dark:bg-slate-950 bg-opacity-75 hidden z-50 flex items-center justify-center">
+    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-xl max-w-2xl w-full mx-4 transform transition-all border-0">
+        <!-- Modal Header -->
+        <div class="bg-indigo-600 dark:bg-indigo-700 text-white px-6 py-4 rounded-t-lg">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                    <h3 class="text-xl font-bold">QR Kod Okuyucu</h3>
+                </div>
+                <button type="button" onclick="closeQrModal()" class="text-white hover:text-slate-200">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Modal Body -->
+        <div class="p-6 bg-white dark:bg-slate-800">
+            <!-- Kamera Görüntüsü -->
+            <div id="qr_reader" class="mb-4 bg-slate-900 rounded-lg overflow-hidden" style="min-height: 300px;"></div>
+
+            <!-- Durum Mesajı -->
+            <div id="qr_status" class="hidden mb-4 p-4 rounded-md"></div>
+
+            <!-- Manuel Giriş -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    Veya Manuel Giriş
+                </label>
+                <div class="flex space-x-2">
+                    <input type="text" id="qr_manual_input" 
+                        class="flex-1 appearance-none block px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                        placeholder="QR kod değerini girin...">
+                    <button type="button" onclick="processManualQr()" 
+                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                        Okut
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bilgi -->
+            <div class="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div class="flex items-start">
+                    <svg class="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                        <p class="font-semibold text-blue-800 dark:text-blue-200 text-sm mb-1">Nasıl Kullanılır?</p>
+                        <ul class="text-xs text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
+                            <li>Kameranıza izin verin</li>
+                            <li>QR kodu kamera önüne tutun</li>
+                            <li>Otomatik olarak okutulacak</li>
+                            <li>Veya manuel olarak QR kod değerini girin</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="bg-slate-50 dark:bg-slate-900 px-6 py-4 rounded-b-lg border-t border-slate-200 dark:border-slate-700 flex justify-end">
+            <button type="button" onclick="closeQrModal()" 
+                class="inline-flex items-center px-4 py-2 border border-slate-300 dark:border-slate-600 shadow-sm text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                <svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                Kapat
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
     let secilenOdaId = null;
     let secilenIslemTipi = null;
@@ -411,6 +487,7 @@
     let mevcutZimmetler = {};
     let aktifUrunId = null;
     let aktifUrunBilgi = null;
+    let html5QrCode = null;
 
     // CSRF Token
     const csrfToken = '{{ csrf_token() }}';
@@ -478,12 +555,21 @@
             console.log('Minibar içeriği:', data);
 
             if (data.success && data.urunler && data.urunler.length > 0) {
-                // Minibar'da ürün var - kontrol/doldurma formu göster
-                console.log('Minibar dolu - yeniden dolum formu gösteriliyor');
-                document.getElementById('form_baslik').textContent = 'Minibar İçeriği - Yeniden Dolum';
-                await loadMinibarIcerigi(odaId);
-                document.getElementById('kontrol_doldurma_form').classList.remove('hidden');
-                document.getElementById('ilk_dolum_form').classList.add('hidden');
+                // Minibar'da ürün var - uyarı göster
+                console.log('Minibar dolu - uyarı gösteriliyor');
+                
+                // Oda bilgisini al
+                const odaSelect = document.getElementById('oda_id');
+                const odaNo = odaSelect.options[odaSelect.selectedIndex].text;
+                
+                alert(`⚠️ ${odaNo} numaralı odanın minibar'ı zaten dolu!\n\nİlk dolum sadece boş minibar'lar için yapılabilir.\n\nYeniden dolum yapmak için "Oda Kontrol" sayfasını kullanın.`);
+                
+                // Seçimleri sıfırla
+                document.getElementById('kat_id').value = '';
+                document.getElementById('oda_id').value = '';
+                document.getElementById('oda_id').disabled = true;
+                secilenOdaId = null;
+                resetForm();
             } else {
                 // Minibar boş - ilk dolum formu göster
                 console.log('Minibar boş - ilk dolum formu gösteriliyor');
@@ -941,7 +1027,14 @@
 
     // QR ile başlat
     function qrIleBaslat() {
-        window.location.href = '/kat-sorumlusu/qr-okut?redirect=ilk-dolum';
+        document.getElementById('qr_modal').classList.remove('hidden');
+        startQrScanner();
+    }
+
+    // QR Modal'ı kapat
+    function closeQrModal() {
+        document.getElementById('qr_modal').classList.add('hidden');
+        stopQrScanner();
     }
 
     // Sayfa yüklendiğinde URL parametrelerini kontrol et (QR'dan gelme durumu)
@@ -1061,6 +1154,175 @@
             }, 50 );
         }
     };
+
+    // QR Scanner Fonksiyonları
+    function startQrScanner() {
+        const qrReader = document.getElementById('qr_reader');
+        
+        if (!html5QrCode) {
+            html5QrCode = new Html5Qrcode("qr_reader");
+        }
+
+        const config = { 
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+            aspectRatio: 1.0
+        };
+
+        html5QrCode.start(
+            { facingMode: "environment" },
+            config,
+            onQrScanSuccess,
+            onQrScanError
+        ).catch(err => {
+            console.error('Kamera başlatma hatası:', err);
+            showQrStatus('error', 'Kamera erişimi reddedildi. Lütfen tarayıcı ayarlarından kamera iznini kontrol edin.');
+        });
+    }
+
+    function stopQrScanner() {
+        if (html5QrCode && html5QrCode.isScanning) {
+            html5QrCode.stop().then(() => {
+                console.log('QR scanner durduruldu');
+            }).catch(err => {
+                console.error('QR scanner durdurma hatası:', err);
+            });
+        }
+    }
+
+    async function onQrScanSuccess(decodedText, decodedResult) {
+        console.log('QR kod okundu:', decodedText);
+        
+        // Scanner'ı durdur
+        stopQrScanner();
+        
+        // QR kodu işle
+        await processQrCode(decodedText);
+    }
+
+    function onQrScanError(errorMessage) {
+        // Sürekli hata mesajı gösterme, sadece console'a yaz
+        // console.log('QR scan error:', errorMessage);
+    }
+
+    async function processManualQr() {
+        const manualInput = document.getElementById('qr_manual_input');
+        const qrCode = manualInput.value.trim();
+
+        if (!qrCode) {
+            showQrStatus('error', 'Lütfen QR kod değerini girin');
+            return;
+        }
+
+        await processQrCode(qrCode);
+    }
+
+    async function processQrCode(qrCode) {
+        showQrStatus('info', 'QR kod işleniyor...');
+
+        try {
+            const response = await fetch('/api/kat-sorumlusu/qr-parse', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ token: qrCode })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showQrStatus('success', data.message);
+                
+                // Modal'ı kapat
+                setTimeout(() => {
+                    closeQrModal();
+                    
+                    // Kat ve oda seçimini yap
+                    selectKatAndOda(data.data.kat_id, data.data.oda_id);
+                }, 1000);
+            } else {
+                showQrStatus('error', data.message);
+                document.getElementById('qr_manual_input').value = '';
+            }
+        } catch (error) {
+            console.error('QR kod işleme hatası:', error);
+            showQrStatus('error', 'QR kod işlenirken bir hata oluştu');
+        }
+    }
+
+    async function selectKatAndOda(katId, odaId) {
+        console.log('Kat ve oda seçiliyor:', { katId, odaId });
+        
+        // Kat seçimini yap
+        document.getElementById('kat_id').value = katId;
+        
+        // Odaları manuel olarak yükle
+        try {
+            const response = await fetch(`/kat-odalari?kat_id=${katId}`);
+            const data = await response.json();
+
+            const odaSelect = document.getElementById('oda_id');
+            odaSelect.innerHTML = '<option value="">Oda seçiniz...</option>';
+
+            if (data.success && data.odalar.length > 0) {
+                data.odalar.forEach(oda => {
+                    const option = document.createElement('option');
+                    option.value = oda.id;
+                    option.textContent = oda.oda_no;
+                    odaSelect.appendChild(option);
+                });
+                odaSelect.disabled = false;
+
+                // Oda seçimini yap
+                odaSelect.value = odaId;
+                secilenOdaId = odaId;
+                secilenIslemTipi = 'ilk_dolum';
+
+                // Zimmet bilgilerini yükle
+                await loadZimmetBilgileri();
+
+                // Minibar durumunu kontrol et
+                await checkMinibarDurumu(odaId);
+
+                console.log('QR ile oda seçimi tamamlandı');
+            } else {
+                odaSelect.innerHTML = '<option value="">Bu katta oda yok</option>';
+            }
+        } catch (error) {
+            console.error('Odalar yüklenirken hata:', error);
+            alert('Odalar yüklenirken bir hata oluştu!');
+        }
+    }
+
+    function showQrStatus(type, message) {
+        const statusDiv = document.getElementById('qr_status');
+        const statusText = document.createElement('p');
+        statusText.className = 'text-sm font-medium';
+        
+        statusDiv.classList.remove('hidden', 'bg-red-50', 'bg-green-50', 'bg-blue-50', 'border-red-200', 'border-green-200', 'border-blue-200');
+        statusText.classList.remove('text-red-800', 'text-green-800', 'text-blue-800');
+
+        if (type === 'error') {
+            statusDiv.classList.add('bg-red-50', 'border-red-200', 'border');
+            statusText.classList.add('text-red-800');
+        } else if (type === 'success') {
+            statusDiv.classList.add('bg-green-50', 'border-green-200', 'border');
+            statusText.classList.add('text-green-800');
+        } else {
+            statusDiv.classList.add('bg-blue-50', 'border-blue-200', 'border');
+            statusText.classList.add('text-blue-800');
+        }
+
+        statusText.textContent = message;
+        statusDiv.innerHTML = '';
+        statusDiv.appendChild(statusText);
+        statusDiv.classList.remove('hidden');
+    }
 </script>
+
+<!-- html5-qrcode Library -->
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
 {% endblock %}
