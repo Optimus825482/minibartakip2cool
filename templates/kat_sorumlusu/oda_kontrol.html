@@ -266,10 +266,24 @@
             </div>
         </div>
         <div class="p-6">
-            <div id="qr_reader" class="w-full"></div>
-            <p class="mt-4 text-sm text-slate-600 text-center">
+            <div id="qr_reader" class="w-full rounded-lg overflow-hidden border-2 border-slate-200"></div>
+            
+            <div class="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <p class="text-sm text-blue-800">
+                    <strong>💡 İpucu:</strong> QR kodu net gösterin, ışık yeterli olsun
+                </p>
+            </div>
+            
+            <p class="mt-3 text-sm text-slate-600 text-center">
                 Oda kapısındaki QR kodu kameranıza gösterin
             </p>
+            
+            <!-- Debug: Test butonu -->
+            <div class="mt-4 text-center">
+                <button onclick="testQrCode()" class="text-xs text-slate-500 hover:text-slate-700 underline">
+                    Test QR (Debug)
+                </button>
+            </div>
         </div>
     </div>
 </div>
@@ -692,9 +706,17 @@ function qrIleBaslat() {
         qrScanner = new Html5Qrcode("qr_reader");
     }
     
+    // Gelişmiş QR okuma ayarları
+    const config = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 },
+        aspectRatio: 1.0,
+        disableFlip: false
+    };
+    
     qrScanner.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        config,
         onQrCodeScanned,
         onQrCodeError
     ).catch(err => {
@@ -708,7 +730,9 @@ function qrIleBaslat() {
  * QR kod okunduğunda
  */
 async function onQrCodeScanned(decodedText) {
-    console.log('QR kod okundu:', decodedText);
+    console.log('✅ QR kod başarıyla okundu:', decodedText);
+    console.log('QR kod uzunluğu:', decodedText.length);
+    console.log('QR kod tipi:', typeof decodedText);
     
     // QR scanner'ı durdur
     try {
@@ -772,8 +796,11 @@ async function onQrCodeScanned(decodedText) {
 /**
  * QR kod okuma hatası
  */
-function onQrCodeError(error) {
-    console.debug('QR okuma hatası:', error);
+function onQrCodeError(errorMessage, error) {
+    // Sadece gerçek hataları logla (sürekli scan hataları değil)
+    if (errorMessage && !errorMessage.includes('NotFoundException')) {
+        console.warn('QR okuma hatası:', errorMessage, error);
+    }
 }
 
 /**
@@ -790,6 +817,18 @@ async function qrModalKapat() {
     }
     document.getElementById('qr_modal').classList.add('hidden');
     console.log('QR modal kapatıldı (manuel)');
+}
+
+/**
+ * Test QR kodu (Debug amaçlı)
+ */
+function testQrCode() {
+    // İlk odanın test token'ını oluştur
+    const testToken = 'MINIBAR_ODA_1_KAT_1';
+    console.log('Test QR kodu simüle ediliyor:', testToken);
+    
+    // QR okuma fonksiyonunu çağır
+    onQrCodeScanned(testToken);
 }
 
 /**
