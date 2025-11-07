@@ -60,4 +60,12 @@ def register_all_routes(app):
     from routes.dolum_talebi_routes import register_dolum_talebi_routes
     register_dolum_talebi_routes(app)
     
+    # API Routes
+    from routes.api_routes import register_api_routes
+    register_api_routes(app)
+    
+    # Kat Sorumlusu Routes
+    from routes.kat_sorumlusu_routes import register_kat_sorumlusu_routes
+    register_kat_sorumlusu_routes(app)
+    
     print("✅ Tüm route modülleri başarıyla register edildi!")

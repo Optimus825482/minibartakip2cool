@@ -267,7 +267,9 @@ Bu implementation plan, app.py dosyasının modüler yapıya dönüştürülmesi
 
 ## Aşama 12: API Routes Modülü
 
-- [ ] 14. API routes modülünü oluştur
+- [x] 14. API routes modülünü oluştur
+
+
   - `routes/api_routes.py` dosyasını oluştur
   - `register_api_routes(app)` fonksiyonunu implement et
   - app.py'de kalan tüm `/api/` endpoint'lerini tespit et
@@ -282,7 +284,10 @@ Bu implementation plan, app.py dosyasının modüler yapıya dönüştürülmesi
 
 ## Aşama 13: Merkezi Register ve app.py Temizliği
 
-- [ ] 15. Merkezi register modülünü oluştur
+- [x] 15. Merkezi register modülünü oluştur
+
+
+
 
 
 
@@ -312,7 +317,9 @@ Bu implementation plan, app.py dosyasının modüler yapıya dönüştürülmesi
 
 ## Aşama 14: Kullanılmayan Kod Temizliği
 
-- [ ] 17. Kullanılmayan endpoint'leri temizle
+- [x] 17. Kullanılmayan endpoint'leri temizle
+
+
   - Aşama 1'de oluşturulan analiz raporunu incele
   - Kullanılmayan endpoint'leri belirle
   - Her endpoint için son 90 günlük log kayıtlarını kontrol et
@@ -321,7 +328,10 @@ Bu implementation plan, app.py dosyasının modüler yapıya dönüştürülmesi
   - Flask uygulamasını başlat ve test et
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 18. Kullanılmayan import'ları temizle
+- [x] 18. Kullanılmayan import'ları temizle
+
+
+
   - Her route modülündeki import'ları kontrol et
   - Kullanılmayan import'ları sil
   - app.py'deki import'ları kontrol et
@@ -333,6 +343,8 @@ Bu implementation plan, app.py dosyasının modüler yapıya dönüştürülmesi
 ## Aşama 15: Dokümantasyon ve Finalizasyon
 
 - [ ] 19. Modül dokümantasyonunu oluştur
+
+
   - Her route modülüne docstring ekle
   - Her modülün sorumluluklarını dokümante et
   - Endpoint listesini dokümante et
@@ -372,7 +384,9 @@ Bu implementation plan, app.py dosyasının modüler yapıya dönüştürülmesi
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
 
+
 - [ ] 23. Git commit ve cleanup
+
 
   - Tüm değişiklikleri commit et
   - Yedek dosyalarını temizle (veya .gitignore'a ekle)
