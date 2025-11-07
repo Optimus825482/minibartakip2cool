@@ -708,6 +708,8 @@ function qrIleBaslat() {
  * QR kod okunduğunda
  */
 async function onQrCodeScanned(decodedText) {
+    console.log('QR kod okundu:', decodedText);
+    
     if (qrScanner) {
         qrScanner.stop();
     }
@@ -725,12 +727,26 @@ async function onQrCodeScanned(decodedText) {
         });
         
         const data = await response.json();
+        console.log('QR parse yanıtı:', data);
         
         if (data.success) {
-            document.getElementById('kat_id').value = data.data.kat_id;
+            // Önce kat seç
+            const katSelect = document.getElementById('kat_id');
+            katSelect.value = data.data.kat_id;
+            console.log('Kat seçildi:', data.data.kat_id);
+            
+            // Kat seçilince odaları yükle
             await katSecildi();
             
-            document.getElementById('oda_id').value = data.data.oda_id;
+            // Odaların yüklenmesi için kısa bir bekleme
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Sonra oda seç
+            const odaSelect = document.getElementById('oda_id');
+            odaSelect.value = data.data.oda_id;
+            console.log('Oda seçildi:', data.data.oda_id);
+            
+            // Oda seçilince ürünleri yükle
             await odaSecildi();
             
             basariGoster(`Oda ${data.data.oda_no} seçildi`);
@@ -738,7 +754,7 @@ async function onQrCodeScanned(decodedText) {
             hataGoster(data.message || 'QR kod okunamadı');
         }
     } catch (error) {
-        console.error('Hata:', error);
+        console.error('QR kod hatası:', error);
         hataGoster('QR kod işlenirken hata oluştu');
     }
 }
