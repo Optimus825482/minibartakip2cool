@@ -125,7 +125,26 @@ class QRKodService:
             Oda | None: Geçerli ise Oda instance, değilse None
         """
         try:
-            # Token ile aktif oda ara
+            # Önce basit format kontrol et: MINIBAR_ODA_{oda_id}_KAT_{kat_id}
+            if token.startswith('MINIBAR_ODA_'):
+                try:
+                    # Token'ı parse et
+                    parts = token.split('_')
+                    if len(parts) >= 5 and parts[0] == 'MINIBAR' and parts[1] == 'ODA' and parts[3] == 'KAT':
+                        oda_id = int(parts[2])
+                        
+                        # Oda'yı veritabanından getir
+                        oda = Oda.query.filter_by(
+                            id=oda_id,
+                            aktif=True
+                        ).first()
+                        
+                        if oda:
+                            return oda
+                except (ValueError, IndexError):
+                    pass
+            
+            # Eğer basit format değilse, veritabanında token ara (güvenli token sistemi)
             oda = Oda.query.filter_by(
                 qr_kod_token=token,
                 aktif=True
