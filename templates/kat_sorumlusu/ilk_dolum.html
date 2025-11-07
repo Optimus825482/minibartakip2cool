@@ -475,23 +475,28 @@
     // Minibar durumunu kontrol et ve uygun formu göster
     async function checkMinibarDurumu(odaId) {
         try {
+            console.log('Minibar durumu kontrol ediliyor, oda_id:', odaId);
             const response = await fetch(`/api/minibar-icerigi/${odaId}`);
             const data = await response.json();
+            console.log('Minibar içeriği:', data);
 
-            if (data.success && data.urunler.length > 0) {
+            if (data.success && data.urunler && data.urunler.length > 0) {
                 // Minibar'da ürün var - kontrol/doldurma formu göster
+                console.log('Minibar dolu - yeniden dolum formu gösteriliyor');
                 document.getElementById('form_baslik').textContent = 'Minibar İçeriği - Yeniden Dolum';
                 await loadMinibarIcerigi(odaId);
                 document.getElementById('kontrol_doldurma_form').classList.remove('hidden');
                 document.getElementById('ilk_dolum_form').classList.add('hidden');
             } else {
                 // Minibar boş - ilk dolum formu göster
+                console.log('Minibar boş - ilk dolum formu gösteriliyor');
                 document.getElementById('ilk_dolum_form').classList.remove('hidden');
                 document.getElementById('kontrol_doldurma_form').classList.add('hidden');
             }
         } catch (error) {
             console.error('Minibar durumu kontrol hatası:', error);
             // Hata durumunda ilk dolum formunu göster
+            console.log('Hata durumunda ilk dolum formu gösteriliyor');
             document.getElementById('ilk_dolum_form').classList.remove('hidden');
             document.getElementById('kontrol_doldurma_form').classList.add('hidden');
         }
@@ -949,21 +954,47 @@
         const odaId = urlParams.get('oda_id');
 
         if (katId && odaId) {
+            console.log('QR parametreleri bulundu:', { katId, odaId });
+            
             // Kat seçimini yap
             document.getElementById('kat_id').value = katId;
             
-            // Odaları yükle
-            const katSelect = document.getElementById('kat_id');
-            const event = new Event('change');
-            await katSelect.dispatchEvent(event);
-            
-            // Kısa bir gecikme ile oda seçimini yap
-            setTimeout(async () => {
+            // Odaları manuel olarak yükle
+            try {
+                const response = await fetch(`/kat-odalari?kat_id=${katId}`);
+                const data = await response.json();
+
                 const odaSelect = document.getElementById('oda_id');
-                odaSelect.value = odaId;
-                const odaEvent = new Event('change');
-                await odaSelect.dispatchEvent(odaEvent);
-            }, 500);
+                odaSelect.innerHTML = '<option value="">Oda seçiniz...</option>';
+
+                if (data.success && data.odalar.length > 0) {
+                    data.odalar.forEach(oda => {
+                        const option = document.createElement('option');
+                        option.value = oda.id;
+                        option.textContent = oda.oda_no;
+                        odaSelect.appendChild(option);
+                    });
+                    odaSelect.disabled = false;
+
+                    // Oda seçimini yap
+                    odaSelect.value = odaId;
+                    secilenOdaId = odaId;
+                    secilenIslemTipi = 'ilk_dolum';
+
+                    // Zimmet bilgilerini yükle
+                    await loadZimmetBilgileri();
+
+                    // Minibar durumunu kontrol et
+                    await checkMinibarDurumu(odaId);
+
+                    console.log('QR ile oda seçimi tamamlandı');
+                } else {
+                    odaSelect.innerHTML = '<option value="">Bu katta oda yok</option>';
+                }
+            } catch (error) {
+                console.error('Odalar yüklenirken hata:', error);
+                alert('Odalar yüklenirken bir hata oluştu!');
+            }
         }
     });
 </script>
