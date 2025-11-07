@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+
+{% block title %}QR Kod Okuyucu - Minibar Takip Sistemi{% endblock %}
+{% block page_title %}QR Kod Okuyucu{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-6">
+    <!-- QR Okuyucu Kartı -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="text-center mb-6">
+                <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-indigo-100 mb-4">
+                    <svg class="h-10 w-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"></path>
+                    </svg>
+                </div>
+                <h3 class="text-lg leading-6 font-medium text-slate-900">QR Kod Okutun</h3>
+                <p class="mt-2 text-sm text-slate-500">Oda kapısındaki QR kodu okutarak işleme başlayın</p>
+            </div>
+
+            <!-- QR Kod Input -->
+            <div class="mb-4">
+                <label for="qr_input" class="block text-sm font-medium text-slate-700 mb-2">
+                    QR Kod
+                </label>
+                <input type="text" id="qr_input" autofocus
+                    class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                    placeholder="QR kodu okutun veya manuel girin...">
+                <p class="mt-2 text-xs text-slate-500">
+                    💡 QR okuyucuyu kullanarak kodu okutun veya manuel olarak girin
+                </p>
+            </div>
+
+            <!-- Durum Mesajı -->
+            <div id="status_message" class="hidden mb-4 p-4 rounded-md">
+                <p id="status_text" class="text-sm"></p>
+            </div>
+
+            <!-- Butonlar -->
+            <div class="flex space-x-3">
+                <button type="button" id="okut_btn"
+                    class="flex-1 inline-flex justify-center items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    Okut
+                </button>
+                <button type="button" onclick="window.history.back()"
+                    class="inline-flex justify-center items-center px-4 py-2 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                    İptal
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Yönergeler -->
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div class="flex">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path>
+                </svg>
+            </div>
+            <div class="ml-3">
+                <h3 class="text-sm font-medium text-blue-800">Nasıl Kullanılır?</h3>
+                <div class="mt-2 text-sm text-blue-700">
+                    <ul class="list-disc list-inside space-y-1">
+                        <li>QR okuyucuyu oda kapısındaki QR koda tutun</li>
+                        <li>Kod otomatik olarak okunacak ve işlem başlayacak</li>
+                        <li>Manuel giriş için kodu yazıp "Okut" butonuna basın</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const csrfToken = '{{ csrf_token() }}';
+    const qrInput = document.getElementById('qr_input');
+    const okutBtn = document.getElementById('okut_btn');
+    const statusMessage = document.getElementById('status_message');
+    const statusText = document.getElementById('status_text');
+
+    // URL parametresinden redirect hedefini al
+    const urlParams = new URLSearchParams(window.location.search);
+    const redirectPage = urlParams.get('redirect') || 'oda-kontrol';
+
+    // Enter tuşu ile okut
+    qrInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            okutQR();
+        }
+    });
+
+    // Okut butonu
+    okutBtn.addEventListener('click', okutQR);
+
+    async function okutQR() {
+        const token = qrInput.value.trim();
+
+        if (!token) {
+            showStatus('error', 'Lütfen QR kodu okutun veya girin');
+            return;
+        }
+
+        // Butonu devre dışı bırak
+        okutBtn.disabled = true;
+        okutBtn.innerHTML = '<svg class="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> İşleniyor...';
+
+        try {
+            const response = await fetch('/api/kat-sorumlusu/qr-parse', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ token: token })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showStatus('success', data.message);
+                
+                // Yönlendirme yap
+                setTimeout(() => {
+                    const odaData = data.data;
+                    window.location.href = `/kat-sorumlusu/${redirectPage}?kat_id=${odaData.kat_id}&oda_id=${odaData.oda_id}`;
+                }, 1000);
+            } else {
+                showStatus('error', data.message);
+                okutBtn.disabled = false;
+                okutBtn.innerHTML = '<svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Okut';
+                qrInput.value = '';
+                qrInput.focus();
+            }
+        } catch (error) {
+            console.error('QR okutma hatası:', error);
+            showStatus('error', 'QR kod işlenirken bir hata oluştu');
+            okutBtn.disabled = false;
+            okutBtn.innerHTML = '<svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Okut';
+        }
+    }
+
+    function showStatus(type, message) {
+        statusMessage.classList.remove('hidden', 'bg-red-50', 'bg-green-50', 'border-red-200', 'border-green-200');
+        statusText.classList.remove('text-red-800', 'text-green-800');
+
+        if (type === 'error') {
+            statusMessage.classList.add('bg-red-50', 'border-red-200');
+            statusText.classList.add('text-red-800');
+        } else {
+            statusMessage.classList.add('bg-green-50', 'border-green-200');
+            statusText.classList.add('text-green-800');
+        }
+
+        statusText.textContent = message;
+        statusMessage.classList.remove('hidden');
+    }
+
+    // Sayfa yüklendiğinde input'a focus
+    window.addEventListener('DOMContentLoaded', function() {
+        qrInput.focus();
+    });
+</script>
+{% endblock %}

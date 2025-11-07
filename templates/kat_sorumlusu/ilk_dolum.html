@@ -452,41 +452,50 @@
     } );
 
     // Oda değiştiğinde
-    document.getElementById( 'oda_id' ).addEventListener( 'change', function () {
+    document.getElementById( 'oda_id' ).addEventListener( 'change', async function () {
         const odaId = this.value;
-        const islemTipiSelect = document.getElementById( 'islem_tipi' );
 
         if ( odaId ) {
             secilenOdaId = odaId;
-            islemTipiSelect.disabled = false;
+            secilenIslemTipi = 'ilk_dolum'; // İlk dolum sayfası için sabit
+            resetForm();
+            
+            // Zimmet bilgilerini yükle
+            await loadZimmetBilgileri();
+            
+            // Minibar içeriğini kontrol et
+            await checkMinibarDurumu(odaId);
         } else {
             secilenOdaId = null;
-            islemTipiSelect.disabled = true;
-            islemTipiSelect.value = '';
+            secilenIslemTipi = null;
             resetForm();
         }
     } );
 
-    // İşlem tipi değiştiğinde
-    document.getElementById( 'islem_tipi' ).addEventListener( 'change', async function () {
-        const islemTipi = this.value;
-        secilenIslemTipi = islemTipi;
-        resetForm();
+    // Minibar durumunu kontrol et ve uygun formu göster
+    async function checkMinibarDurumu(odaId) {
+        try {
+            const response = await fetch(`/api/minibar-icerigi/${odaId}`);
+            const data = await response.json();
 
-        if ( !islemTipi || !secilenOdaId ) return;
-
-        // Zimmet bilgilerini yükle
-        await loadZimmetBilgileri();
-
-        if ( islemTipi === 'ilk_dolum' ) {
-            document.getElementById( 'ilk_dolum_form' ).classList.remove( 'hidden' );
-        } else if ( islemTipi === 'kontrol' || islemTipi === 'doldurma' ) {
-            document.getElementById( 'form_baslik' ).textContent =
-                islemTipi === 'kontrol' ? 'Minibar Kontrolü' : 'Minibar Doldurma';
-            await loadMinibarIcerigi( secilenOdaId );
-            document.getElementById( 'kontrol_doldurma_form' ).classList.remove( 'hidden' );
+            if (data.success && data.urunler.length > 0) {
+                // Minibar'da ürün var - kontrol/doldurma formu göster
+                document.getElementById('form_baslik').textContent = 'Minibar İçeriği - Yeniden Dolum';
+                await loadMinibarIcerigi(odaId);
+                document.getElementById('kontrol_doldurma_form').classList.remove('hidden');
+                document.getElementById('ilk_dolum_form').classList.add('hidden');
+            } else {
+                // Minibar boş - ilk dolum formu göster
+                document.getElementById('ilk_dolum_form').classList.remove('hidden');
+                document.getElementById('kontrol_doldurma_form').classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('Minibar durumu kontrol hatası:', error);
+            // Hata durumunda ilk dolum formunu göster
+            document.getElementById('ilk_dolum_form').classList.remove('hidden');
+            document.getElementById('kontrol_doldurma_form').classList.add('hidden');
         }
-    } );
+    }
 
     // Zimmet bilgilerini yükle
     async function loadZimmetBilgileri() {
@@ -927,6 +936,36 @@
         ilkDolumUrunler = [];
         updateIlkDolumListesi();
     }
+
+    // QR ile başlat
+    function qrIleBaslat() {
+        window.location.href = '/kat-sorumlusu/qr-okut?redirect=ilk-dolum';
+    }
+
+    // Sayfa yüklendiğinde URL parametrelerini kontrol et (QR'dan gelme durumu)
+    window.addEventListener('DOMContentLoaded', async function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const katId = urlParams.get('kat_id');
+        const odaId = urlParams.get('oda_id');
+
+        if (katId && odaId) {
+            // Kat seçimini yap
+            document.getElementById('kat_id').value = katId;
+            
+            // Odaları yükle
+            const katSelect = document.getElementById('kat_id');
+            const event = new Event('change');
+            await katSelect.dispatchEvent(event);
+            
+            // Kısa bir gecikme ile oda seçimini yap
+            setTimeout(async () => {
+                const odaSelect = document.getElementById('oda_id');
+                odaSelect.value = odaId;
+                const odaEvent = new Event('change');
+                await odaSelect.dispatchEvent(odaEvent);
+            }, 500);
+        }
+    });
 </script>
 
 {% block extra_scripts %}
