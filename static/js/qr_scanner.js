@@ -120,9 +120,18 @@ function onQRCodeScanned(qrUrl) {
                                 // 3. Şimdi odayı seç
                                 odaSelect.val(data.oda_id);
                                 
-                                // 4. Oda seçimini tetikle
+                                // 4. Oda seçimini tetikle ve işlem tipi dropdown'unu güncelle
                                 secilenOdaId = data.oda_id;
-                                $('#islem_tipi').prop('disabled', false);
+                                const islemTipiSelect = $('#islem_tipi');
+                                
+                                // İşlem tipi dropdown'unu aktif et ve placeholder'ı güncelle
+                                islemTipiSelect.html(`
+                                    <option value="">İşlem tipi seçiniz...</option>
+                                    <option value="ilk_dolum">İlk Dolum</option>
+                                    <option value="kontrol">Kontrol</option>
+                                    <option value="doldurma">Doldurma</option>
+                                `);
+                                islemTipiSelect.prop('disabled', false);
                                 
                                 // Başarı mesajı
                                 $('#qrResult').html(`
