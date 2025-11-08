@@ -226,7 +226,7 @@ class StokHareket(db.Model):
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     urun_id = db.Column(db.Integer, db.ForeignKey('urunler.id'), nullable=False)
-    hareket_tipi = db.Column(db.Enum('giris', 'cikis', 'devir', 'sayim', name='hareket_tipi'), nullable=False)
+    hareket_tipi = db.Column(db.Enum('giris', 'cikis', 'transfer', 'devir', 'sayim', 'fire', name='hareket_tipi'), nullable=False)
     miktar = db.Column(db.Integer, nullable=False)
     aciklama = db.Column(db.Text)
     islem_yapan_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id'))
@@ -248,7 +248,7 @@ class PersonelZimmet(db.Model):
     zimmet_tarihi = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     iade_tarihi = db.Column(db.DateTime(timezone=True), nullable=True)
     teslim_eden_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id'))
-    durum = db.Column(db.Enum('aktif', 'tamamlandi', 'iptal', name='zimmet_durum'), default='aktif')
+    durum = db.Column(db.Enum('aktif', 'iade_edildi', 'iptal', name='zimmet_durum'), default='aktif')
     aciklama = db.Column(db.Text)
     
     # İlişkiler
@@ -289,7 +289,7 @@ class MinibarIslem(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     oda_id = db.Column(db.Integer, db.ForeignKey('odalar.id'), nullable=False)
     personel_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id'), nullable=False)
-    islem_tipi = db.Column(db.Enum('ilk_dolum', 'kontrol', 'doldurma', 'ek_dolum', name='minibar_islem_tipi'), nullable=False)
+    islem_tipi = db.Column(db.Enum('ilk_dolum', 'yeniden_dolum', 'eksik_tamamlama', 'sayim', 'duzeltme', 'kontrol', 'doldurma', 'ek_dolum', name='minibar_islem_tipi'), nullable=False)
     islem_tarihi = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     aciklama = db.Column(db.Text)
     
@@ -396,7 +396,7 @@ class AuditLog(db.Model):
     
     # İşlem Detayları
     islem_tipi = db.Column(
-        db.Enum('create', 'update', 'delete', 'login', 'logout', 'view', 'export', 'import', name='audit_islem_tipi'), 
+        db.Enum('login', 'logout', 'create', 'update', 'delete', 'view', 'export', 'import', 'backup', 'restore', name='audit_islem_tipi'), 
         nullable=False
     )
     tablo_adi = db.Column(db.String(100), nullable=False)  # Hangi tablo etkilendi
@@ -442,7 +442,7 @@ class OtomatikRapor(db.Model):
     
     # Rapor Bilgileri
     rapor_tipi = db.Column(
-        db.Enum('gunluk_stok', 'stok_kontrolu', 'zimmet_ozeti', 'minibar_tuketim', name='rapor_tipi'),
+        db.Enum('gunluk', 'haftalik', 'aylik', name='rapor_tipi'),
         nullable=False
     )
     baslik = db.Column(db.String(200), nullable=False)
@@ -476,7 +476,7 @@ class MinibarDolumTalebi(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     oda_id = db.Column(db.Integer, db.ForeignKey('odalar.id'), nullable=False)
     talep_tarihi = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    durum = db.Column(db.Enum('beklemede', 'tamamlandi', 'iptal', name='dolum_talep_durum'), default='beklemede', nullable=False)
+    durum = db.Column(db.Enum('beklemede', 'onaylandi', 'reddedildi', 'tamamlandi', 'iptal', name='dolum_talep_durum'), default='beklemede', nullable=False)
     tamamlanma_tarihi = db.Column(db.DateTime(timezone=True), nullable=True)
     notlar = db.Column(db.Text, nullable=True)
     
@@ -497,7 +497,7 @@ class QRKodOkutmaLog(db.Model):
     oda_id = db.Column(db.Integer, db.ForeignKey('odalar.id'), nullable=False)
     kullanici_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id'), nullable=True)
     okutma_tarihi = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    okutma_tipi = db.Column(db.Enum('kat_sorumlusu', 'misafir', name='qr_okutma_tipi'), nullable=False)
+    okutma_tipi = db.Column(db.Enum('misafir_okutma', 'personel_kontrol', 'sistem_kontrol', name='qr_okutma_tipi'), nullable=False)
     ip_adresi = db.Column(db.String(50))
     user_agent = db.Column(db.String(500))
     basarili = db.Column(db.Boolean, default=True, nullable=False)
