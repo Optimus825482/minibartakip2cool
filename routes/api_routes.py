@@ -70,7 +70,7 @@ def register_api_routes(app):
     # AJAX endpoint - Kata göre odaları getir
     @app.route('/api/odalar-by-kat/<int:kat_id>')
     @login_required
-    @role_required('kat_sorumlusu', 'sistem_yoneticisi')
+    @role_required('kat_sorumlusu', 'sistem_yoneticisi', 'admin')
     def odalar_by_kat(kat_id):
         """Kata göre odaları getir"""
         try:

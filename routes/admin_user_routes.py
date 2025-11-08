@@ -41,7 +41,7 @@ def register_admin_user_routes(app):
     
     @app.route('/admin-ata', methods=['GET', 'POST'])
     @login_required
-    @role_required('sistem_yoneticisi')
+    @role_required('sistem_yoneticisi', 'admin')
     def admin_ata():
         """Admin kullanıcıları listele ve yeni admin ekle"""
         try:
@@ -116,7 +116,7 @@ def register_admin_user_routes(app):
     
     @app.route('/admin-duzenle/<int:admin_id>', methods=['GET', 'POST'])
     @login_required
-    @role_required('sistem_yoneticisi')
+    @role_required('sistem_yoneticisi', 'admin')
     def admin_duzenle(admin_id):
         """Admin kullanıcısını düzenle"""
         try:
@@ -212,7 +212,7 @@ def register_admin_user_routes(app):
     
     @app.route('/admin-sil/<int:admin_id>', methods=['POST'])
     @login_required
-    @role_required('sistem_yoneticisi')
+    @role_required('sistem_yoneticisi', 'admin')
     def admin_sil(admin_id):
         """Admin kullanıcısını pasif yap"""
         try:
