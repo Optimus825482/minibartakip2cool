@@ -73,9 +73,23 @@ templates/railway_sync.html
 
 # Refactoring temporary files
 route_list.txt
-scripts/remove_*.py
-scripts/clean_*.py
-scripts/compare_*.py
+scripts/
+
+# Test files
+tests/
+.pytest_cache/
+
+# Claude cache
+.claude/
+
+# Temporary migration files
+check_*.py
+fix_*.py
+copy_*.py
+create_database.py
+reset_database.py
+list_tables.py
+migration_checkpoint.json
 
 # Docker
 .env.docker

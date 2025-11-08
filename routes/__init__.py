@@ -28,6 +28,10 @@ def register_all_routes(app):
     from routes.admin_routes import register_admin_routes
     register_admin_routes(app)
     
+    # Admin User Routes
+    from routes.admin_user_routes import register_admin_user_routes
+    register_admin_user_routes(app)
+    
     # Admin Minibar Routes
     from routes.admin_minibar_routes import register_admin_minibar_routes
     register_admin_minibar_routes(app)

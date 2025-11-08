@@ -4,34 +4,59 @@
 {% block page_title %}Admin Düzenle{% endblock %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
+<div class="space-y-6">
+    <!-- Geri Butonu -->
+    <div>
+        <a href="{{ url_for('admin_ata') }}"
+            class="inline-flex items-center px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+            </svg>
+            Geri Dön
+        </a>
+    </div>
+
+    <!-- Düzenleme Formu -->
     <div class="bg-white dark:bg-slate-800 shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <h3 class="text-lg leading-6 font-medium text-slate-900 dark:text-slate-100 mb-6">
-                Admin Bilgilerini Düzenle
+                Admin Kullanıcısı Düzenle: {{ admin.kullanici_adi }}
             </h3>
 
             <form method="POST" class="space-y-6">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                <div>
-                    <label for="kullanici_adi" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                        Kullanıcı Adı <span class="text-red-500">*</span>
-                    </label>
-                    <div class="mt-1">
-                        <input id="kullanici_adi" name="kullanici_adi" type="text" required
-                            value="{{ admin.kullanici_adi }}"
-                            class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm dark:bg-slate-700 dark:text-slate-100">
+                
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div>
+                        <label for="kullanici_adi" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Kullanıcı Adı <span class="text-red-500">*</span>
+                        </label>
+                        <div class="mt-1">
+                            <input id="kullanici_adi" name="kullanici_adi" type="text" required
+                                value="{{ admin.kullanici_adi }}"
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
+                        </div>
                     </div>
-                </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="yeni_sifre" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Yeni Şifre <span class="text-slate-500">(Boş bırakılırsa değişmez)</span>
+                        </label>
+                        <div class="mt-1">
+                            <input id="yeni_sifre" name="yeni_sifre" type="password"
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="Yeni şifre">
+                        </div>
+                    </div>
+
                     <div>
                         <label for="ad" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
                             Ad <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-1">
-                            <input id="ad" name="ad" type="text" required value="{{ admin.ad }}"
-                                class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm dark:bg-slate-700 dark:text-slate-100">
+                            <input id="ad" name="ad" type="text" required
+                                value="{{ admin.ad }}"
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
                         </div>
                     </div>
 
@@ -40,20 +65,21 @@
                             Soyad <span class="text-red-500">*</span>
                         </label>
                         <div class="mt-1">
-                            <input id="soyad" name="soyad" type="text" required value="{{ admin.soyad }}"
-                                class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm dark:bg-slate-700 dark:text-slate-100">
+                            <input id="soyad" name="soyad" type="text" required
+                                value="{{ admin.soyad }}"
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
                         </div>
                     </div>
-                </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <label for="email" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                            E-posta
+                            Email
                         </label>
                         <div class="mt-1">
-                            <input id="email" name="email" type="email" value="{{ admin.email or '' }}"
-                                class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm dark:bg-slate-700 dark:text-slate-100">
+                            <input id="email" name="email" type="email"
+                                value="{{ admin.email or '' }}"
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="email@example.com">
                         </div>
                     </div>
 
@@ -62,28 +88,11 @@
                             Telefon
                         </label>
                         <div class="mt-1">
-                            <input id="telefon" name="telefon" type="tel" value="{{ admin.telefon or '' }}"
-                                class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm dark:bg-slate-700 dark:text-slate-100">
+                            <input id="telefon" name="telefon" type="tel"
+                                value="{{ admin.telefon or '' }}"
+                                class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm"
+                                placeholder="Telefon numarası">
                         </div>
-                    </div>
-                </div>
-
-                <div class="border-t border-slate-200 dark:border-slate-700 pt-6">
-                    <h4 class="text-md font-medium text-slate-900 dark:text-slate-100 mb-4">
-                        Şifre Değiştir (Opsiyonel)
-                    </h4>
-
-                    <div>
-                        <label for="yeni_sifre" class="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                            Yeni Şifre
-                        </label>
-                        <div class="mt-1">
-                            <input id="yeni_sifre" name="yeni_sifre" type="password"
-                                class="appearance-none block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm dark:bg-slate-700 dark:text-slate-100">
-                        </div>
-                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                            Şifre değiştirmek istemiyorsanız bu alanı boş bırakın.
-                        </p>
                     </div>
                 </div>
 
@@ -93,12 +102,52 @@
                         İptal
                     </a>
                     <button type="submit"
-                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 dark:bg-slate-700 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
                         Güncelle
                     </button>
                 </div>
             </form>
         </div>
+    </div>
+
+    <!-- Kullanıcı Bilgileri -->
+    <div class="bg-slate-50 dark:bg-slate-800 rounded-lg p-4">
+        <h4 class="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Kullanıcı Bilgileri</h4>
+        <dl class="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
+            <div>
+                <dt class="text-slate-500 dark:text-slate-400">Oluşturma Tarihi:</dt>
+                <dd class="text-slate-900 dark:text-slate-100 font-medium">
+                    {% if admin.olusturma_tarihi %}
+                    {{ admin.olusturma_tarihi.strftime('%d.%m.%Y %H:%M') }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-slate-500 dark:text-slate-400">Son Giriş:</dt>
+                <dd class="text-slate-900 dark:text-slate-100 font-medium">
+                    {% if admin.son_giris %}
+                    {{ admin.son_giris.strftime('%d.%m.%Y %H:%M') }}
+                    {% else %}
+                    Hiç giriş yapmamış
+                    {% endif %}
+                </dd>
+            </div>
+            <div>
+                <dt class="text-slate-500 dark:text-slate-400">Durum:</dt>
+                <dd>
+                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
+                        {% if admin.aktif %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                        {% if admin.aktif %}Aktif{% else %}Pasif{% endif %}
+                    </span>
+                </dd>
+            </div>
+            <div>
+                <dt class="text-slate-500 dark:text-slate-400">Rol:</dt>
+                <dd class="text-slate-900 dark:text-slate-100 font-medium">{{ admin.rol }}</dd>
+            </div>
+        </dl>
     </div>
 </div>
 {% endblock %}
