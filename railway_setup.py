@@ -18,20 +18,23 @@ ENV_VARS = {
 def check_railway_cli():
     """Railway CLI kurulu mu kontrol et"""
     try:
-        subprocess.run(['railway', '--version'], 
-                      capture_output=True, 
-                      check=True)
-        return True
-    except (subprocess.CalledProcessError, FileNotFoundError):
+        # Windows'ta railway.cmd veya railway.exe olabilir
+        result = subprocess.run(['railway', '--version'], 
+                              capture_output=True, 
+                              text=True,
+                              shell=True)  # Windows için shell=True
+        return result.returncode == 0
+    except Exception:
         return False
 
 def set_variable(key, value):
     """Railway'de environment variable ayarla"""
     try:
-        cmd = ['railway', 'variables', 'set', f'{key}={value}']
+        cmd = f'railway variables --set "{key}={value}"'
         result = subprocess.run(cmd, 
                               capture_output=True, 
-                              text=True, 
+                              text=True,
+                              shell=True,  # Windows için shell=True
                               check=True)
         print(f"✅ {key} ayarlandı")
         return True
@@ -60,7 +63,7 @@ def main():
     # Login kontrolü
     print("🔐 Railway'e giriş yapılıyor...")
     try:
-        subprocess.run(['railway', 'login'], check=True)
+        subprocess.run('railway login', shell=True, check=True)
         print("✅ Giriş başarılı")
     except subprocess.CalledProcessError:
         print("❌ Giriş başarısız")
@@ -89,7 +92,7 @@ def main():
     # Kontrol
     print("📊 Mevcut variables:")
     try:
-        subprocess.run(['railway', 'variables'], check=True)
+        subprocess.run('railway variables', shell=True, check=True)
     except subprocess.CalledProcessError:
         pass
     
