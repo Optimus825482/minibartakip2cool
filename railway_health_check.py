@@ -41,8 +41,8 @@ def get_database_url():
     logger.error("❌ Database URL bulunamadı!")
     return None
 
-def test_connection(max_retries=5, retry_delay=2):
-    """Database bağlantısını test et"""
+def test_connection(max_retries=7, retry_delay=5):
+    """Database bağlantısını test et - v2 agresif retry"""
     database_url = get_database_url()
     
     if not database_url:
@@ -55,24 +55,26 @@ def test_connection(max_retries=5, retry_delay=2):
     
     for attempt in range(max_retries):
         try:
-            # Engine oluştur - Railway için optimize edilmiş ayarlar
+            # Engine oluştur - Railway cold start için agresif ayarlar
             engine = create_engine(
                 database_url,
-                pool_size=2,
-                max_overflow=3,
-                pool_timeout=60,
-                pool_recycle=1800,
+                pool_size=1,
+                max_overflow=2,
+                pool_timeout=120,
+                pool_recycle=1200,
                 pool_pre_ping=True,
                 connect_args={
-                    'connect_timeout': 30,
+                    'connect_timeout': 90,
                     'keepalives': 1,
-                    'keepalives_idle': 60,
-                    'keepalives_interval': 10,
-                    'keepalives_count': 5,
+                    'keepalives_idle': 120,
+                    'keepalives_interval': 20,
+                    'keepalives_count': 3,
+                    'tcp_user_timeout': 90000,
                 }
             )
             
             # Bağlantıyı test et
+            logger.info(f"🔌 Bağlantı kuruluyor... (Deneme {attempt + 1}/{max_retries})")
             with engine.connect() as conn:
                 result = conn.execute(text("SELECT 1"))
                 result.fetchone()
@@ -82,18 +84,27 @@ def test_connection(max_retries=5, retry_delay=2):
             return True
             
         except (OperationalError, TimeoutError) as e:
-            logger.warning(f"⚠️ Bağlantı hatası (Deneme {attempt + 1}/{max_retries}): {str(e)}")
+            error_msg = str(e)[:300]
+            logger.warning(f"⚠️ Bağlantı hatası (Deneme {attempt + 1}/{max_retries}): {error_msg}")
+            
             if attempt < max_retries - 1:
-                logger.info(f"🔄 {retry_delay} saniye sonra tekrar denenecek...")
-                time.sleep(retry_delay)
-                retry_delay *= 1.5  # Exponential backoff
+                # Exponential backoff: 5, 10, 20, 40, 80 saniye
+                wait_time = retry_delay * (2 ** attempt)
+                logger.info(f"🔄 {wait_time} saniye sonra tekrar denenecek...")
+                time.sleep(wait_time)
             else:
                 logger.error(f"❌ Database bağlantısı {max_retries} denemeden sonra başarısız!")
+                logger.error(f"❌ Son hata: {error_msg}")
                 return False
                 
         except Exception as e:
             logger.error(f"❌ Beklenmeyen hata: {str(e)}")
-            return False
+            if attempt < max_retries - 1:
+                wait_time = retry_delay * (2 ** attempt)
+                logger.info(f"🔄 {wait_time} saniye sonra tekrar denenecek...")
+                time.sleep(wait_time)
+            else:
+                return False
     
     return False
 

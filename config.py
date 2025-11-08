@@ -58,29 +58,29 @@ class Config:
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # PostgreSQL Optimized Engine Options - Railway Timeout Fix
+    # PostgreSQL Optimized Engine Options - Railway Timeout Fix v2
     SQLALCHEMY_ENGINE_OPTIONS = {
-        # Connection Pool Configuration - Railway için optimize edildi
-        'pool_size': 5,                     # Minimum connections (Railway için düşürüldü)
-        'max_overflow': 10,                 # Additional connections (total: 15)
-        'pool_timeout': 60,                 # Wait timeout artırıldı (60 saniye)
-        'pool_recycle': 1800,               # 30 dakikada bir recycle (Railway için)
+        # Connection Pool Configuration - Railway cold start için agresif ayarlar
+        'pool_size': 3,                     # Minimum connections (Railway için daha da düşürüldü)
+        'max_overflow': 7,                  # Additional connections (total: 10)
+        'pool_timeout': 120,                # Wait timeout 2 dakikaya çıkarıldı
+        'pool_recycle': 1200,               # 20 dakikada bir recycle (Railway için)
         'pool_pre_ping': True,              # Health check before use (ZORUNLU)
         
         # PostgreSQL Specific Options
         'connect_args': {
-            'connect_timeout': 30,          # Connection timeout artırıldı (30 saniye)
-            'options': '-c timezone=utc -c statement_timeout=30000',  # 30 saniye query timeout
+            'connect_timeout': 90,          # Connection timeout 90 saniyeye çıkarıldı
+            'options': '-c timezone=utc -c statement_timeout=60000',  # 60 saniye query timeout
             'application_name': 'minibar_takip',
             
-            # Keep-alive settings - Railway için optimize
+            # Keep-alive settings - Railway için agresif
             'keepalives': 1,
-            'keepalives_idle': 60,          # 60 saniye idle
-            'keepalives_interval': 10,
-            'keepalives_count': 5,
+            'keepalives_idle': 120,         # 120 saniye idle (2 dakika)
+            'keepalives_interval': 20,      # 20 saniye interval
+            'keepalives_count': 3,          # 3 deneme
             
-            # TCP settings
-            'tcp_user_timeout': 30000,      # 30 saniye TCP timeout
+            # TCP settings - timeout artırıldı
+            'tcp_user_timeout': 90000,      # 90 saniye TCP timeout
         } if 'postgresql' in SQLALCHEMY_DATABASE_URI else {},
         
         # Execution Options

@@ -35,15 +35,17 @@ if [ $? -eq 0 ]; then
     echo "🚀 Uygulama başlatılıyor..."
     
     # Gunicorn ile uygulamayı başlat
-    # Railway için optimize edilmiş ayarlar
+    # Railway için optimize edilmiş ayarlar - v2 (cold start için)
     exec gunicorn app:app \
         --bind 0.0.0.0:$PORT \
-        --workers 2 \
-        --threads 4 \
-        --timeout 120 \
-        --keep-alive 5 \
-        --max-requests 1000 \
+        --workers 1 \
+        --threads 2 \
+        --timeout 180 \
+        --graceful-timeout 180 \
+        --keep-alive 10 \
+        --max-requests 500 \
         --max-requests-jitter 50 \
+        --preload \
         --access-logfile - \
         --error-logfile - \
         --log-level info
@@ -81,12 +83,14 @@ else
         
         exec gunicorn app:app \
             --bind 0.0.0.0:$PORT \
-            --workers 2 \
-            --threads 4 \
-            --timeout 120 \
-            --keep-alive 5 \
-            --max-requests 1000 \
+            --workers 1 \
+            --threads 2 \
+            --timeout 180 \
+            --graceful-timeout 180 \
+            --keep-alive 10 \
+            --max-requests 500 \
             --max-requests-jitter 50 \
+            --preload \
             --access-logfile - \
             --error-logfile - \
             --log-level info

@@ -610,7 +610,8 @@ Bu görev listesi, çoklu otel yönetim sisteminin adım adım implementasyonunu
 
 
 
-- [x] 13.1 Migration script'ini test et
+- [ ] 13.1 Migration script'ini test et
+
 
 
 

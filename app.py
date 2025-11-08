@@ -50,31 +50,39 @@ csrf = CSRFProtect(app)
 from models import db
 db.init_app(app)
 
-# Database Connection Retry Mekanizması - Railway Timeout Fix
-def init_db_with_retry(max_retries=3, retry_delay=2):
+# Database Connection Retry Mekanizması - Railway Timeout Fix v2
+def init_db_with_retry(max_retries=5, retry_delay=5):
     """
     Database bağlantısını retry mekanizması ile başlat
     Railway'de cold start veya network timeout sorunlarını çözer
+    v2: Daha agresif retry stratejisi
     """
     for attempt in range(max_retries):
         try:
             with app.app_context():
                 # Database bağlantısını test et
-                db.engine.connect()
+                connection = db.engine.connect()
+                connection.close()
                 logger.info(f"✅ Database bağlantısı başarılı (Deneme {attempt + 1}/{max_retries})")
                 return True
         except (OperationalError, TimeoutError) as e:
-            logger.warning(f"⚠️ Database bağlantı hatası (Deneme {attempt + 1}/{max_retries}): {str(e)}")
+            error_msg = str(e)
+            logger.warning(f"⚠️ Database bağlantı hatası (Deneme {attempt + 1}/{max_retries}): {error_msg[:200]}")
+            
             if attempt < max_retries - 1:
-                logger.info(f"🔄 {retry_delay} saniye sonra tekrar denenecek...")
-                time.sleep(retry_delay)
-                retry_delay *= 2  # Exponential backoff
+                # Exponential backoff: 5, 10, 20, 40 saniye
+                wait_time = retry_delay * (2 ** attempt)
+                logger.info(f"🔄 {wait_time} saniye sonra tekrar denenecek...")
+                time.sleep(wait_time)
             else:
                 logger.error(f"❌ Database bağlantısı {max_retries} denemeden sonra başarısız!")
-                raise
+                logger.error(f"❌ Son hata: {error_msg}")
+                # Production'da uygulama çalışmaya devam etsin
+                return False
         except Exception as e:
             logger.error(f"❌ Beklenmeyen hata: {str(e)}")
-            raise
+            # Beklenmeyen hatalarda da devam et
+            return False
     return False
 
 # Uygulama başlatıldığında database bağlantısını test et
