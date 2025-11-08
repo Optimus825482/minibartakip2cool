@@ -138,19 +138,27 @@ def register_admin_routes(app):
         # Her personel için otel bilgilerini hazırla
         personel_data = []
         for p in personeller:
-            otel_bilgisi = ''
-            if p.rol == 'depo_sorumlusu':
-                oteller_list = [atama.otel.ad for atama in p.atanan_oteller]
-                otel_bilgisi = ', '.join(oteller_list) if oteller_list else '-'
-            elif p.rol == 'kat_sorumlusu':
-                otel_bilgisi = p.otel.ad if p.otel else '-'
-            else:
-                otel_bilgisi = 'Tüm Oteller'
-            
-            personel_data.append({
-                'personel': p,
-                'otel_bilgisi': otel_bilgisi
-            })
+            try:
+                otel_bilgisi = ''
+                if p.rol == 'depo_sorumlusu':
+                    oteller_list = [atama.otel.ad for atama in p.atanan_oteller]
+                    otel_bilgisi = ', '.join(oteller_list) if oteller_list else '-'
+                elif p.rol == 'kat_sorumlusu':
+                    otel_bilgisi = p.otel.ad if p.otel else '-'
+                else:
+                    otel_bilgisi = 'Tüm Oteller'
+                
+                personel_data.append({
+                    'personel': p,
+                    'otel_bilgisi': otel_bilgisi
+                })
+            except Exception as e:
+                # Hata durumunda bile kullanıcıyı listeye ekle
+                logger.error(f"Otel bilgisi hazırlanırken hata: {p.kullanici_adi} - {str(e)}")
+                personel_data.append({
+                    'personel': p,
+                    'otel_bilgisi': '⚠️ Hata'
+                })
         
         return render_template('admin/personel_tanimla.html', 
                              form=form, 
