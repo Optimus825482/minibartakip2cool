@@ -43,9 +43,9 @@ def register_kat_sorumlusu_routes(app):
     
     @app.route('/dolum-talepleri')
     @login_required
-    @role_required('kat_sorumlusu')
+    @role_required('kat_sorumlusu', 'sistem_yoneticisi', 'admin')
     def dolum_talepleri():
-        """Kat Sorumlusu - Dolum talepleri sayfası"""
+        """Dolum talepleri sayfası"""
         return render_template('kat_sorumlusu/dolum_talepleri.html')
     
     @app.route('/minibar-kontrol', methods=['GET', 'POST'])
