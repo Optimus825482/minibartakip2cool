@@ -17,6 +17,7 @@
             <form method="POST" class="space-y-6">
                 {{ form.csrf_token }}
 
+                {{ render_field(form.otel_id) }}
                 {{ render_field(form.kat_adi) }}
                 {{ render_field(form.kat_no) }}
                 {{ render_field(form.aciklama) }}

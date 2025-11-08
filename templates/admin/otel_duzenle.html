@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}Otel Düzenle - Minibar Takip Sistemi{% endblock %}
+{% block page_title %}Otel Düzenle{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-4 py-5 sm:p-6">
+            <div class="mb-6">
+                <a href="{{ url_for('otel_listesi') }}" class="text-sm text-slate-600 hover:text-slate-900">
+                    ← Otel Listesine Dön
+                </a>
+            </div>
+
+            <h3 class="text-lg leading-6 font-medium text-slate-900 mb-6">Otel Bilgilerini Düzenle</h3>
+
+            <form method="POST" class="space-y-6" novalidate>
+                {{ form.hidden_tag() }}
+
+                <!-- Otel Adı -->
+                <div>
+                    <label for="ad" class="block text-sm font-medium text-slate-700">
+                        Otel Adı <span class="text-red-500">*</span>
+                    </label>
+                    <div class="mt-1">
+                        {{ form.ad(class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm", placeholder="Otel adı") }}
+                    </div>
+                    {% if form.ad.errors %}
+                        <div class="mt-2">
+                            {% for error in form.ad.errors %}
+                            <p class="text-sm text-red-600">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Adres -->
+                <div>
+                    <label for="adres" class="block text-sm font-medium text-slate-700">
+                        Adres
+                    </label>
+                    <div class="mt-1">
+                        {{ form.adres(class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm", rows="3", placeholder="Otel adresi") }}
+                    </div>
+                    {% if form.adres.errors %}
+                        <div class="mt-2">
+                            {% for error in form.adres.errors %}
+                            <p class="text-sm text-red-600">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <!-- Telefon -->
+                    <div>
+                        <label for="telefon" class="block text-sm font-medium text-slate-700">
+                            Telefon
+                        </label>
+                        <div class="mt-1">
+                            {{ form.telefon(class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm", placeholder="0212 XXX XX XX") }}
+                        </div>
+                        {% if form.telefon.errors %}
+                            <div class="mt-2">
+                                {% for error in form.telefon.errors %}
+                                <p class="text-sm text-red-600">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Email -->
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-slate-700">
+                            E-posta
+                        </label>
+                        <div class="mt-1">
+                            {{ form.email(class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm", placeholder="info@otel.com") }}
+                        </div>
+                        {% if form.email.errors %}
+                            <div class="mt-2">
+                                {% for error in form.email.errors %}
+                                <p class="text-sm text-red-600">{{ error }}</p>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Vergi No -->
+                <div>
+                    <label for="vergi_no" class="block text-sm font-medium text-slate-700">
+                        Vergi No
+                    </label>
+                    <div class="mt-1">
+                        {{ form.vergi_no(class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm", placeholder="Vergi numarası") }}
+                    </div>
+                    {% if form.vergi_no.errors %}
+                        <div class="mt-2">
+                            {% for error in form.vergi_no.errors %}
+                            <p class="text-sm text-red-600">{{ error }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Aktif -->
+                <div class="flex items-center">
+                    <div class="flex items-center h-5">
+                        {{ form.aktif(class="focus:ring-slate-500 h-4 w-4 text-slate-600 border-slate-300 rounded") }}
+                    </div>
+                    <div class="ml-3 text-sm">
+                        <label for="aktif" class="font-medium text-slate-700">Aktif</label>
+                        <p class="text-slate-500">Otel aktif olarak işaretlensin mi?</p>
+                    </div>
+                </div>
+
+                <!-- Butonlar -->
+                <div class="flex justify-end space-x-3 pt-6 border-t border-slate-200">
+                    <a href="{{ url_for('otel_listesi') }}" 
+                       class="inline-flex justify-center py-2 px-4 border border-slate-300 shadow-sm text-sm font-medium rounded-md text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                        İptal
+                    </a>
+                    <button type="submit" 
+                            class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                        Güncelle
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

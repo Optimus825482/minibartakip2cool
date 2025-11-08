@@ -18,6 +18,10 @@
                 {{ form.csrf_token }}
 
                 <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                    <div class="sm:col-span-2">
+                        {{ render_field(form.otel_id, placeholder="Otel Seçin...") }}
+                    </div>
+                    
                     {{ render_field(form.kat_adi, placeholder="Örn: 1. Kat, Zemin Kat") }}
                     {{ render_field(form.kat_no, placeholder="Örn: 0 (Zemin), 1, 2, 3") }}
 
@@ -49,6 +53,9 @@
                         <tr>
                             <th
                                 class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                Otel</th>
+                            <th
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                                 Kat Adı</th>
                             <th
                                 class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -67,6 +74,11 @@
                     <tbody class="bg-white divide-y divide-slate-200">
                         {% for kat in katlar %}
                         <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                                    🏨 {{ kat.otel.ad if kat.otel else 'Otel Yok' }}
+                                </span>
+                            </td>
                             <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-slate-900">
                                 {{ kat.kat_adi }}
                             </td>

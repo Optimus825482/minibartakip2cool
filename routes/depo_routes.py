@@ -28,6 +28,17 @@ def register_depo_routes(app):
     @role_required('depo_sorumlusu')
     def stok_giris():
         """Depo sorumlusu stok giriş sayfası"""
+        from utils.authorization import get_kullanici_otelleri, get_otel_filtreleme_secenekleri
+        
+        # Kullanıcının erişebileceği oteller
+        kullanici_otelleri = get_kullanici_otelleri()
+        otel_secenekleri = get_otel_filtreleme_secenekleri()
+        
+        # Seçili otel (query string'den veya ilk otel)
+        secili_otel_id = request.args.get('otel_id', type=int)
+        if not secili_otel_id and kullanici_otelleri:
+            secili_otel_id = kullanici_otelleri[0].id
+        
         if request.method == 'POST':
             try:
                 urun_id = int(request.form['urun_id'])
@@ -71,13 +82,15 @@ def register_depo_routes(app):
         # Aktif ürünleri grup ile birlikte getir
         urunler = Urun.query.filter_by(aktif=True).order_by(Urun.urun_adi).all()
         
-        # Son stok hareketlerini getir
+        # Son stok hareketlerini getir (otel filtrelemesi olmadan - tüm stok hareketleri)
         stok_hareketleri = StokHareket.query.order_by(StokHareket.islem_tarihi.desc()).limit(50).all()
         
         return render_template('depo_sorumlusu/stok_giris.html', 
                              gruplar=gruplar,
                              urunler=urunler, 
-                             stok_hareketleri=stok_hareketleri)
+                             stok_hareketleri=stok_hareketleri,
+                             otel_secenekleri=otel_secenekleri,
+                             secili_otel_id=secili_otel_id)
 
     @app.route('/stok-duzenle/<int:hareket_id>', methods=['GET', 'POST'])
     @login_required
@@ -163,6 +176,17 @@ def register_depo_routes(app):
     @role_required('depo_sorumlusu')
     def personel_zimmet():
         """Personel zimmet atama"""
+        from utils.authorization import get_kullanici_otelleri, get_otel_filtreleme_secenekleri
+        
+        # Kullanıcının erişebileceği oteller
+        kullanici_otelleri = get_kullanici_otelleri()
+        otel_secenekleri = get_otel_filtreleme_secenekleri()
+        
+        # Seçili otel
+        secili_otel_id = request.args.get('otel_id', type=int)
+        if not secili_otel_id and kullanici_otelleri:
+            secili_otel_id = kullanici_otelleri[0].id
+        
         if request.method == 'POST':
             try:
                 personel_id = int(request.form['personel_id'])
@@ -251,11 +275,18 @@ def register_depo_routes(app):
                 db.session.rollback()
                 flash(f'Hata oluştu: {str(e)}', 'danger')
         
-        kat_sorumlulari = Kullanici.query.filter_by(rol='kat_sorumlusu', aktif=True).all()
+        # Kat sorumlularını otel bazlı filtrele
+        if secili_otel_id:
+            kat_sorumlulari = Kullanici.query.filter_by(rol='kat_sorumlusu', aktif=True, otel_id=secili_otel_id).all()
+        else:
+            kat_sorumlulari = Kullanici.query.filter_by(rol='kat_sorumlusu', aktif=True).all()
+        
         urun_gruplari = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
         aktif_zimmetler = PersonelZimmet.query.filter_by(durum='aktif').order_by(PersonelZimmet.zimmet_tarihi.desc()).all()
         
         return render_template('depo_sorumlusu/personel_zimmet.html', 
                              kat_sorumlulari=kat_sorumlulari, 
                              urun_gruplari=urun_gruplari, 
-                             aktif_zimmetler=aktif_zimmetler)
+                             aktif_zimmetler=aktif_zimmetler,
+                             otel_secenekleri=otel_secenekleri,
+                             secili_otel_id=secili_otel_id)

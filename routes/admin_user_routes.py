@@ -258,3 +258,18 @@ def register_admin_user_routes(app):
             db.session.rollback()
             flash('Bir hata oluştu!', 'error')
             return redirect(url_for('admin_ata'))
+
+    
+    @app.route('/depo-sorumlusu-duzenle/<int:kullanici_id>', methods=['GET', 'POST'])
+    @login_required
+    @role_required('sistem_yoneticisi', 'admin')
+    def depo_sorumlusu_duzenle(kullanici_id):
+        """Depo sorumlusu düzenle (çoklu otel)"""
+        from forms import DepoSorumlusuDuzenleForm
+        from models import Otel, KullaniciOtel
+        from werkzeug.security import generate_password_hash
+        from flask import session
+        
+        kullanici = Kullanici.query.get_or_404(kullanici_id)
+        
+        # Sadece depo sorumlusu düzenlene

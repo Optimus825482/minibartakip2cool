@@ -58,9 +58,6 @@ logs/
 *_backup_*.py
 app_backup_*.py
 
-# Migrations (opsiyonel - ihtiyaca göre)
-migrations/
-
 # Temporary files
 tmp/
 temp/

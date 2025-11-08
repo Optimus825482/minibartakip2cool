@@ -78,6 +78,10 @@
     <!-- SweetAlert2 CDN -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
+    <!-- Select2 CSS & JS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
     <!-- Tailwind Config -->
     <script>
         tailwind.config = {
@@ -581,7 +585,7 @@
                         <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                             Sistem Yönetimi</h3>
                     </div>
-                    <a href="{{ url_for('otel_tanimla') }}"
+                    <a href="{{ url_for('otel_listesi') }}"
                         class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                         <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -718,7 +722,7 @@
                         <h3 class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                             Sistem Yönetimi</h3>
                     </div>
-                    <a href="{{ url_for('otel_tanimla') }}"
+                    <a href="{{ url_for('otel_listesi') }}"
                         class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
                         <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -1734,6 +1738,26 @@
             background: #3b82f6 !important;
         }
     </style>
+
+    <!-- Select2 Initialization -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tüm select elementlerine Select2 uygula (otel, kat, depo sorumlusu seçimleri için)
+            $('select[name="otel_id"], select[name="otel_ids"], select[name="kat_id"], select[name="depo_sorumlusu_id"]').select2({
+                placeholder: 'Seçiniz...',
+                allowClear: true,
+                width: '100%',
+                language: {
+                    noResults: function() {
+                        return "Sonuç bulunamadı";
+                    },
+                    searching: function() {
+                        return "Aranıyor...";
+                    }
+                }
+            });
+        });
+    </script>
 
     {% block extra_scripts %}{% endblock %}
 </body>

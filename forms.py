@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, PasswordField, BooleanField, TextAreaField, IntegerField, SelectField
+from wtforms import StringField, PasswordField, BooleanField, TextAreaField, IntegerField, SelectField, SelectMultipleField
 from wtforms.validators import DataRequired, InputRequired, Email, Length, EqualTo, NumberRange, Optional, ValidationError
 import re
 
@@ -502,7 +502,7 @@ class MinibarKontrolForm(BaseForm):
 
 class OtelForm(BaseForm):
     """Otel tanımlama/düzenleme formu"""
-    otel_adi = StringField(
+    ad = StringField(
         'Otel Adı',
         validators=[
             DataRequired(message='Otel adı zorunludur.'),
@@ -510,7 +510,7 @@ class OtelForm(BaseForm):
         ]
     )
 
-    adres = StringField(
+    adres = TextAreaField(
         'Adres',
         validators=[
             Optional(),
@@ -521,8 +521,8 @@ class OtelForm(BaseForm):
     telefon = StringField(
         'Telefon',
         validators=[
-            DataRequired(message='Telefon numarası zorunludur.'),
-            Length(min=10, max=20, message='Telefon numarası 10-20 karakter arasında olmalıdır.'),
+            Optional(),
+            Length(max=20, message='Telefon numarası 20 karakterden uzun olamaz.'),
             pattern_validator(r'^[\d\s\-\+\(\)\.]+$', 'Geçerli bir telefon numarası giriniz.')
         ]
     )
@@ -535,9 +535,26 @@ class OtelForm(BaseForm):
             Length(max=100, message='E-posta adresi 100 karakterden uzun olamaz.')
         ]
     )
+    
+    vergi_no = StringField(
+        'Vergi No',
+        validators=[
+            Optional(),
+            Length(max=50, message='Vergi no 50 karakterden uzun olamaz.')
+        ]
+    )
+    
+    aktif = BooleanField('Aktif', default=True)
 
 class KatForm(BaseForm):
     """Kat tanımlama/düzenleme formu"""
+    otel_id = SelectField(
+        'Otel',
+        coerce=int,
+        choices=[],
+        validators=[DataRequired(message='Otel seçimi zorunludur.')]
+    )
+    
     kat_adi = StringField(
         'Kat Adı',
         validators=[
@@ -561,9 +578,18 @@ class KatForm(BaseForm):
             Length(max=500, message='Açıklama 500 karakterden uzun olamaz.')
         ]
     )
+    
+    aktif = BooleanField('Aktif', default=True)
 
 class OdaForm(BaseForm):
     """Oda tanımlama/düzenleme formu"""
+    otel_id = SelectField(
+        'Otel',
+        coerce=int,
+        choices=[],
+        validators=[DataRequired(message='Otel seçimi zorunludur.')]
+    )
+    
     kat_id = SelectField(
         'Kat',
         coerce=int,
@@ -595,6 +621,8 @@ class OdaForm(BaseForm):
             NumberRange(min=1, max=20, message='Kapasite 1-20 arasında olmalıdır.')
         ]
     )
+    
+    aktif = BooleanField('Aktif', default=True)
 
 class UrunGrupForm(BaseForm):
     """Ürün grubu tanımlama/düzenleme formu"""
@@ -655,3 +683,281 @@ class StokGirisForm(BaseForm):
             Length(max=500, message='Açıklama 500 karakterden uzun olamaz.')
         ]
     )
+
+
+class DepoSorumlusuForm(BaseForm):
+    """Depo sorumlusu tanımlama formu (çoklu otel)"""
+    kullanici_adi = StringField(
+        'Kullanıcı Adı',
+        validators=[
+            DataRequired(message='Kullanıcı adı zorunludur.'),
+            Length(min=3, max=50, message='Kullanıcı adı 3-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-Z0-9_.-]+$', 'Kullanıcı adı sadece harf, rakam ve (_-.) karakterleri içerebilir.')
+        ]
+    )
+
+    ad = StringField(
+        'Ad',
+        validators=[
+            DataRequired(message='Ad zorunludur.'),
+            Length(min=2, max=50, message='Ad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Ad sadece harf içerebilir.')
+        ]
+    )
+
+    soyad = StringField(
+        'Soyad',
+        validators=[
+            DataRequired(message='Soyad zorunludur.'),
+            Length(min=2, max=50, message='Soyad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Soyad sadece harf içerebilir.')
+        ]
+    )
+
+    email = StringField(
+        'E-posta',
+        validators=[
+            Optional(),
+            Email(message='Geçerli bir e-posta adresi giriniz.'),
+            Length(max=100, message='E-posta adresi 100 karakterden uzun olamaz.')
+        ]
+    )
+
+    telefon = StringField(
+        'Telefon',
+        validators=[
+            Optional(),
+            Length(max=20, message='Telefon numarası 20 karakterden uzun olamaz.'),
+            pattern_validator(r'^[\d\s\-\+\(\)\.]+$', 'Geçerli bir telefon numarası giriniz.')
+        ]
+    )
+    
+    otel_ids = SelectMultipleField(
+        'Oteller',
+        coerce=int,
+        choices=[],
+        validators=[DataRequired(message='En az bir otel seçimi zorunludur.')]
+    )
+
+    sifre = PasswordField(
+        'Şifre',
+        validators=[
+            DataRequired(message='Şifre zorunludur.'),
+            Length(min=8, max=128, message='Şifre en az 8 karakter olmalıdır.'),
+            password_strength_validator('Şifre en az bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir.')
+        ]
+    )
+    
+    aktif = BooleanField('Aktif', default=True)
+
+
+class DepoSorumlusuDuzenleForm(BaseForm):
+    """Depo sorumlusu düzenleme formu (çoklu otel, şifre opsiyonel)"""
+    kullanici_adi = StringField(
+        'Kullanıcı Adı',
+        validators=[
+            DataRequired(message='Kullanıcı adı zorunludur.'),
+            Length(min=3, max=50, message='Kullanıcı adı 3-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-Z0-9_.-]+$', 'Kullanıcı adı sadece harf, rakam ve (_-.) karakterleri içerebilir.')
+        ]
+    )
+
+    ad = StringField(
+        'Ad',
+        validators=[
+            DataRequired(message='Ad zorunludur.'),
+            Length(min=2, max=50, message='Ad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Ad sadece harf içerebilir.')
+        ]
+    )
+
+    soyad = StringField(
+        'Soyad',
+        validators=[
+            DataRequired(message='Soyad zorunludur.'),
+            Length(min=2, max=50, message='Soyad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Soyad sadece harf içerebilir.')
+        ]
+    )
+
+    email = StringField(
+        'E-posta',
+        validators=[
+            Optional(),
+            Email(message='Geçerli bir e-posta adresi giriniz.'),
+            Length(max=100, message='E-posta adresi 100 karakterden uzun olamaz.')
+        ]
+    )
+
+    telefon = StringField(
+        'Telefon',
+        validators=[
+            Optional(),
+            Length(max=20, message='Telefon numarası 20 karakterden uzun olamaz.'),
+            pattern_validator(r'^[\d\s\-\+\(\)\.]+$', 'Geçerli bir telefon numarası giriniz.')
+        ]
+    )
+    
+    otel_ids = SelectMultipleField(
+        'Oteller',
+        coerce=int,
+        choices=[],
+        validators=[DataRequired(message='En az bir otel seçimi zorunludur.')]
+    )
+
+    yeni_sifre = PasswordField(
+        'Yeni Şifre',
+        validators=[
+            Optional(),
+            Length(min=8, max=128, message='Şifre en az 8 karakter olmalıdır.'),
+            password_strength_validator('Şifre en az bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir.')
+        ]
+    )
+    
+    aktif = BooleanField('Aktif', default=True)
+
+
+class KatSorumlusuForm(BaseForm):
+    """Kat sorumlusu tanımlama formu (tekli otel)"""
+    kullanici_adi = StringField(
+        'Kullanıcı Adı',
+        validators=[
+            DataRequired(message='Kullanıcı adı zorunludur.'),
+            Length(min=3, max=50, message='Kullanıcı adı 3-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-Z0-9_.-]+$', 'Kullanıcı adı sadece harf, rakam ve (_-.) karakterleri içerebilir.')
+        ]
+    )
+
+    ad = StringField(
+        'Ad',
+        validators=[
+            DataRequired(message='Ad zorunludur.'),
+            Length(min=2, max=50, message='Ad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Ad sadece harf içerebilir.')
+        ]
+    )
+
+    soyad = StringField(
+        'Soyad',
+        validators=[
+            DataRequired(message='Soyad zorunludur.'),
+            Length(min=2, max=50, message='Soyad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Soyad sadece harf içerebilir.')
+        ]
+    )
+
+    email = StringField(
+        'E-posta',
+        validators=[
+            Optional(),
+            Email(message='Geçerli bir e-posta adresi giriniz.'),
+            Length(max=100, message='E-posta adresi 100 karakterden uzun olamaz.')
+        ]
+    )
+
+    telefon = StringField(
+        'Telefon',
+        validators=[
+            Optional(),
+            Length(max=20, message='Telefon numarası 20 karakterden uzun olamaz.'),
+            pattern_validator(r'^[\d\s\-\+\(\)\.]+$', 'Geçerli bir telefon numarası giriniz.')
+        ]
+    )
+    
+    otel_id = SelectField(
+        'Otel',
+        coerce=int,
+        choices=[],
+        validators=[DataRequired(message='Otel seçimi zorunludur.')]
+    )
+    
+    depo_sorumlusu_id = SelectField(
+        'Bağlı Depo Sorumlusu',
+        coerce=int,
+        choices=[],
+        validators=[Optional()]
+    )
+
+    sifre = PasswordField(
+        'Şifre',
+        validators=[
+            DataRequired(message='Şifre zorunludur.'),
+            Length(min=8, max=128, message='Şifre en az 8 karakter olmalıdır.'),
+            password_strength_validator('Şifre en az bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir.')
+        ]
+    )
+    
+    aktif = BooleanField('Aktif', default=True)
+
+
+class KatSorumlusuDuzenleForm(BaseForm):
+    """Kat sorumlusu düzenleme formu (tekli otel, şifre opsiyonel)"""
+    kullanici_adi = StringField(
+        'Kullanıcı Adı',
+        validators=[
+            DataRequired(message='Kullanıcı adı zorunludur.'),
+            Length(min=3, max=50, message='Kullanıcı adı 3-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-Z0-9_.-]+$', 'Kullanıcı adı sadece harf, rakam ve (_-.) karakterleri içerebilir.')
+        ]
+    )
+
+    ad = StringField(
+        'Ad',
+        validators=[
+            DataRequired(message='Ad zorunludur.'),
+            Length(min=2, max=50, message='Ad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Ad sadece harf içerebilir.')
+        ]
+    )
+
+    soyad = StringField(
+        'Soyad',
+        validators=[
+            DataRequired(message='Soyad zorunludur.'),
+            Length(min=2, max=50, message='Soyad 2-50 karakter arasında olmalıdır.'),
+            pattern_validator(r'^[a-zA-ZğüşöçıİĞÜŞÖÇı\s]+$', 'Soyad sadece harf içerebilir.')
+        ]
+    )
+
+    email = StringField(
+        'E-posta',
+        validators=[
+            Optional(),
+            Email(message='Geçerli bir e-posta adresi giriniz.'),
+            Length(max=100, message='E-posta adresi 100 karakterden uzun olamaz.')
+        ]
+    )
+
+    telefon = StringField(
+        'Telefon',
+        validators=[
+            Optional(),
+            Length(max=20, message='Telefon numarası 20 karakterden uzun olamaz.'),
+            pattern_validator(r'^[\d\s\-\+\(\)\.]+$', 'Geçerli bir telefon numarası giriniz.')
+        ]
+    )
+    
+    otel_id = SelectField(
+        'Otel',
+        coerce=int,
+        choices=[],
+        validators=[DataRequired(message='Otel seçimi zorunludur.')]
+    )
+    
+    depo_sorumlusu_id = SelectField(
+        'Bağlı Depo Sorumlusu',
+        coerce=int,
+        choices=[],
+        validators=[Optional()]
+    )
+
+    yeni_sifre = PasswordField(
+        'Yeni Şifre',
+        validators=[
+            Optional(),
+            Length(min=8, max=128, message='Şifre en az 8 karakter olmalıdır.'),
+            password_strength_validator('Şifre en az bir büyük harf, bir küçük harf, bir rakam ve bir özel karakter içermelidir.')
+        ]
+    )
+    
+    aktif = BooleanField('Aktif', default=True)

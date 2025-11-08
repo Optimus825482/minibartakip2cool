@@ -26,6 +26,7 @@
                     {{ render_field(form.ad) }}
                     {{ render_field(form.soyad) }}
 
+                    {% if form.rol is defined %}
                     <div>
                         {{ render_select(form.rol) }}
                         <p class="mt-2 text-sm text-slate-500">
@@ -34,9 +35,28 @@
                             <strong>Kat Sorumlusu:</strong> Minibar kontrol ve oda işlemleri
                         </p>
                     </div>
+                    {% endif %}
 
                     {{ render_field(form.email, placeholder="email@example.com") }}
                     {{ render_field(form.telefon, placeholder="Telefon numarası") }}
+                    
+                    {% if form.otel_ids is defined %}
+                    <div class="sm:col-span-2">
+                        {{ render_select(form.otel_ids) }}
+                        <p class="mt-1 text-sm text-slate-500">Depo sorumlusu birden fazla otele atanabilir (Ctrl tuşu ile çoklu seçim)</p>
+                    </div>
+                    {% elif form.otel_id is defined %}
+                    <div class="sm:col-span-2">
+                        {{ render_select(form.otel_id) }}
+                        <p class="mt-1 text-sm text-slate-500">Kat sorumlusu sadece bir otele atanabilir</p>
+                    </div>
+                    {% if form.depo_sorumlusu_id is defined %}
+                    <div class="sm:col-span-2">
+                        {{ render_select(form.depo_sorumlusu_id) }}
+                        <p class="mt-1 text-sm text-slate-500">Kat sorumlusunun bağlı olduğu depo sorumlusu (opsiyonel)</p>
+                    </div>
+                    {% endif %}
+                    {% endif %}
                 </div>
 
                 <div class="flex justify-end space-x-3">

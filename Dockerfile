@@ -24,6 +24,9 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Uygulama dosyalarını kopyala
 COPY . .
 
+# Entrypoint script'ini executable yap
+RUN chmod +x docker-entrypoint.sh
+
 # Güvenlik: Non-root user oluştur
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
@@ -36,5 +39,6 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8080/health', timeout=5)" || exit 1
 
-# Gunicorn ile başlat (production-ready)
+# Entrypoint ve CMD
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "--threads", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app:app"]

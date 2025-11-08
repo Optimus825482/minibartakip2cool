@@ -1085,3 +1085,87 @@ def register_api_routes(app):
         except Exception as e:
             log_hata(e, modul='api_kat_rapor_veri')
             return jsonify({'success': False, 'error': str(e)}), 500
+
+    # ============================================================================
+    # OTEL YÖNETİMİ API
+    # ============================================================================
+    
+    @app.route('/api/oteller/<int:otel_id>/katlar', methods=['GET'])
+    @login_required
+    def api_otel_katlar(otel_id):
+        """Otele ait katları getir"""
+        try:
+            from models import Otel, Kat
+            
+            # Otel var mı kontrol et
+            otel = Otel.query.get_or_404(otel_id)
+            
+            # Sadece aktif katları getir
+            katlar = Kat.query.filter_by(
+                otel_id=otel_id,
+                aktif=True
+            ).order_by(Kat.kat_no).all()
+            
+            return jsonify([{
+                'id': kat.id,
+                'kat_adi': kat.kat_adi,
+                'kat_no': kat.kat_no
+            } for kat in katlar])
+            
+        except Exception as e:
+            log_hata(e, modul='api_otel_katlar')
+            return jsonify({'error': str(e)}), 500
+    
+    @app.route('/api/oteller/<int:otel_id>/odalar', methods=['GET'])
+    @login_required
+    def api_otel_odalar(otel_id):
+        """Otele ait odaları getir"""
+        try:
+            from models import Otel, Kat, Oda
+            
+            # Otel var mı kontrol et
+            otel = Otel.query.get_or_404(otel_id)
+            
+            # Otele ait tüm odaları getir (kat üzerinden)
+            odalar = db.session.query(Oda).join(Kat).filter(
+                Kat.otel_id == otel_id,
+                Oda.aktif == True
+            ).order_by(Kat.kat_no, Oda.oda_no).all()
+            
+            return jsonify([{
+                'id': oda.id,
+                'oda_no': oda.oda_no,
+                'kat_id': oda.kat_id,
+                'kat_adi': oda.kat.kat_adi
+            } for oda in odalar])
+            
+        except Exception as e:
+            log_hata(e, modul='api_otel_odalar')
+            return jsonify({'error': str(e)}), 500
+    
+    @app.route('/api/katlar/<int:kat_id>/odalar', methods=['GET'])
+    @login_required
+    def api_kat_odalar(kat_id):
+        """Kata ait odaları getir"""
+        try:
+            from models import Kat, Oda
+            
+            # Kat var mı kontrol et
+            kat = Kat.query.get_or_404(kat_id)
+            
+            # Sadece aktif odaları getir
+            odalar = Oda.query.filter_by(
+                kat_id=kat_id,
+                aktif=True
+            ).order_by(Oda.oda_no).all()
+            
+            return jsonify([{
+                'id': oda.id,
+                'oda_no': oda.oda_no,
+                'oda_tipi': oda.oda_tipi,
+                'kapasite': oda.kapasite
+            } for oda in odalar])
+            
+        except Exception as e:
+            log_hata(e, modul='api_kat_odalar')
+            return jsonify({'error': str(e)}), 500

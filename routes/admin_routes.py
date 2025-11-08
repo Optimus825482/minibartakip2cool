@@ -42,24 +42,69 @@ def register_admin_routes(app):
     @login_required
     @role_required('sistem_yoneticisi', 'admin')
     def personel_tanimla():
-        """Personel tanımlama ve listeleme"""
-        from forms import PersonelForm
+        """Personel tanımlama ve listeleme - Rol bazlı form gösterimi"""
+        from forms import PersonelForm, DepoSorumlusuForm, KatSorumlusuForm
+        from models import Otel, KullaniciOtel
         from sqlalchemy.exc import IntegrityError
 
-        form = PersonelForm()
+        # Rol seçimi için basit form
+        rol_secimi = request.form.get('rol_secimi') or request.args.get('rol')
+        
+        # Otelleri yükle
+        oteller = Otel.query.filter_by(aktif=True).order_by(Otel.ad).all()
+        
+        form = None
+        if rol_secimi == 'depo_sorumlusu':
+            form = DepoSorumlusuForm()
+            form.otel_ids.choices = [(o.id, o.ad) for o in oteller]
+        elif rol_secimi == 'kat_sorumlusu':
+            form = KatSorumlusuForm()
+            form.otel_id.choices = [(0, 'Otel Seçin...')] + [(o.id, o.ad) for o in oteller]
+            # Depo sorumlularını yükle
+            depo_sorumlular = Kullanici.query.filter_by(rol='depo_sorumlusu', aktif=True).order_by(Kullanici.ad, Kullanici.soyad).all()
+            form.depo_sorumlusu_id.choices = [(0, 'Seçiniz (Opsiyonel)')] + [(d.id, f"{d.ad} {d.soyad}") for d in depo_sorumlular]
+        else:
+            form = PersonelForm()
 
-        if form.validate_on_submit():
+        if form and form.validate_on_submit():
             try:
+                # Ortak alanlar
                 personel = Kullanici(
                     kullanici_adi=form.kullanici_adi.data,
                     ad=form.ad.data,
                     soyad=form.soyad.data,
                     email=form.email.data or '',
                     telefon=form.telefon.data or '',
-                    rol=form.rol.data
+                    aktif=form.aktif.data if hasattr(form, 'aktif') else True
                 )
-                personel.sifre_belirle(form.sifre.data)
-                db.session.add(personel)
+                
+                # Rol bazlı işlemler
+                if rol_secimi == 'depo_sorumlusu':
+                    personel.rol = 'depo_sorumlusu'
+                    personel.sifre_belirle(form.sifre.data)
+                    db.session.add(personel)
+                    db.session.flush()
+                    
+                    # Çoklu otel ataması
+                    for otel_id in form.otel_ids.data:
+                        atama = KullaniciOtel(
+                            kullanici_id=personel.id,
+                            otel_id=otel_id
+                        )
+                        db.session.add(atama)
+                    
+                elif rol_secimi == 'kat_sorumlusu':
+                    personel.rol = 'kat_sorumlusu'
+                    personel.otel_id = form.otel_id.data
+                    personel.depo_sorumlusu_id = form.depo_sorumlusu_id.data if form.depo_sorumlusu_id.data != 0 else None
+                    personel.sifre_belirle(form.sifre.data)
+                    db.session.add(personel)
+                    
+                else:
+                    personel.rol = form.rol.data
+                    personel.sifre_belirle(form.sifre.data)
+                    db.session.add(personel)
+                
                 db.session.commit()
 
                 # Audit Trail
@@ -71,37 +116,78 @@ def register_admin_routes(app):
             except IntegrityError as e:
                 db.session.rollback()
                 error_msg = str(e)
-
-                # Kullanıcı dostu hata mesajları
                 if 'kullanici_adi' in error_msg:
-                    flash('Bu kullanıcı adı zaten kullanılıyor. Lütfen farklı bir kullanıcı adı seçin.', 'danger')
+                    flash('Bu kullanıcı adı zaten kullanılıyor.', 'danger')
                 elif 'email' in error_msg:
-                    flash('Bu e-posta adresi zaten kullanılıyor. Lütfen farklı bir e-posta adresi seçin.', 'danger')
+                    flash('Bu e-posta adresi zaten kullanılıyor.', 'danger')
                 else:
                     flash('Kayıt sırasında bir hata oluştu.', 'danger')
                 log_hata(e, modul='personel_tanimla')
 
             except Exception as e:
                 db.session.rollback()
-                flash('Beklenmeyen bir hata oluştu. Lütfen sistem yöneticisine başvurun.', 'danger')
+                flash('Beklenmeyen bir hata oluştu.', 'danger')
                 log_hata(e, modul='personel_tanimla')
 
+        # Personel listesi - otel bilgileri ile
         personeller = Kullanici.query.filter(
             Kullanici.rol.in_(['admin', 'depo_sorumlusu', 'kat_sorumlusu']),
             Kullanici.aktif.is_(True)
         ).order_by(Kullanici.olusturma_tarihi.desc()).all()
-        return render_template('admin/personel_tanimla.html', form=form, personeller=personeller)
+        
+        # Her personel için otel bilgilerini hazırla
+        personel_data = []
+        for p in personeller:
+            otel_bilgisi = ''
+            if p.rol == 'depo_sorumlusu':
+                oteller_list = [atama.otel.ad for atama in p.atanan_oteller]
+                otel_bilgisi = ', '.join(oteller_list) if oteller_list else '-'
+            elif p.rol == 'kat_sorumlusu':
+                otel_bilgisi = p.otel.ad if p.otel else '-'
+            else:
+                otel_bilgisi = 'Tüm Oteller'
+            
+            personel_data.append({
+                'personel': p,
+                'otel_bilgisi': otel_bilgisi
+            })
+        
+        return render_template('admin/personel_tanimla.html', 
+                             form=form, 
+                             personel_data=personel_data,
+                             rol_secimi=rol_secimi,
+                             oteller=oteller)
 
     @app.route('/personel-duzenle/<int:personel_id>', methods=['GET', 'POST'])
     @login_required
     @role_required('sistem_yoneticisi', 'admin')
     def personel_duzenle(personel_id):
-        """Personel düzenleme"""
-        from forms import PersonelDuzenleForm
+        """Personel düzenleme - Rol bazlı form gösterimi"""
+        from forms import PersonelDuzenleForm, DepoSorumlusuDuzenleForm, KatSorumlusuDuzenleForm
+        from models import Otel, KullaniciOtel
         from sqlalchemy.exc import IntegrityError
 
         personel = Kullanici.query.get_or_404(personel_id)
-        form = PersonelDuzenleForm(obj=personel)
+        
+        # Otelleri yükle
+        oteller = Otel.query.filter_by(aktif=True).order_by(Otel.ad).all()
+        
+        # Rol bazlı form seçimi
+        if personel.rol == 'depo_sorumlusu':
+            form = DepoSorumlusuDuzenleForm(obj=personel)
+            form.otel_ids.choices = [(o.id, o.ad) for o in oteller]
+            # Mevcut otel atamalarını yükle
+            if request.method == 'GET':
+                mevcut_oteller = [atama.otel_id for atama in personel.atanan_oteller]
+                form.otel_ids.data = mevcut_oteller
+        elif personel.rol == 'kat_sorumlusu':
+            form = KatSorumlusuDuzenleForm(obj=personel)
+            form.otel_id.choices = [(0, 'Otel Seçin...')] + [(o.id, o.ad) for o in oteller]
+            # Depo sorumlularını yükle
+            depo_sorumlular = Kullanici.query.filter_by(rol='depo_sorumlusu', aktif=True).order_by(Kullanici.ad, Kullanici.soyad).all()
+            form.depo_sorumlusu_id.choices = [(0, 'Seçiniz (Opsiyonel)')] + [(d.id, f"{d.ad} {d.soyad}") for d in depo_sorumlular]
+        else:
+            form = PersonelDuzenleForm(obj=personel)
 
         if form.validate_on_submit():
             try:
@@ -113,7 +199,26 @@ def register_admin_routes(app):
                 personel.soyad = form.soyad.data
                 personel.email = form.email.data or ''
                 personel.telefon = form.telefon.data or ''
-                personel.rol = form.rol.data
+                
+                # Rol değişikliği (sadece PersonelDuzenleForm'da)
+                if hasattr(form, 'rol'):
+                    personel.rol = form.rol.data
+                
+                # Otel atamaları güncelle
+                if personel.rol == 'depo_sorumlusu' and hasattr(form, 'otel_ids'):
+                    # Mevcut atamaları sil
+                    KullaniciOtel.query.filter_by(kullanici_id=personel.id).delete()
+                    # Yeni atamaları ekle
+                    for otel_id in form.otel_ids.data:
+                        atama = KullaniciOtel(
+                            kullanici_id=personel.id,
+                            otel_id=otel_id
+                        )
+                        db.session.add(atama)
+                
+                elif personel.rol == 'kat_sorumlusu' and hasattr(form, 'otel_id'):
+                    personel.otel_id = form.otel_id.data
+                    personel.depo_sorumlusu_id = form.depo_sorumlusu_id.data if form.depo_sorumlusu_id.data != 0 else None
 
                 # Şifre değiştirilmişse
                 if form.yeni_sifre.data:
@@ -145,7 +250,7 @@ def register_admin_routes(app):
                 flash('Beklenmeyen bir hata oluştu. Lütfen sistem yöneticisine başvurun.', 'danger')
                 log_hata(e, modul='personel_duzenle')
 
-        return render_template('admin/personel_duzenle.html', form=form, personel=personel)
+        return render_template('admin/personel_duzenle.html', form=form, personel=personel, oteller=oteller)
 
     @app.route('/personel-pasif-yap/<int:personel_id>', methods=['POST'])
     @login_required
@@ -539,3 +644,178 @@ def register_admin_routes(app):
             flash(f'Hata oluştu: {str(e)}', 'danger')
         
         return redirect(url_for('urunler'))
+
+
+    # ============================================================================
+    # OTEL YÖNETİMİ
+    # ============================================================================
+    
+    @app.route('/oteller', methods=['GET'])
+    @login_required
+    @role_required('sistem_yoneticisi', 'admin')
+    def otel_listesi():
+        """Otel listesi"""
+        try:
+            from models import Otel, Kat, Oda
+            from sqlalchemy import func
+            
+            # Pagination
+            page = request.args.get('page', 1, type=int)
+            per_page = 20
+            
+            # Otel listesi ile kat ve oda sayılarını al
+            oteller_query = db.session.query(
+                Otel,
+                func.count(Kat.id.distinct()).label('kat_sayisi'),
+                func.count(Oda.id.distinct()).label('oda_sayisi')
+            ).outerjoin(Kat, Otel.id == Kat.otel_id)\
+             .outerjoin(Oda, Kat.id == Oda.kat_id)\
+             .group_by(Otel.id)\
+             .order_by(Otel.olusturma_tarihi.desc())
+            
+            pagination = oteller_query.paginate(page=page, per_page=per_page, error_out=False)
+            
+            # Her otel için personel sayılarını hesapla
+            oteller_data = []
+            for otel, kat_sayisi, oda_sayisi in pagination.items:
+                depo_sorumlu_sayisi = otel.get_depo_sorumlu_sayisi()
+                kat_sorumlu_sayisi = otel.get_kat_sorumlu_sayisi()
+                
+                oteller_data.append({
+                    'otel': otel,
+                    'kat_sayisi': kat_sayisi,
+                    'oda_sayisi': oda_sayisi,
+                    'personel_sayisi': depo_sorumlu_sayisi + kat_sorumlu_sayisi
+                })
+            
+            return render_template('admin/otel_listesi.html', 
+                                 oteller_data=oteller_data,
+                                 pagination=pagination)
+                                 
+        except Exception as e:
+            flash(f'Hata oluştu: {str(e)}', 'danger')
+            log_hata(e, modul='otel_listesi')
+            return redirect(url_for('dashboard'))
+    
+    @app.route('/oteller/ekle', methods=['GET', 'POST'])
+    @login_required
+    @role_required('sistem_yoneticisi', 'admin')
+    def otel_ekle():
+        """Otel ekleme"""
+        from forms import OtelForm
+        from models import Otel
+        from sqlalchemy.exc import IntegrityError
+        
+        form = OtelForm()
+        
+        if form.validate_on_submit():
+            try:
+                otel = Otel(
+                    ad=form.ad.data,
+                    adres=form.adres.data or '',
+                    telefon=form.telefon.data or '',
+                    email=form.email.data or '',
+                    vergi_no=form.vergi_no.data or '',
+                    aktif=form.aktif.data
+                )
+                db.session.add(otel)
+                db.session.commit()
+                
+                # Audit Trail
+                audit_create('otel', otel.id, otel)
+                
+                flash('Otel başarıyla eklendi.', 'success')
+                log_islem('otel_ekle', f'Otel eklendi: {otel.ad}')
+                return redirect(url_for('otel_listesi'))
+                
+            except IntegrityError as e:
+                db.session.rollback()
+                flash('Bu otel adı zaten kullanılıyor. Lütfen farklı bir ad seçin.', 'danger')
+                log_hata(e, modul='otel_ekle')
+                
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Hata oluştu: {str(e)}', 'danger')
+                log_hata(e, modul='otel_ekle')
+        
+        return render_template('admin/otel_ekle.html', form=form)
+    
+    @app.route('/oteller/<int:id>/duzenle', methods=['GET', 'POST'])
+    @login_required
+    @role_required('sistem_yoneticisi', 'admin')
+    def otel_duzenle(id):
+        """Otel düzenleme"""
+        from forms import OtelForm
+        from models import Otel
+        
+        otel = Otel.query.get_or_404(id)
+        form = OtelForm(obj=otel)
+        
+        if form.validate_on_submit():
+            try:
+                eski_deger = serialize_model(otel)
+                
+                otel.ad = form.ad.data
+                otel.adres = form.adres.data or ''
+                otel.telefon = form.telefon.data or ''
+                otel.email = form.email.data or ''
+                otel.vergi_no = form.vergi_no.data or ''
+                otel.aktif = form.aktif.data
+                
+                db.session.commit()
+                
+                # Audit Trail
+                audit_update('otel', otel.id, eski_deger, otel)
+                
+                flash('Otel başarıyla güncellendi.', 'success')
+                log_islem('otel_duzenle', f'Otel güncellendi: {otel.ad}')
+                return redirect(url_for('otel_listesi'))
+                
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Hata oluştu: {str(e)}', 'danger')
+                log_hata(e, modul='otel_duzenle')
+        
+        return render_template('admin/otel_duzenle.html', form=form, otel=otel)
+    
+    @app.route('/oteller/<int:id>/aktif-pasif', methods=['POST'])
+    @login_required
+    @role_required('sistem_yoneticisi', 'admin')
+    def otel_aktif_pasif(id):
+        """Otel aktif/pasif yapma"""
+        from models import Otel
+        
+        try:
+            otel = Otel.query.get_or_404(id)
+            eski_deger = serialize_model(otel)
+            
+            # Otele ait kat var mı kontrol et
+            if otel.katlar and not otel.aktif:
+                flash('Bu otele ait katlar bulunuyor. Önce katları silin veya başka otele taşıyın!', 'warning')
+                return redirect(url_for('otel_listesi'))
+            
+            # Otele atanmış personel var mı kontrol et
+            depo_sorumlu_sayisi = otel.get_depo_sorumlu_sayisi()
+            kat_sorumlu_sayisi = otel.get_kat_sorumlu_sayisi()
+            
+            if (depo_sorumlu_sayisi > 0 or kat_sorumlu_sayisi > 0) and not otel.aktif:
+                flash('Bu otele atanmış personel bulunuyor. Önce personel atamalarını kaldırın!', 'warning')
+                return redirect(url_for('otel_listesi'))
+            
+            # Aktif/Pasif değiştir
+            otel.aktif = not otel.aktif
+            db.session.commit()
+            
+            # Audit Trail
+            audit_update('otel', otel.id, eski_deger, otel)
+            
+            durum = 'aktif' if otel.aktif else 'pasif'
+            flash(f'Otel başarıyla {durum} yapıldı.', 'success')
+            log_islem('otel_aktif_pasif', f'Otel {durum} yapıldı: {otel.ad}')
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Hata oluştu: {str(e)}', 'danger')
+            log_hata(e, modul='otel_aktif_pasif')
+        
+        return redirect(url_for('otel_listesi'))

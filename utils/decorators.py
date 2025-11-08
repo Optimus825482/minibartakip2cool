@@ -128,3 +128,108 @@ def setup_not_completed(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+
+def otel_erisim_gerekli(f):
+    """
+    Otel erişim kontrolü decorator'u
+    Kullanıcının belirli bir otele erişimi olup olmadığını kontrol eder
+    
+    Kullanım:
+        @otel_erisim_gerekli
+        def my_route(otel_id):
+            # otel_id parametresi veya request.args'dan alınır
+            pass
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        from flask import request, jsonify, abort
+        from utils.authorization import otel_erisim_kontrol
+        
+        # Kullanıcı bilgilerini al
+        kullanici_id = session.get('kullanici_id')
+        rol = session.get('kullanici_rol')
+        
+        if not kullanici_id or not rol:
+            if request.path.startswith('/api/') or request.is_json:
+                return jsonify({'success': False, 'error': 'Giriş yapmalısınız'}), 401
+            flash('Bu sayfaya erişmek için giriş yapmalısınız.', 'warning')
+            return redirect(url_for('login'))
+        
+        # Admin ve sistem yöneticisi tüm otellere erişebilir
+        if rol in ['admin', 'sistem_yoneticisi']:
+            return f(*args, **kwargs)
+        
+        # Otel ID'yi al (kwargs, args veya request.args'dan)
+        otel_id = kwargs.get('otel_id') or request.args.get('otel_id') or request.form.get('otel_id')
+        
+        # Otel ID yoksa devam et (bazı route'lar için gerekli olmayabilir)
+        if not otel_id:
+            return f(*args, **kwargs)
+        
+        # Integer'a çevir
+        try:
+            otel_id = int(otel_id)
+        except (ValueError, TypeError):
+            if request.path.startswith('/api/') or request.is_json:
+                return jsonify({'success': False, 'error': 'Geçersiz otel ID'}), 400
+            flash('Geçersiz otel ID.', 'danger')
+            return redirect(url_for('dashboard'))
+        
+        # Erişim kontrolü
+        if not otel_erisim_kontrol(kullanici_id, otel_id, rol):
+            if request.path.startswith('/api/') or request.is_json:
+                return jsonify({'success': False, 'error': 'Bu otele erişim yetkiniz yok'}), 403
+            flash('Bu otele erişim yetkiniz yok.', 'danger')
+            return redirect(url_for('dashboard'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+
+def otel_erisim_gerekli(f):
+    """
+    Kullanıcının otele erişimi olup olmadığını kontrol eder
+    
+    Kullanım:
+        @app.route('/depo/stok/<int:otel_id>')
+        @login_required
+        @otel_erisim_gerekli
+        def stok_listesi(otel_id):
+            ...
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        from flask import session, abort, request
+        from utils.authorization import kullanici_otel_erisimi
+        
+        # Otel ID'yi al (kwargs, args veya query string'den)
+        otel_id = kwargs.get('otel_id') or request.args.get('otel_id')
+        
+        if not otel_id:
+            # Otel ID belirtilmemişse, devam et (genel sayfalar için)
+            return f(*args, **kwargs)
+        
+        try:
+            otel_id = int(otel_id)
+        except (ValueError, TypeError):
+            abort(400, description='Geçersiz otel ID')
+        
+        kullanici_id = session.get('kullanici_id')
+        kullanici_rol = session.get('kullanici_rol')
+        
+        if not kullanici_id:
+            abort(401, description='Giriş yapmanız gerekiyor')
+        
+        # Sistem yöneticisi ve admin tüm otellere erişebilir
+        if kullanici_rol in ['sistem_yoneticisi', 'admin']:
+            return f(*args, **kwargs)
+        
+        # Diğer roller için otel erişim kontrolü
+        if not kullanici_otel_erisimi(kullanici_id, otel_id):
+            abort(403, description='Bu otele erişim yetkiniz yok')
+        
+        return f(*args, **kwargs)
+    
+    return decorated_function

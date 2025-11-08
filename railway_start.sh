@@ -12,6 +12,26 @@ python railway_health_check.py
 
 if [ $? -eq 0 ]; then
     echo "✅ Database bağlantısı başarılı!"
+    
+    # Migration'ları uygula
+    echo ""
+    echo "📦 Database migration'ları uygulanıyor..."
+    python apply_multi_hotel_migration.py
+    
+    if [ $? -ne 0 ]; then
+        echo "⚠️  Migration hatası! Devam ediliyor..."
+    fi
+    
+    # Veri migrasyonunu uygula
+    echo ""
+    echo "📊 Veri migrasyonu uygulanıyor..."
+    python migrate_to_multi_hotel.py
+    
+    if [ $? -ne 0 ]; then
+        echo "⚠️  Veri migrasyonu hatası! Devam ediliyor..."
+    fi
+    
+    echo ""
     echo "🚀 Uygulama başlatılıyor..."
     
     # Gunicorn ile uygulamayı başlat
@@ -37,6 +57,26 @@ else
     
     if [ $? -eq 0 ]; then
         echo "✅ Database bağlantısı başarılı (2. deneme)!"
+        
+        # Migration'ları uygula
+        echo ""
+        echo "📦 Database migration'ları uygulanıyor..."
+        python apply_multi_hotel_migration.py
+        
+        if [ $? -ne 0 ]; then
+            echo "⚠️  Migration hatası! Devam ediliyor..."
+        fi
+        
+        # Veri migrasyonunu uygula
+        echo ""
+        echo "📊 Veri migrasyonu uygulanıyor..."
+        python migrate_to_multi_hotel.py
+        
+        if [ $? -ne 0 ]; then
+            echo "⚠️  Veri migrasyonu hatası! Devam ediliyor..."
+        fi
+        
+        echo ""
         echo "🚀 Uygulama başlatılıyor..."
         
         exec gunicorn app:app \

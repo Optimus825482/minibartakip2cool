@@ -14,11 +14,14 @@
                 Oda Bilgilerini Düzenle
             </h3>
 
-            <form method="POST" class="space-y-6">
+            <form method="POST" class="space-y-6" id="oda-form">
                 {{ form.csrf_token }}
 
-                {{ render_select(form.kat_id) }}
+                {{ render_select(form.otel_id, id="otel_id") }}
+                {{ render_select(form.kat_id, id="kat_id") }}
                 {{ render_field(form.oda_no) }}
+                {{ render_field(form.oda_tipi) }}
+                {{ render_field(form.kapasite) }}
 
                 <div class="flex justify-end space-x-3">
                     <a href="{{ url_for('oda_tanimla') }}"
@@ -34,4 +37,8 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/oda_form.js') }}"></script>
 {% endblock %}

@@ -143,15 +143,26 @@ def register_sistem_yoneticisi_routes(app):
     def kat_tanimla():
         """Kat tanımlama"""
         from forms import KatForm
+        from models import Otel
         
         form = KatForm()
         
+        # Otel listesini form'a yükle
+        form.otel_id.choices = [(0, 'Otel Seçin...')] + [(o.id, o.ad) for o in Otel.query.filter_by(aktif=True).order_by(Otel.ad).all()]
+        
         if form.validate_on_submit():
             try:
+                # Otel seçimi kontrolü
+                if not form.otel_id.data or form.otel_id.data == 0:
+                    flash('Lütfen bir otel seçin!', 'danger')
+                    return render_template('sistem_yoneticisi/kat_tanimla.html', katlar=[], form=form)
+                
                 kat = Kat(
+                    otel_id=form.otel_id.data,
                     kat_adi=form.kat_adi.data,
                     kat_no=form.kat_no.data,
-                    aciklama=form.aciklama.data
+                    aciklama=form.aciklama.data,
+                    aktif=form.aktif.data
                 )
                 db.session.add(kat)
                 db.session.flush()
@@ -169,6 +180,7 @@ def register_sistem_yoneticisi_routes(app):
                 # Log kaydı
                 log_islem('ekleme', 'kat', {
                     'kat_id': kat.id,
+                    'otel_id': kat.otel_id,
                     'kat_adi': kat.kat_adi,
                     'kat_no': kat.kat_no
                 })
@@ -180,7 +192,7 @@ def register_sistem_yoneticisi_routes(app):
                 log_hata(e, modul='kat_tanimla')
                 flash('Kat eklenirken hata oluştu.', 'danger')
         
-        # Mevcut katları listele
+        # Mevcut katları listele (otel bilgisi ile)
         katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
         
         return render_template('sistem_yoneticisi/kat_tanimla.html', katlar=katlar, form=form)
@@ -192,6 +204,7 @@ def register_sistem_yoneticisi_routes(app):
     def kat_duzenle(kat_id):
         """Kat düzenleme"""
         from forms import KatForm
+        from models import Otel
         
         kat = db.session.get(Kat, kat_id)
         if not kat:
@@ -203,11 +216,16 @@ def register_sistem_yoneticisi_routes(app):
         
         form = KatForm(obj=kat)
         
+        # Otel listesini form'a yükle
+        form.otel_id.choices = [(o.id, o.ad) for o in Otel.query.filter_by(aktif=True).order_by(Otel.ad).all()]
+        
         if form.validate_on_submit():
             try:
+                kat.otel_id = form.otel_id.data
                 kat.kat_adi = form.kat_adi.data
                 kat.kat_no = form.kat_no.data
                 kat.aciklama = form.aciklama.data
+                kat.aktif = form.aktif.data
                 
                 db.session.commit()
                 
@@ -283,17 +301,38 @@ def register_sistem_yoneticisi_routes(app):
     def oda_tanimla():
         """Oda tanımlama"""
         from forms import OdaForm
+        from models import Otel
         
         form = OdaForm()
         
+        # Otel listesini form'a yükle
+        oteller = Otel.query.filter_by(aktif=True).order_by(Otel.ad).all()
+        form.otel_id.choices = [(0, 'Otel Seçin...')] + [(o.id, o.ad) for o in oteller]
+        form.kat_id.choices = [(0, 'Önce otel seçin...')]
+        
         if form.validate_on_submit():
             try:
+                # Otel ve kat seçimi kontrolü
+                if not form.otel_id.data or form.otel_id.data == 0:
+                    flash('Lütfen bir otel seçin!', 'danger')
+                    return render_template('sistem_yoneticisi/oda_tanimla.html', katlar=[], odalar=[], form=form)
+                
+                if not form.kat_id.data or form.kat_id.data == 0:
+                    flash('Lütfen bir kat seçin!', 'danger')
+                    return render_template('sistem_yoneticisi/oda_tanimla.html', katlar=[], odalar=[], form=form)
+                
+                # Kat'ın seçilen otele ait olduğunu kontrol et
+                kat = Kat.query.get(form.kat_id.data)
+                if not kat or kat.otel_id != form.otel_id.data:
+                    flash('Seçilen kat, seçilen otele ait değil!', 'danger')
+                    return render_template('sistem_yoneticisi/oda_tanimla.html', katlar=[], odalar=[], form=form)
+                
                 oda = Oda(
                     oda_no=form.oda_no.data,
                     kat_id=form.kat_id.data,
                     oda_tipi=form.oda_tipi.data,
                     kapasite=form.kapasite.data,
-                    aciklama=form.aciklama.data
+                    aktif=form.aktif.data
                 )
                 db.session.add(oda)
                 db.session.flush()
@@ -326,7 +365,7 @@ def register_sistem_yoneticisi_routes(app):
         katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
         odalar = Oda.query.filter_by(aktif=True).order_by(Oda.oda_no).all()
         
-        return render_template('sistem_yoneticisi/oda_tanimla.html', katlar=katlar, odalar=odalar, form=form)
+        return render_template('sistem_yoneticisi/oda_tanimla.html', katlar=katlar, odalar=odalar, form=form, oteller=oteller)
     
     
     @app.route('/oda-duzenle/<int:oda_id>', methods=['GET', 'POST'])
@@ -335,6 +374,7 @@ def register_sistem_yoneticisi_routes(app):
     def oda_duzenle(oda_id):
         """Oda düzenleme"""
         from forms import OdaForm
+        from models import Otel
         
         oda = db.session.get(Oda, oda_id)
         if not oda:
@@ -346,13 +386,32 @@ def register_sistem_yoneticisi_routes(app):
         
         form = OdaForm(obj=oda)
         
+        # Otel listesini yükle
+        oteller = Otel.query.filter_by(aktif=True).order_by(Otel.ad).all()
+        form.otel_id.choices = [(o.id, o.ad) for o in oteller]
+        
+        # Mevcut otel seçimini ayarla
+        if oda.kat and oda.kat.otel_id:
+            form.otel_id.data = oda.kat.otel_id
+        
+        # Kat listesini yükle (mevcut otel için)
+        if oda.kat:
+            katlar = Kat.query.filter_by(otel_id=oda.kat.otel_id, aktif=True).order_by(Kat.kat_no).all()
+            form.kat_id.choices = [(k.id, k.kat_adi) for k in katlar]
+        
         if form.validate_on_submit():
             try:
+                # Kat'ın seçilen otele ait olduğunu kontrol et
+                kat = Kat.query.get(form.kat_id.data)
+                if not kat or kat.otel_id != form.otel_id.data:
+                    flash('Seçilen kat, seçilen otele ait değil!', 'danger')
+                    return render_template('sistem_yoneticisi/oda_duzenle.html', oda=oda, form=form, oteller=oteller)
+                
                 oda.oda_no = form.oda_no.data
                 oda.kat_id = form.kat_id.data
                 oda.oda_tipi = form.oda_tipi.data
                 oda.kapasite = form.kapasite.data
-                oda.aciklama = form.aciklama.data
+                oda.aktif = form.aktif.data
                 
                 db.session.commit()
                 
@@ -378,9 +437,7 @@ def register_sistem_yoneticisi_routes(app):
                 log_hata(e, modul='oda_duzenle')
                 flash('Oda güncellenirken hata oluştu.', 'danger')
         
-        katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
-        
-        return render_template('sistem_yoneticisi/oda_duzenle.html', oda=oda, katlar=katlar, form=form)
+        return render_template('sistem_yoneticisi/oda_duzenle.html', oda=oda, form=form, oteller=oteller)
     
     
     @app.route('/oda-sil/<int:oda_id>', methods=['POST'])

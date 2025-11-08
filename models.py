@@ -89,9 +89,51 @@ class Otel(db.Model):
     
     # İlişkiler
     katlar = db.relationship('Kat', backref='otel', lazy=True, cascade='all, delete-orphan')
+    kullanici_atamalari = db.relationship('KullaniciOtel', backref='otel', lazy=True, cascade='all, delete-orphan')
+    
+    def get_depo_sorumlu_sayisi(self):
+        """Bu otele atanan depo sorumlusu sayısı"""
+        try:
+            from models import KullaniciOtel, Kullanici
+            return KullaniciOtel.query.join(Kullanici).filter(
+                KullaniciOtel.otel_id == self.id,
+                Kullanici.rol == 'depo_sorumlusu'
+            ).count()
+        except Exception as e:
+            return 0
+    
+    def get_kat_sorumlu_sayisi(self):
+        """Bu otele atanan kat sorumlusu sayısı"""
+        try:
+            from models import Kullanici
+            return Kullanici.query.filter(
+                Kullanici.otel_id == self.id,
+                Kullanici.rol == 'kat_sorumlusu'
+            ).count()
+        except Exception as e:
+            return 0
     
     def __repr__(self):
         return f'<Otel {self.ad}>'
+
+
+class KullaniciOtel(db.Model):
+    """Kullanıcı-Otel ilişki tablosu (Many-to-Many) - Depo sorumluları için"""
+    __tablename__ = 'kullanici_otel'
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    kullanici_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id', ondelete='CASCADE'), nullable=False)
+    otel_id = db.Column(db.Integer, db.ForeignKey('oteller.id', ondelete='CASCADE'), nullable=False)
+    olusturma_tarihi = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    
+    # Unique constraint - Aynı kullanıcı aynı otele birden fazla kez atanamaz
+    __table_args__ = (
+        db.UniqueConstraint('kullanici_id', 'otel_id', name='uq_kullanici_otel'),
+        db.Index('idx_kullanici_otel', 'kullanici_id', 'otel_id'),
+    )
+    
+    def __repr__(self):
+        return f'<KullaniciOtel kullanici_id={self.kullanici_id} otel_id={self.otel_id}>'
 
 
 class Kullanici(db.Model):
@@ -110,6 +152,12 @@ class Kullanici(db.Model):
     olusturma_tarihi = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     son_giris = db.Column(db.DateTime(timezone=True))
     
+    # YENİ: Kat sorumlusu için tek otel ilişkisi
+    otel_id = db.Column(db.Integer, db.ForeignKey('oteller.id', ondelete='SET NULL'), nullable=True)
+    
+    # YENİ: Kat sorumlusunun bağlı olduğu depo sorumlusu
+    depo_sorumlusu_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id', ondelete='SET NULL'), nullable=True)
+    
     # İlişkiler
     zimmet_kayitlari = db.relationship('PersonelZimmet', 
                                        foreign_keys='PersonelZimmet.personel_id',
@@ -119,6 +167,13 @@ class Kullanici(db.Model):
                                               foreign_keys='PersonelZimmet.teslim_eden_id',
                                               lazy=True)
     minibar_islemleri = db.relationship('MinibarIslem', backref='personel', lazy=True)
+    
+    # YENİ: Otel ilişkileri
+    otel = db.relationship('Otel', foreign_keys=[otel_id], backref='kat_sorumlu_kullanicilar')
+    atanan_oteller = db.relationship('KullaniciOtel', backref='kullanici', lazy=True, cascade='all, delete-orphan')
+    
+    # YENİ: Depo sorumlusu ilişkisi
+    depo_sorumlusu = db.relationship('Kullanici', remote_side=[id], foreign_keys=[depo_sorumlusu_id], backref='bagli_kat_sorumlu')
     
     def sifre_belirle(self, sifre):
         """Şifreyi hashleyerek kaydet"""
