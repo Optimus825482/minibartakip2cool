@@ -50,6 +50,16 @@ def register_error_handlers(app):
     @app.errorhandler(500)
     def internal_error(error):
         """500 - Sunucu hatası"""
+        import traceback
+        import sys
+        
+        # Hatayı stderr'e yazdır (Railway loglarında görünür)
+        print(f"=== 500 ERROR ===", file=sys.stderr)
+        print(f"Error: {error}", file=sys.stderr)
+        print(f"Traceback:", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        print(f"=== END ERROR ===", file=sys.stderr)
+        
         db.session.rollback()
         return render_template('errors/500.html'), 500
     
