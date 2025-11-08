@@ -12,11 +12,12 @@ class Config:
     DB_TYPE = os.getenv('DB_TYPE', 'postgresql')  # 'postgresql' veya 'mysql'
     
     # PostgreSQL variables (Railway/Heroku)
-    PGHOST = os.getenv('PGHOST')
+    # Railway Private Network için öncelik ver
+    PGHOST = os.getenv('PGHOST_PRIVATE') or os.getenv('PGHOST')
     PGUSER = os.getenv('PGUSER')
     PGPASSWORD = os.getenv('PGPASSWORD')
     PGDATABASE = os.getenv('PGDATABASE')
-    PGPORT = os.getenv('PGPORT', '5432')
+    PGPORT = os.getenv('PGPORT_PRIVATE') or os.getenv('PGPORT', '5432')
     
     # MySQL variables (fallback - legacy support)
     MYSQLHOST = os.getenv('MYSQLHOST')
@@ -58,29 +59,29 @@ class Config:
     
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
-    # PostgreSQL Optimized Engine Options - Railway Timeout Fix v2
+    # PostgreSQL Optimized Engine Options - Railway Timeout Fix v3 (ULTRA AGRESIF)
     SQLALCHEMY_ENGINE_OPTIONS = {
-        # Connection Pool Configuration - Railway cold start için agresif ayarlar
-        'pool_size': 3,                     # Minimum connections (Railway için daha da düşürüldü)
-        'max_overflow': 7,                  # Additional connections (total: 10)
-        'pool_timeout': 120,                # Wait timeout 2 dakikaya çıkarıldı
-        'pool_recycle': 1200,               # 20 dakikada bir recycle (Railway için)
+        # Connection Pool Configuration - Tek worker için minimal pool
+        'pool_size': 1,                     # Tek connection (1 worker için yeterli)
+        'max_overflow': 2,                  # Max 3 connection total
+        'pool_timeout': 300,                # 5 dakika wait timeout
+        'pool_recycle': 600,                # 10 dakikada bir recycle
         'pool_pre_ping': True,              # Health check before use (ZORUNLU)
         
         # PostgreSQL Specific Options
         'connect_args': {
-            'connect_timeout': 90,          # Connection timeout 90 saniyeye çıkarıldı
-            'options': '-c timezone=utc -c statement_timeout=60000',  # 60 saniye query timeout
+            'connect_timeout': 120,         # 2 dakika connection timeout
+            'options': '-c timezone=utc -c statement_timeout=120000',  # 2 dakika query timeout
             'application_name': 'minibar_takip',
             
-            # Keep-alive settings - Railway için agresif
+            # Keep-alive settings - Ultra agresif
             'keepalives': 1,
-            'keepalives_idle': 120,         # 120 saniye idle (2 dakika)
-            'keepalives_interval': 20,      # 20 saniye interval
-            'keepalives_count': 3,          # 3 deneme
+            'keepalives_idle': 30,          # 30 saniye idle
+            'keepalives_interval': 10,      # 10 saniye interval
+            'keepalives_count': 5,          # 5 deneme
             
-            # TCP settings - timeout artırıldı
-            'tcp_user_timeout': 90000,      # 90 saniye TCP timeout
+            # TCP settings - Maximum timeout
+            'tcp_user_timeout': 120000,     # 2 dakika TCP timeout
         } if 'postgresql' in SQLALCHEMY_DATABASE_URI else {},
         
         # Execution Options

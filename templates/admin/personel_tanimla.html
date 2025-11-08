@@ -269,13 +269,13 @@
                             </label>
                             <select id="depoOtelIds" 
                                     multiple
-                                    class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500" 
+                                    class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors" 
                                     style="min-height: 120px;">
                                 {% for otel in oteller %}
-                                <option value="{{ otel.id }}">{{ otel.ad }}</option>
+                                <option value="{{ otel.id }}" class="py-2">{{ otel.ad }}</option>
                                 {% endfor %}
                             </select>
-                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Ctrl tuşu ile birden fazla otel seçebilirsiniz</p>
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">💡 Ctrl tuşu ile birden fazla otel seçebilirsiniz</p>
                         </div>
                         
                         <!-- Otel Seçimi (Kat Sorumlusu için - tekli) -->
@@ -284,8 +284,8 @@
                                 Otel <span class="text-red-500">*</span>
                             </label>
                             <select id="katOtelId" 
-                                    class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500">
-                                <option value="">Otel seçiniz...</option>
+                                    class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors">
+                                <option value="">🏨 Otel seçiniz...</option>
                                 {% for otel in oteller %}
                                 <option value="{{ otel.id }}">{{ otel.ad }}</option>
                                 {% endfor %}
@@ -298,11 +298,11 @@
                                 Bağlı Olduğu Depo Sorumlusu
                             </label>
                             <select id="depoSorumlusuId" 
-                                    class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                    class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     disabled>
-                                <option value="">Önce otel seçin...</option>
+                                <option value="">👤 Önce otel seçin...</option>
                             </select>
-                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Opsiyonel - Kat sorumlusunun zimmet alacağı depo sorumlusu</p>
+                            <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">💡 Opsiyonel - Kat sorumlusunun zimmet alacağı depo sorumlusu</p>
                         </div>
                     </div>
                 </div>
@@ -365,30 +365,30 @@
             const depoSelect = $('#depoSorumlusuId');
             
             if (!otelId) {
-                depoSelect.html('<option value="">Önce otel seçin...</option>').prop('disabled', true);
+                depoSelect.html('<option value="">👤 Önce otel seçin...</option>').prop('disabled', true);
                 return;
             }
             
             // Depo sorumlularını yükle
-            depoSelect.html('<option value="">Yükleniyor...</option>').prop('disabled', true);
+            depoSelect.html('<option value="">⏳ Yükleniyor...</option>').prop('disabled', true);
             
             $.ajax({
                 url: `/api/oteller/${otelId}/depo-sorumluları`,
                 method: 'GET',
                 success: function(response) {
-                    depoSelect.html('<option value="">Seçiniz (Opsiyonel)</option>');
+                    depoSelect.html('<option value="">👤 Seçiniz (Opsiyonel)</option>');
                     
                     if (response.length === 0) {
-                        depoSelect.append('<option value="" disabled>Bu otelde depo sorumlusu yok</option>');
+                        depoSelect.append('<option value="" disabled>⚠️ Bu otelde depo sorumlusu yok</option>');
                     } else {
                         response.forEach(function(depo) {
-                            depoSelect.append(`<option value="${depo.id}">${depo.ad} ${depo.soyad}</option>`);
+                            depoSelect.append(`<option value="${depo.id}">👤 ${depo.ad} ${depo.soyad}</option>`);
                         });
                     }
                     depoSelect.prop('disabled', false);
                 },
                 error: function() {
-                    depoSelect.html('<option value="">Hata oluştu</option>');
+                    depoSelect.html('<option value="">❌ Hata oluştu</option>');
                 }
             });
         });

@@ -126,6 +126,9 @@ class KullaniciOtel(db.Model):
     otel_id = db.Column(db.Integer, db.ForeignKey('oteller.id', ondelete='CASCADE'), nullable=False)
     olusturma_tarihi = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     
+    # NOT: 'otel' ilişkisi Otel modelinde backref ile tanımlı (satır 93)
+    # Burada tekrar tanımlamaya gerek yok
+    
     # Unique constraint - Aynı kullanıcı aynı otele birden fazla kez atanamaz
     __table_args__ = (
         db.UniqueConstraint('kullanici_id', 'otel_id', name='uq_kullanici_otel'),

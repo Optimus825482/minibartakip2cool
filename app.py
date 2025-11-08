@@ -50,12 +50,12 @@ csrf = CSRFProtect(app)
 from models import db
 db.init_app(app)
 
-# Database Connection Retry Mekanizması - Railway Timeout Fix v2
-def init_db_with_retry(max_retries=5, retry_delay=5):
+# Database Connection Retry Mekanizması - Railway Timeout Fix v3 (ULTRA AGRESIF)
+def init_db_with_retry(max_retries=3, retry_delay=10):
     """
     Database bağlantısını retry mekanizması ile başlat
     Railway'de cold start veya network timeout sorunlarını çözer
-    v2: Daha agresif retry stratejisi
+    v3: Daha uzun timeout, daha az deneme
     """
     for attempt in range(max_retries):
         try:
@@ -70,8 +70,8 @@ def init_db_with_retry(max_retries=5, retry_delay=5):
             logger.warning(f"⚠️ Database bağlantı hatası (Deneme {attempt + 1}/{max_retries}): {error_msg[:200]}")
             
             if attempt < max_retries - 1:
-                # Exponential backoff: 5, 10, 20, 40 saniye
-                wait_time = retry_delay * (2 ** attempt)
+                # Sabit 30 saniye bekleme (exponential backoff yerine)
+                wait_time = 30
                 logger.info(f"🔄 {wait_time} saniye sonra tekrar denenecek...")
                 time.sleep(wait_time)
             else:
