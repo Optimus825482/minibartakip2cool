@@ -1,0 +1,41 @@
+Generic single-database configuration for Alembic migrations.
+
+## Usage
+
+### Create a new migration
+```bash
+alembic revision --autogenerate -m "Description of changes"
+```
+
+### Apply migrations
+```bash
+alembic upgrade head
+```
+
+### Rollback one migration
+```bash
+alembic downgrade -1
+```
+
+### Show current revision
+```bash
+alembic current
+```
+
+### Show migration history
+```bash
+alembic history
+```
+
+## PostgreSQL Migration
+
+This project uses Alembic for database schema migrations from MySQL to PostgreSQL.
+
+### Initial Setup
+1. Ensure PostgreSQL is running
+2. Update DATABASE_URL in .env
+3. Run: `alembic upgrade head`
+
+### Creating Migrations
+Alembic will auto-detect model changes and generate migration scripts.
+Always review generated migrations before applying!

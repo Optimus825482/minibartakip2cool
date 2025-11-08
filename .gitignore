@@ -76,3 +76,9 @@ route_list.txt
 scripts/remove_*.py
 scripts/clean_*.py
 scripts/compare_*.py
+
+# Docker
+.env.docker
+docker-compose.override.yml
+*.sql
+!init_db.sql

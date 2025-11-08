@@ -1,0 +1,162 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database (Primary)
+  postgres:
+    image: postgres:15-alpine
+    container_name: minibar_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-minibar_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-minibar123}
+      POSTGRES_DB: ${DB_NAME:-minibar_takip}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+      TZ: UTC
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    networks:
+      - minibar_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-minibar_user} -d ${DB_NAME:-minibar_takip}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+
+  # MySQL Database (Legacy - Migration source)
+  mysql:
+    image: mysql:8.0
+    container_name: minibar_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${DB_NAME:-minibar_takip}
+      MYSQL_USER: ${DB_USER:-minibar_user}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-minibar123}
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+    networks:
+      - minibar_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-rootpassword}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - migration  # Sadece migration sırasında çalıştır
+
+  # Flask Application
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minibar_app
+    restart: unless-stopped
+    ports:
+      - "5001:5000"
+    environment:
+      # Database Configuration
+      DB_TYPE: postgresql
+      DB_HOST: postgres
+      DB_USER: ${DB_USER:-minibar_user}
+      DB_PASSWORD: ${DB_PASSWORD:-minibar123}
+      DB_NAME: ${DB_NAME:-minibar_takip}
+      DB_PORT: 5432
+      
+      # Flask Configuration
+      FLASK_ENV: ${FLASK_ENV:-production}
+      SECRET_KEY: ${SECRET_KEY:-change-this-secret-key-in-production}
+      
+      # Backup Configuration
+      BACKUP_DIR: /backups
+      
+      # Python Configuration
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ./uploads:/app/uploads
+      - ./xls:/app/xls
+      - ./static:/app/static
+      - ./backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - minibar_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # pgAdmin (PostgreSQL yönetimi için)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: minibar_pgadmin
+    restart: unless-stopped
+    ports:
+      - "${PGADMIN_PORT:-8080}:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@minibar.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin123}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    networks:
+      - minibar_network
+    profiles:
+      - tools
+
+  # phpMyAdmin (MySQL yönetimi için - Migration sırasında)
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: minibar_phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8082:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      PMA_USER: ${DB_USER:-minibar_user}
+      PMA_PASSWORD: ${DB_PASSWORD:-minibar123}
+    depends_on:
+      - mysql
+    networks:
+      - minibar_network
+    profiles:
+      - migration
+
+volumes:
+  postgres_data:
+    driver: local
+  mysql_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+
+networks:
+  minibar_network:
+    driver: bridge

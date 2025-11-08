@@ -68,4 +68,8 @@ def register_all_routes(app):
     from routes.kat_sorumlusu_routes import register_kat_sorumlusu_routes
     register_kat_sorumlusu_routes(app)
     
+    # Health Check Routes
+    from routes.health_routes import health_bp
+    app.register_blueprint(health_bp)
+    
     print("✅ Tüm route modülleri başarıyla register edildi!")

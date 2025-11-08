@@ -2727,3 +2727,30 @@ if __name__ == '__main__':
         print("❌ Uygulama başlatılamadı. Lütfen veritabanı ayarlarını kontrol edin.")
         print()
         exit(1)
+
+
+# ============================================================================
+# DOCKER HEALTH CHECK ENDPOINT
+# ============================================================================
+
+@app.route('/health', methods=['GET'])
+def health_check():
+    """
+    Docker container health check endpoint
+    Database bağlantısını kontrol eder
+    """
+    try:
+        # Database bağlantısını test et
+        db.session.execute(db.text('SELECT 1'))
+        return jsonify({
+            'status': 'healthy',
+            'database': 'connected',
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'status': 'unhealthy',
+            'database': 'disconnected',
+            'error': str(e),
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        }), 503

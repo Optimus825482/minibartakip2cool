@@ -21,10 +21,38 @@ Flask tabanlı, MySQL veritabanı kullanan profesyonel otel minibar yönetim sis
 - Python 3.11+
 - MySQL 8.0+
 - pip (Python paket yöneticisi)
+- Docker & Docker Compose (opsiyonel, önerilen)
 
 ## 🛠️ Kurulum
 
-### Railway ile Deploy (Önerilen)
+### 🐳 Docker ile Kurulum (En Kolay - Önerilen)
+
+Docker ile tek komutla tüm sistemi çalıştırabilirsiniz:
+
+```bash
+# 1. .env dosyasını hazırla
+cp .env.docker .env
+# .env dosyasını düzenle (SECRET_KEY ve DB_PASSWORD değiştir!)
+
+# 2. Sistemi başlat
+docker-compose up -d
+
+# 3. Database'i başlat (30 saniye bekle)
+docker-compose exec web python init_db.py
+docker-compose exec web python add_local_superadmin.py
+
+# 4. Uygulamaya eriş
+# http://localhost:5000
+```
+
+**Windows için:**
+```cmd
+docker.bat setup
+```
+
+**Detaylı Docker kılavuzu:** [DOCKER_KULLANIM.md](DOCKER_KULLANIM.md)
+
+### Railway ile Deploy
 
 1. **GitHub Repository Oluştur**
    ```bash
