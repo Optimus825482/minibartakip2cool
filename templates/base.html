@@ -227,6 +227,28 @@
             z-index: 20;
         }
 
+        /* Header height optimization */
+        header {
+            min-height: 56px; /* Mobile */
+        }
+
+        @media (min-width: 640px) {
+            header {
+                min-height: 64px; /* Desktop */
+            }
+        }
+
+        /* Logo sizing */
+        header img {
+            max-height: 40px; /* Mobile */
+        }
+
+        @media (min-width: 640px) {
+            header img {
+                max-height: 48px; /* Desktop */
+            }
+        }
+
         /* Nav links - text overflow önleme */
         nav a {
             white-space: nowrap;
@@ -1109,42 +1131,43 @@
             <!-- Top Navigation - Responsive -->
             <header
                 class="bg-white dark:bg-slate-800 shadow-sm border-b border-slate-200 dark:border-slate-700 sticky top-0 z-20">
-                <div class="flex items-center justify-between px-3 sm:px-4 py-3 gap-2">
+                <div class="flex items-center justify-between px-4 py-2.5 gap-4">
                     <!-- Spacer for mobile menu button -->
                     <div class="w-12 md:hidden"></div>
 
-                    <!-- Page Title & Hotel Info - Responsive -->
+                    <!-- Logo & Page Title Section -->
                     <div class="flex items-center gap-3 flex-1 min-w-0">
                         {% if kullanici_otel %}
-                        <!-- Otel Logosu -->
-                        {% if kullanici_otel.logo %}
-                        <img src="data:image/png;base64,{{ kullanici_otel.logo }}" 
-                             alt="{{ kullanici_otel.ad }}" 
-                             class="h-8 w-auto object-contain hidden sm:block">
-                        {% endif %}
-                        
-                        <!-- Otel Adı ve Sayfa Başlığı -->
-                        <div class="flex flex-col min-w-0 flex-1">
-                            <span class="text-xs text-slate-500 dark:text-slate-400 truncate">
-                                {{ kullanici_otel.ad }}
-                            </span>
-                            <h1 class="text-base sm:text-lg md:text-xl font-semibold text-slate-900 dark:text-slate-100 truncate">
-                                {% block page_title_content %}Panel{% endblock %}
-                            </h1>
-                        </div>
+                            {% if kullanici_otel.logo %}
+                            <!-- Otel Logosu - Büyütülmüş -->
+                            <img src="data:image/png;base64,{{ kullanici_otel.logo }}" 
+                                 alt="{{ kullanici_otel.ad }}" 
+                                 class="h-10 sm:h-12 w-auto object-contain flex-shrink-0">
+                            {% endif %}
+                            
+                            <!-- Sayfa Başlığı ve Açıklama -->
+                            <div class="flex flex-col min-w-0 flex-1">
+                                <h1 class="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 truncate">
+                                    {% block page_title %}Panel{% endblock %}
+                                </h1>
+                                {% block page_description %}{% endblock %}
+                            </div>
                         {% else %}
-                        <!-- Sadece Sayfa Başlığı -->
-                        <h1 class="text-base sm:text-lg md:text-xl font-semibold text-slate-900 dark:text-slate-100 truncate flex-1 text-center md:text-left">
-                            {% block page_title %}Panel{% endblock %}
-                        </h1>
+                            <!-- Sadece Sayfa Başlığı (Otel bilgisi yok) -->
+                            <div class="flex flex-col min-w-0 flex-1">
+                                <h1 class="text-lg sm:text-xl font-bold text-slate-900 dark:text-slate-100 truncate">
+                                    {% block page_title_fallback %}Panel{% endblock %}
+                                </h1>
+                                {% block page_description_fallback %}{% endblock %}
+                            </div>
                         {% endif %}
                     </div>
 
-                    <!-- Right side - Touch-friendly -->
-                    <div class="flex items-center space-x-2 sm:space-x-4">
-                        <!-- Theme Toggle - Touch-friendly -->
+                    <!-- Right side actions -->
+                    <div class="flex items-center gap-2">
+                        <!-- Theme Toggle -->
                         <button id="theme-toggle"
-                            class="p-2 sm:p-2.5 rounded-lg text-slate-500 hover:text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-300 dark:hover:bg-slate-700 transition-colors touch-target">
+                            class="p-2 rounded-lg text-slate-500 hover:text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-300 dark:hover:bg-slate-700 transition-colors">
                             <svg id="theme-toggle-dark-icon" class="hidden w-5 h-5" fill="currentColor"
                                 viewBox="0 0 20 20">
                                 <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
@@ -1159,9 +1182,8 @@
 
                         <!-- Logout -->
                         {% if current_user %}
-                        <!-- Logout Button - Touch-friendly -->
                         <a href="{{ url_for('logout') }}"
-                            class="p-2 sm:p-2.5 rounded-lg text-slate-500 hover:text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-300 dark:hover:bg-slate-700 transition-colors touch-target"
+                            class="p-2 rounded-lg text-slate-500 hover:text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-300 dark:hover:bg-slate-700 transition-colors"
                             title="Çıkış Yap">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
