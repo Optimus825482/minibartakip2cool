@@ -19,20 +19,77 @@
 {% block content %}
 <div class="space-y-6">
     
-    <!-- Manuel İşlemler -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-4">
-        <div class="flex items-center justify-between">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                <i class="fas fa-tools mr-2"></i>Manuel İşlemler
-            </h3>
-            <div class="flex gap-2">
-                <button onclick="manuelVeriTopla()" class="btn-primary">
-                    <i class="fas fa-database mr-2"></i>Veri Topla
-                </button>
-                <button onclick="manuelAnomaliTespit()" class="btn-secondary">
-                    <i class="fas fa-search mr-2"></i>Anomali Tespit
-                </button>
+    <!-- ML Kontrol Paneli -->
+    <div class="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-lg shadow-lg p-6 mb-6 border border-blue-200 dark:border-gray-600">
+        <div class="flex items-center justify-between mb-4">
+            <div>
+                <h3 class="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+                    <i class="fas fa-robot mr-3 text-blue-600 dark:text-blue-400"></i>
+                    ML Kontrol Paneli
+                </h3>
+                <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                    Makine öğrenmesi işlemlerini manuel olarak tetikleyin
+                </p>
             </div>
+            <div class="text-right">
+                <p class="text-xs text-gray-500 dark:text-gray-400">Son Güncelleme</p>
+                <p class="text-sm font-semibold text-gray-700 dark:text-gray-300" id="lastUpdate">
+                    {{ dashboard_metrics.son_guncelleme or 'Bilinmiyor' }}
+                </p>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Veri Toplama -->
+            <button onclick="manuelVeriTopla()" 
+                    class="group relative bg-white dark:bg-gray-800 hover:bg-blue-50 dark:hover:bg-gray-700 border-2 border-blue-300 dark:border-blue-600 rounded-lg p-4 transition-all duration-300 hover:shadow-xl hover:scale-105">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center group-hover:bg-blue-200 dark:group-hover:bg-blue-800 transition-colors">
+                        <i class="fas fa-database text-2xl text-blue-600 dark:text-blue-400"></i>
+                    </div>
+                    <span class="text-xs font-semibold text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900 px-2 py-1 rounded">
+                        15 dk
+                    </span>
+                </div>
+                <h4 class="font-bold text-gray-900 dark:text-white mb-1">Veri Toplama</h4>
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                    Stok, tüketim ve dolum verilerini topla
+                </p>
+            </button>
+            
+            <!-- Sapma Analizi -->
+            <button onclick="manuelAnomaliTespit()" 
+                    class="group relative bg-white dark:bg-gray-800 hover:bg-purple-50 dark:hover:bg-gray-700 border-2 border-purple-300 dark:border-purple-600 rounded-lg p-4 transition-all duration-300 hover:shadow-xl hover:scale-105">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-full flex items-center justify-center group-hover:bg-purple-200 dark:group-hover:bg-purple-800 transition-colors">
+                        <i class="fas fa-chart-line text-2xl text-purple-600 dark:text-purple-400"></i>
+                    </div>
+                    <span class="text-xs font-semibold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900 px-2 py-1 rounded">
+                        5 dk
+                    </span>
+                </div>
+                <h4 class="font-bold text-gray-900 dark:text-white mb-1">Sapma Analizi</h4>
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                    Anormal davranış ve sapmaları tespit et
+                </p>
+            </button>
+            
+            <!-- Model Eğitimi -->
+            <button onclick="manuelModelEgitimi()" 
+                    class="group relative bg-white dark:bg-gray-800 hover:bg-green-50 dark:hover:bg-gray-700 border-2 border-green-300 dark:border-green-600 rounded-lg p-4 transition-all duration-300 hover:shadow-xl hover:scale-105">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-full flex items-center justify-center group-hover:bg-green-200 dark:group-hover:bg-green-800 transition-colors">
+                        <i class="fas fa-brain text-2xl text-green-600 dark:text-green-400"></i>
+                    </div>
+                    <span class="text-xs font-semibold text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900 px-2 py-1 rounded">
+                        Günlük
+                    </span>
+                </div>
+                <h4 class="font-bold text-gray-900 dark:text-white mb-1">Model Eğitimi</h4>
+                <p class="text-xs text-gray-600 dark:text-gray-400">
+                    ML modellerini yeniden eğit (00:00)
+                </p>
+            </button>
         </div>
     </div>
     
@@ -878,11 +935,11 @@ async function manuelVeriTopla() {
     }
 }
 
-// Manuel Anomali Tespiti
+// Manuel Sapma Analizi
 async function manuelAnomaliTespit() {
-    if (!confirm('Anomali tespiti başlatılsın mı?')) return;
+    if (!confirm('Sapma analizi başlatılsın mı?\n\nBu işlem mevcut verilerdeki anormal davranışları tespit eder.')) return;
     
-    showLoading('Anomali tespiti yapılıyor...');
+    showLoading('Sapma analizi yapılıyor...');
     
     try {
         const response = await fetch('/ml/api/run-anomaly-detection', {
@@ -897,7 +954,41 @@ async function manuelAnomaliTespit() {
         hideLoading();
         
         if (data.success) {
-            showToast(`✅ ${data.alerts.total} uyarı oluşturuldu!`, 'success');
+            if (data.alerts.total > 0) {
+                showToast(`⚠️ ${data.alerts.total} sapma tespit edildi!`, 'warning');
+            } else {
+                showToast('✅ Sapma tespit edilmedi', 'success');
+            }
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast('❌ Hata: ' + data.error, 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('❌ Bağlantı hatası: ' + error.message, 'error');
+    }
+}
+
+// Manuel Model Eğitimi
+async function manuelModelEgitimi() {
+    if (!confirm('Model eğitimi başlatılsın mı?\n\nBu işlem 2-5 dakika sürebilir ve sistem performansını etkileyebilir.')) return;
+    
+    showLoading('Model eğitimi yapılıyor... (Bu işlem birkaç dakika sürebilir)');
+    
+    try {
+        const response = await fetch('/ml/api/train-models', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            showToast('✅ Model eğitimi başarıyla tamamlandı!', 'success');
             setTimeout(() => location.reload(), 1500);
         } else {
             showToast('❌ Hata: ' + data.error, 'error');

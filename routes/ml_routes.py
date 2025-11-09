@@ -450,7 +450,7 @@ def api_collect_data():
 @login_required
 @role_required('admin', 'sistem_yoneticisi')
 def api_run_anomaly_detection():
-    """Manuel anomali tespiti tetikle"""
+    """Manuel sapma analizi tetikle"""
     try:
         from utils.ml.anomaly_detector import AnomalyDetector
         
@@ -463,7 +463,7 @@ def api_run_anomaly_detection():
         
         return jsonify({
             'success': True,
-            'message': 'Anomali tespiti başarılı',
+            'message': 'Sapma analizi başarılı',
             'alerts': {
                 'stok': stok_alerts,
                 'tuketim': tuketim_alerts,
@@ -473,7 +473,34 @@ def api_run_anomaly_detection():
         })
     
     except Exception as e:
-        logger.error(f"❌ Manuel anomali tespiti hatası: {str(e)}")
+        logger.error(f"❌ Manuel sapma analizi hatası: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@ml_bp.route('/api/train-models', methods=['POST'])
+@login_required
+@role_required('admin', 'sistem_yoneticisi')
+def api_train_models():
+    """Manuel model eğitimi tetikle"""
+    try:
+        from utils.ml.model_trainer import ModelTrainer
+        
+        trainer = ModelTrainer(db)
+        
+        # Modelleri eğit
+        results = trainer.train_all_models()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Model eğitimi başarılı',
+            'results': results
+        })
+    
+    except Exception as e:
+        logger.error(f"❌ Manuel model eğitimi hatası: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
