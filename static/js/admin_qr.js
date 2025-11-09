@@ -246,17 +246,38 @@ function odaDuzenle(odaId, odaNo, katId, qrVar) {
     $('#duzenleOdaNoInput').val(odaNo);
     $('#duzenleKatId').val(katId);
     
+    // Choices.js'i başlat
+    setTimeout(function() {
+        if (typeof initializeChoices === 'function') {
+            initializeChoices();
+        }
+    }, 100);
+    
     // Kat bilgisinden otel ID'sini al ve otel dropdown'unu set et
     $.ajax({
         url: `/api/kat-bilgi/${katId}`,
         method: 'GET',
         success: function(response) {
             if (response.success && response.otel_id) {
-                $('#duzenleOtelId').val(response.otel_id);
+                const otelSelect = document.getElementById('duzenleOtelId');
+                if (otelSelect) {
+                    otelSelect.value = response.otel_id;
+                    // Choices.js instance'ını güncelle
+                    if (window.choicesInstances && window.choicesInstances['duzenleOtelId']) {
+                        window.choicesInstances['duzenleOtelId'].setChoiceByValue(response.otel_id.toString());
+                    }
+                }
                 // Otele göre katları yükle
                 yukleKatlar(response.otel_id, 'duzenleKatId', function() {
                     // Katlar yüklendikten sonra mevcut katı seç
-                    $('#duzenleKatId').val(katId);
+                    const katSelect = document.getElementById('duzenleKatId');
+                    if (katSelect) {
+                        katSelect.value = katId;
+                        // Choices.js instance'ını güncelle
+                        if (window.choicesInstances && window.choicesInstances['duzenleKatId']) {
+                            window.choicesInstances['duzenleKatId'].setChoiceByValue(katId.toString());
+                        }
+                    }
                 });
             }
         },
@@ -691,4 +712,28 @@ function misafirMesajiKaydet() {
             showModalAlert('misafirMesajiAlert', 'error', 'Mesaj kaydedilemedi');
         }
     });
+}
+
+
+/**
+ * Yeni Oda Modal Aç
+ */
+function yeniOdaModal() {
+    const modal = document.getElementById('yeniOdaModal');
+    if (modal) {
+        // Bootstrap modal ise
+        if (typeof bootstrap !== 'undefined') {
+            const bsModal = new bootstrap.Modal(modal);
+            bsModal.show();
+        } 
+        // jQuery modal ise
+        else if (typeof $ !== 'undefined' && $.fn.modal) {
+            $(modal).modal('show');
+        }
+        // Basit göster
+        else {
+            modal.style.display = 'block';
+            modal.classList.add('show');
+        }
+    }
 }

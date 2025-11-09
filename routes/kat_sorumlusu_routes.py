@@ -60,6 +60,19 @@ def register_kat_sorumlusu_routes(app):
                 aciklama = request.form.get('aciklama', '')
                 kullanici_id = session['kullanici_id']
                 
+                # Kat sorumlusunun otelini kontrol et
+                from utils.authorization import get_kat_sorumlusu_otel
+                kullanici_oteli = get_kat_sorumlusu_otel(kullanici_id)
+                if not kullanici_oteli:
+                    flash('Otel atamanız bulunamadı. Lütfen yöneticinizle iletişime geçin.', 'danger')
+                    return redirect(url_for('minibar_kontrol'))
+                
+                # Odanın bu otele ait olduğunu kontrol et
+                oda = db.session.get(Oda, oda_id)
+                if not oda or oda.kat.otel_id != kullanici_oteli.id:
+                    flash('Bu odaya erişim yetkiniz yok.', 'danger')
+                    return redirect(url_for('minibar_kontrol'))
+                
                 # KONTROL İŞLEMİNDE KAYIT OLUŞTURMA - Sadece Görüntüleme
                 if islem_tipi == 'kontrol':
                     flash('Kontrol işlemi tamamlandı. (Sadece görüntüleme - kayıt oluşturulmadı)', 'info')
@@ -192,7 +205,20 @@ def register_kat_sorumlusu_routes(app):
                 )
                 flash(f'Hata oluştu: {str(e)}', 'danger')
         
-        katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+        # Kat sorumlusunun sadece kendi otelindeki katları göster
+        from utils.authorization import get_kat_sorumlusu_otel
+        kullanici_id = session['kullanici_id']
+        kullanici_oteli = get_kat_sorumlusu_otel(kullanici_id)
+        
+        if kullanici_oteli:
+            katlar = Kat.query.filter_by(
+                otel_id=kullanici_oteli.id,
+                aktif=True
+            ).order_by(Kat.kat_no).all()
+        else:
+            katlar = []
+            flash('Otel atamanız bulunamadı. Lütfen yöneticinizle iletişime geçin.', 'warning')
+        
         urun_gruplari = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
         return render_template('kat_sorumlusu/minibar_kontrol.html', 
                              katlar=katlar,
@@ -207,6 +233,19 @@ def register_kat_sorumlusu_routes(app):
             kat_id = request.args.get('kat_id', type=int)
             if not kat_id:
                 return jsonify({'success': False, 'error': 'Kat ID gerekli'})
+            
+            # Kat sorumlusunun otelini kontrol et
+            from utils.authorization import get_kat_sorumlusu_otel
+            kullanici_id = session['kullanici_id']
+            kullanici_oteli = get_kat_sorumlusu_otel(kullanici_id)
+            
+            if not kullanici_oteli:
+                return jsonify({'success': False, 'error': 'Otel atamanız bulunamadı'})
+            
+            # Katın bu otele ait olduğunu kontrol et
+            kat = db.session.get(Kat, kat_id)
+            if not kat or kat.otel_id != kullanici_oteli.id:
+                return jsonify({'success': False, 'error': 'Bu kata erişim yetkiniz yok'})
             
             odalar = Oda.query.filter_by(kat_id=kat_id, aktif=True).order_by(Oda.oda_no).all()
             
@@ -266,7 +305,20 @@ def register_kat_sorumlusu_routes(app):
     @role_required('kat_sorumlusu')
     def toplu_oda_doldurma():
         """Toplu oda doldurma sayfası"""
-        katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+        # Kat sorumlusunun sadece kendi otelindeki katları göster
+        from utils.authorization import get_kat_sorumlusu_otel
+        kullanici_id = session['kullanici_id']
+        kullanici_oteli = get_kat_sorumlusu_otel(kullanici_id)
+        
+        if kullanici_oteli:
+            katlar = Kat.query.filter_by(
+                otel_id=kullanici_oteli.id,
+                aktif=True
+            ).order_by(Kat.kat_no).all()
+        else:
+            katlar = []
+            flash('Otel atamanız bulunamadı. Lütfen yöneticinizle iletişime geçin.', 'warning')
+        
         urun_gruplari = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
         return render_template('kat_sorumlusu/toplu_oda_doldurma.html',
                              katlar=katlar,
@@ -278,7 +330,24 @@ def register_kat_sorumlusu_routes(app):
     @role_required('kat_sorumlusu', 'admin', 'depo_sorumlusu')
     def kat_bazli_rapor():
         """Kat bazlı tüketim raporu sayfası"""
-        katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+        from utils.authorization import get_kullanici_otelleri
+        kullanici_id = session['kullanici_id']
+        kullanici_rol = session.get('rol')
+        
+        # Kullanıcının erişebileceği otellerin katlarını getir
+        kullanici_otelleri = get_kullanici_otelleri(kullanici_id)
+        otel_idleri = [otel.id for otel in kullanici_otelleri]
+        
+        if otel_idleri:
+            katlar = Kat.query.filter(
+                Kat.otel_id.in_(otel_idleri),
+                Kat.aktif == True
+            ).order_by(Kat.kat_no).all()
+        else:
+            katlar = []
+            if kullanici_rol == 'kat_sorumlusu':
+                flash('Otel atamanız bulunamadı. Lütfen yöneticinizle iletişime geçin.', 'warning')
+        
         return render_template('raporlar/kat_bazli_rapor.html', katlar=katlar)
     
     @app.route('/zimmetim')

@@ -1,4 +1,5 @@
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, BooleanField, TextAreaField, IntegerField, SelectField, SelectMultipleField
 from wtforms.validators import DataRequired, InputRequired, Email, Length, EqualTo, NumberRange, Optional, ValidationError
 import re
@@ -544,6 +545,14 @@ class OtelForm(BaseForm):
         ]
     )
     
+    logo = FileField(
+        'Otel Logosu',
+        validators=[
+            Optional(),
+            FileAllowed(['jpg', 'jpeg', 'png', 'gif'], 'Sadece resim dosyaları yüklenebilir (jpg, jpeg, png, gif)')
+        ]
+    )
+    
     aktif = BooleanField('Aktif', default=True)
 
 class KatForm(BaseForm):
@@ -606,11 +615,11 @@ class OdaForm(BaseForm):
         ]
     )
 
-    oda_tipi = StringField(
+    oda_tipi = SelectField(
         'Oda Tipi',
+        choices=[],
         validators=[
-            Optional(),
-            Length(max=50, message='Oda tipi 50 karakterden uzun olamaz.')
+            Optional()
         ]
     )
 

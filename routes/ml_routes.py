@@ -23,20 +23,44 @@ ml_bp = Blueprint('ml', __name__, url_prefix='/ml')
 def dashboard():
     """ML Dashboard - Ana sayfa"""
     try:
-        alert_manager = AlertManager(db)
-        metrics_calculator = MetricsCalculator(db)
+        # Her işlem için ayrı try-catch
+        dashboard_metrics = {}
+        active_alerts = []
+        alert_stats = {}
+        models = []
         
-        # Dashboard metrikleri
-        dashboard_metrics = metrics_calculator.get_dashboard_metrics()
+        try:
+            alert_manager = AlertManager(db)
+            metrics_calculator = MetricsCalculator(db)
+            
+            # Dashboard metrikleri
+            dashboard_metrics = metrics_calculator.get_dashboard_metrics()
+        except Exception as e:
+            logger.error(f"❌ Dashboard metrikleri hatası: {str(e)}")
+            db.session.rollback()
         
-        # Aktif alertler (ilk 10)
-        active_alerts = alert_manager.get_active_alerts(limit=10)
+        try:
+            # Aktif alertler (ilk 10)
+            alert_manager = AlertManager(db)
+            active_alerts = alert_manager.get_active_alerts(limit=10)
+        except Exception as e:
+            logger.error(f"❌ Aktif alertler hatası: {str(e)}")
+            db.session.rollback()
         
-        # Alert istatistikleri (son 30 gün)
-        alert_stats = alert_manager.get_alert_statistics(days=30)
+        try:
+            # Alert istatistikleri (son 30 gün)
+            alert_manager = AlertManager(db)
+            alert_stats = alert_manager.get_alert_statistics(days=30)
+        except Exception as e:
+            logger.error(f"❌ Alert istatistikleri hatası: {str(e)}")
+            db.session.rollback()
         
-        # Model performans bilgileri
-        models = MLModel.query.filter_by(is_active=True).all()
+        try:
+            # Model performans bilgileri
+            models = MLModel.query.filter_by(is_active=True).all()
+        except Exception as e:
+            logger.error(f"❌ Model sorgusu hatası: {str(e)}")
+            db.session.rollback()
         
         return render_template('admin/ml_dashboard.html',
                              dashboard_metrics=dashboard_metrics,
@@ -45,9 +69,12 @@ def dashboard():
                              models=models)
     
     except Exception as e:
-        logger.error(f"❌ ML Dashboard hatası: {str(e)}")
+        logger.error(f"❌ ML Dashboard genel hatası: {str(e)}")
         # Transaction'ı rollback et
-        db.session.rollback()
+        try:
+            db.session.rollback()
+        except:
+            pass
         return render_template('admin/ml_dashboard.html',
                              dashboard_metrics={},
                              active_alerts=[],
@@ -69,24 +96,29 @@ def api_get_alerts():
         
         alerts_data = []
         for alert in alerts:
-            # Entity bilgisini al
-            entity_name = get_entity_name(alert.entity_type, alert.entity_id)
-            
-            alerts_data.append({
-                'id': alert.id,
-                'alert_type': alert.alert_type,
-                'severity': alert.severity,
-                'entity_type': alert.entity_type,
-                'entity_id': alert.entity_id,
-                'entity_name': entity_name,
-                'metric_value': alert.metric_value,
-                'expected_value': alert.expected_value,
-                'deviation_percent': alert.deviation_percent,
-                'message': alert.message,
-                'suggested_action': alert.suggested_action,
-                'created_at': alert.created_at.isoformat(),
-                'is_read': alert.is_read
-            })
+            try:
+                # Entity bilgisini al
+                entity_name = get_entity_name(alert.entity_type, alert.entity_id)
+                
+                alerts_data.append({
+                    'id': alert.id,
+                    'alert_type': alert.alert_type,
+                    'severity': alert.severity,
+                    'entity_type': alert.entity_type,
+                    'entity_id': alert.entity_id,
+                    'entity_name': entity_name,
+                    'metric_value': alert.metric_value,
+                    'expected_value': alert.expected_value,
+                    'deviation_percent': alert.deviation_percent,
+                    'message': alert.message,
+                    'suggested_action': alert.suggested_action,
+                    'created_at': alert.created_at.isoformat(),
+                    'is_read': alert.is_read
+                })
+            except Exception as e:
+                logger.error(f"❌ Alert işleme hatası (ID: {alert.id}): {str(e)}")
+                # Bu alert'i atla, devam et
+                continue
         
         return jsonify({
             'success': True,
@@ -96,7 +128,10 @@ def api_get_alerts():
     
     except Exception as e:
         logger.error(f"❌ Alert API hatası: {str(e)}")
-        db.session.rollback()
+        try:
+            db.session.rollback()
+        except:
+            pass
         return jsonify({
             'success': False,
             'error': str(e)
@@ -127,7 +162,10 @@ def api_mark_alert_read(alert_id):
     
     except Exception as e:
         logger.error(f"❌ Alert okuma hatası: {str(e)}")
-        db.session.rollback()
+        try:
+            db.session.rollback()
+        except:
+            pass
         return jsonify({
             'success': False,
             'error': str(e)
@@ -158,7 +196,10 @@ def api_mark_false_positive(alert_id):
     
     except Exception as e:
         logger.error(f"❌ Yanlış pozitif işaretleme hatası: {str(e)}")
-        db.session.rollback()
+        try:
+            db.session.rollback()
+        except:
+            pass
         return jsonify({
             'success': False,
             'error': str(e)
@@ -187,15 +228,19 @@ def api_get_metrics():
         
         metrics_data = []
         for metric in metrics:
-            metrics_data.append({
-                'id': metric.id,
-                'metric_type': metric.metric_type,
-                'entity_type': metric.entity_type,
-                'entity_id': metric.entity_id,
-                'metric_value': metric.metric_value,
-                'timestamp': metric.timestamp.isoformat(),
-                'extra_data': metric.extra_data
-            })
+            try:
+                metrics_data.append({
+                    'id': metric.id,
+                    'metric_type': metric.metric_type,
+                    'entity_type': metric.entity_type,
+                    'entity_id': metric.entity_id,
+                    'metric_value': metric.metric_value,
+                    'timestamp': metric.timestamp.isoformat(),
+                    'extra_data': metric.extra_data
+                })
+            except Exception as e:
+                logger.error(f"❌ Metrik işleme hatası (ID: {metric.id}): {str(e)}")
+                continue
         
         return jsonify({
             'success': True,
@@ -205,7 +250,10 @@ def api_get_metrics():
     
     except Exception as e:
         logger.error(f"❌ Metrik API hatası: {str(e)}")
-        db.session.rollback()
+        try:
+            db.session.rollback()
+        except:
+            pass
         return jsonify({
             'success': False,
             'error': str(e)
@@ -222,25 +270,29 @@ def api_model_performance():
         
         models_data = []
         for model in models:
-            # Son eğitim logu
-            last_training = MLTrainingLog.query.filter_by(
-                model_id=model.id,
-                success=True
-            ).order_by(MLTrainingLog.training_end.desc()).first()
-            
-            models_data.append({
-                'id': model.id,
-                'model_type': model.model_type,
-                'metric_type': model.metric_type,
-                'accuracy': model.accuracy,
-                'precision': model.precision,
-                'recall': model.recall,
-                'training_date': model.training_date.isoformat(),
-                'last_training': {
-                    'data_points': last_training.data_points if last_training else 0,
-                    'training_time': (last_training.training_end - last_training.training_start).total_seconds() if last_training else 0
-                } if last_training else None
-            })
+            try:
+                # Son eğitim logu
+                last_training = MLTrainingLog.query.filter_by(
+                    model_id=model.id,
+                    success=True
+                ).order_by(MLTrainingLog.training_end.desc()).first()
+                
+                models_data.append({
+                    'id': model.id,
+                    'model_type': model.model_type,
+                    'metric_type': model.metric_type,
+                    'accuracy': model.accuracy,
+                    'precision': model.precision,
+                    'recall': model.recall,
+                    'training_date': model.training_date.isoformat(),
+                    'last_training': {
+                        'data_points': last_training.data_points if last_training else 0,
+                        'training_time': (last_training.training_end - last_training.training_start).total_seconds() if last_training else 0
+                    } if last_training else None
+                })
+            except Exception as e:
+                logger.error(f"❌ Model işleme hatası (ID: {model.id}): {str(e)}")
+                continue
         
         return jsonify({
             'success': True,
@@ -250,7 +302,10 @@ def api_model_performance():
     
     except Exception as e:
         logger.error(f"❌ Model performans API hatası: {str(e)}")
-        db.session.rollback()
+        try:
+            db.session.rollback()
+        except:
+            pass
         return jsonify({
             'success': False,
             'error': str(e)
@@ -265,11 +320,22 @@ def api_statistics():
     try:
         days = request.args.get('days', 30, type=int)
         
-        alert_manager = AlertManager(db)
-        alert_stats = alert_manager.get_alert_statistics(days=days)
+        alert_stats = {}
+        dashboard_metrics = {}
         
-        metrics_calculator = MetricsCalculator(db)
-        dashboard_metrics = metrics_calculator.get_dashboard_metrics()
+        try:
+            alert_manager = AlertManager(db)
+            alert_stats = alert_manager.get_alert_statistics(days=days)
+        except Exception as e:
+            logger.error(f"❌ Alert istatistikleri hatası: {str(e)}")
+            db.session.rollback()
+        
+        try:
+            metrics_calculator = MetricsCalculator(db)
+            dashboard_metrics = metrics_calculator.get_dashboard_metrics()
+        except Exception as e:
+            logger.error(f"❌ Dashboard metrikleri hatası: {str(e)}")
+            db.session.rollback()
         
         return jsonify({
             'success': True,
@@ -279,7 +345,10 @@ def api_statistics():
     
     except Exception as e:
         logger.error(f"❌ İstatistik API hatası: {str(e)}")
-        db.session.rollback()
+        try:
+            db.session.rollback()
+        except:
+            pass
         return jsonify({
             'success': False,
             'error': str(e)
@@ -287,21 +356,21 @@ def api_statistics():
 
 
 def get_entity_name(entity_type, entity_id):
-    """Entity adını getir"""
+    """Entity adını getir - Transaction-safe"""
     try:
         if entity_type == 'urun':
             from models import Urun
-            urun = db.session.get(Urun, entity_id)
+            urun = Urun.query.filter_by(id=entity_id).first()
             return urun.urun_adi if urun else f"Ürün #{entity_id}"
         
         elif entity_type == 'oda':
             from models import Oda
-            oda = db.session.get(Oda, entity_id)
+            oda = Oda.query.filter_by(id=entity_id).first()
             return f"Oda {oda.oda_no}" if oda else f"Oda #{entity_id}"
         
         elif entity_type == 'kat_sorumlusu':
             from models import Kullanici
-            kullanici = db.session.get(Kullanici, entity_id)
+            kullanici = Kullanici.query.filter_by(id=entity_id).first()
             return f"{kullanici.ad} {kullanici.soyad}" if kullanici else f"Personel #{entity_id}"
         
         else:
@@ -309,7 +378,11 @@ def get_entity_name(entity_type, entity_id):
     
     except Exception as e:
         logger.error(f"❌ Entity adı getirme hatası: {str(e)}")
-        db.session.rollback()
+        # Transaction'ı rollback et
+        try:
+            db.session.rollback()
+        except:
+            pass
         return f"{entity_type} #{entity_id}"
 
 

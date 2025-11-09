@@ -55,7 +55,7 @@ def register_kat_sorumlusu_qr_routes(app):
                 # Başarısız okutma logu
                 QRKodService.log_qr_scan(
                     oda_id=None,
-                    okutma_tipi='kat_sorumlusu',
+                    okutma_tipi='personel_kontrol',
                     kullanici_id=session.get('kullanici_id'),
                     basarili=False,
                     hata_mesaji='Geçersiz token'
@@ -66,10 +66,42 @@ def register_kat_sorumlusu_qr_routes(app):
                     'message': 'Geçersiz veya tanınmayan QR kod'
                 }), 404
             
+            # Kat sorumlusunun otelini kontrol et
+            from utils.authorization import get_kat_sorumlusu_otel
+            kullanici_id = session['kullanici_id']
+            kullanici_oteli = get_kat_sorumlusu_otel(kullanici_id)
+            
+            if not kullanici_oteli:
+                QRKodService.log_qr_scan(
+                    oda_id=oda.id,
+                    okutma_tipi='personel_kontrol',
+                    kullanici_id=kullanici_id,
+                    basarili=False,
+                    hata_mesaji='Otel ataması bulunamadı'
+                )
+                return jsonify({
+                    'success': False,
+                    'message': 'Otel atamanız bulunamadı'
+                }), 403
+            
+            # Odanın bu otele ait olduğunu kontrol et
+            if oda.kat.otel_id != kullanici_oteli.id:
+                QRKodService.log_qr_scan(
+                    oda_id=oda.id,
+                    okutma_tipi='personel_kontrol',
+                    kullanici_id=kullanici_id,
+                    basarili=False,
+                    hata_mesaji='Bu odaya erişim yetkiniz yok'
+                )
+                return jsonify({
+                    'success': False,
+                    'message': 'Bu oda size ait otelde değil'
+                }), 403
+            
             # Başarılı okutma logu
             QRKodService.log_qr_scan(
                 oda_id=oda.id,
-                okutma_tipi='kat_sorumlusu',
+                okutma_tipi='personel_kontrol',
                 kullanici_id=session.get('kullanici_id'),
                 basarili=True
             )

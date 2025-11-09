@@ -63,10 +63,19 @@
                                 {{ item.otel.id }}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <div class="text-sm font-medium text-slate-900">{{ item.otel.ad }}</div>
-                                {% if item.otel.vergi_no %}
-                                <div class="text-sm text-slate-500">VN: {{ item.otel.vergi_no }}</div>
-                                {% endif %}
+                                <div class="flex items-center space-x-3">
+                                    {% if item.otel.logo %}
+                                    <img src="data:image/png;base64,{{ item.otel.logo }}" 
+                                         alt="{{ item.otel.ad }}" 
+                                         class="h-10 w-auto object-contain">
+                                    {% endif %}
+                                    <div>
+                                        <div class="text-sm font-medium text-slate-900">{{ item.otel.ad }}</div>
+                                        {% if item.otel.vergi_no %}
+                                        <div class="text-sm text-slate-500">VN: {{ item.otel.vergi_no }}</div>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
                                 {{ item.otel.telefon or '-' }}

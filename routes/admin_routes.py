@@ -46,6 +46,75 @@ def register_admin_routes(app):
         from forms import PersonelForm, DepoSorumlusuForm, KatSorumlusuForm
         from models import Otel, KullaniciOtel
         from sqlalchemy.exc import IntegrityError
+        from flask import jsonify
+        from werkzeug.security import generate_password_hash
+
+        # AJAX POST isteği kontrolü
+        if request.method == 'POST' and request.is_json:
+            try:
+                data = request.get_json()
+                
+                # Validasyon
+                required_fields = ['kullanici_adi', 'sifre', 'ad', 'soyad', 'rol']
+                for field in required_fields:
+                    if not data.get(field):
+                        return jsonify({'success': False, 'message': f'{field} zorunludur'}), 400
+                
+                # Kullanıcı adı kontrolü
+                if Kullanici.query.filter_by(kullanici_adi=data['kullanici_adi']).first():
+                    return jsonify({'success': False, 'message': 'Bu kullanıcı adı zaten kullanılıyor'}), 400
+                
+                # Yeni kullanıcı oluştur
+                yeni_kullanici = Kullanici(
+                    kullanici_adi=data['kullanici_adi'],
+                    sifre=generate_password_hash(data['sifre']),
+                    ad=data['ad'],
+                    soyad=data['soyad'],
+                    rol=data['rol'],
+                    aktif=True
+                )
+                
+                db.session.add(yeni_kullanici)
+                db.session.flush()
+                
+                # Rol bazlı işlemler
+                if data['rol'] == 'depo_sorumlusu':
+                    otel_ids = data.get('otel_ids', [])
+                    if not otel_ids:
+                        db.session.rollback()
+                        return jsonify({'success': False, 'message': 'Depo sorumlusu için en az bir otel seçilmelidir'}), 400
+                    
+                    for otel_id in otel_ids:
+                        atama = KullaniciOtel(
+                            kullanici_id=yeni_kullanici.id,
+                            otel_id=int(otel_id)
+                        )
+                        db.session.add(atama)
+                
+                elif data['rol'] == 'kat_sorumlusu':
+                    otel_id = data.get('otel_id')
+                    if not otel_id:
+                        db.session.rollback()
+                        return jsonify({'success': False, 'message': 'Kat sorumlusu için otel seçilmelidir'}), 400
+                    
+                    yeni_kullanici.otel_id = int(otel_id)
+                    
+                    # Depo sorumlusu opsiyonel
+                    depo_sorumlusu_id = data.get('depo_sorumlusu_id')
+                    if depo_sorumlusu_id:
+                        yeni_kullanici.depo_sorumlusu_id = int(depo_sorumlusu_id)
+                
+                db.session.commit()
+                
+                # Audit Trail
+                audit_create('kullanici', yeni_kullanici.id, yeni_kullanici)
+                
+                return jsonify({'success': True, 'message': 'Kullanıcı başarıyla eklendi'}), 200
+                
+            except Exception as e:
+                db.session.rollback()
+                log_hata(e, modul='personel_tanimla_ajax')
+                return jsonify({'success': False, 'message': 'Bir hata oluştu'}), 500
 
         # Rol seçimi için basit form
         rol_secimi = request.form.get('rol_secimi') or request.args.get('rol')
@@ -763,6 +832,13 @@ def register_admin_routes(app):
             try:
                 eski_deger = serialize_model(otel)
                 
+                # Logo işleme
+                import base64
+                if form.logo.data:
+                    logo_file = form.logo.data
+                    logo_bytes = logo_file.read()
+                    otel.logo = base64.b64encode(logo_bytes).decode('utf-8')
+                
                 otel.ad = form.ad.data
                 otel.adres = form.adres.data or ''
                 otel.telefon = form.telefon.data or ''
@@ -827,3 +903,5 @@ def register_admin_routes(app):
             log_hata(e, modul='otel_aktif_pasif')
         
         return redirect(url_for('otel_listesi'))
+
+

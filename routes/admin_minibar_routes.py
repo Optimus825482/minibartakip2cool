@@ -41,48 +41,62 @@ def register_admin_minibar_routes(app):
         try:
             from utils.helpers import get_depo_stok_durumu, export_depo_stok_excel
             
-            # Filtre parametresi
+            # Filtre parametreleri
+            otel_id = request.args.get('otel_id', type=int)
+            depo_id = request.args.get('depo_sorumlusu_id', type=int)
             grup_id = request.args.get('grup_id', type=int)
             export_format = request.args.get('format', '')
             
-            # Stok durumlarını getir
-            stok_listesi = get_depo_stok_durumu(grup_id=grup_id)
-            
-            # Excel export
-            if export_format == 'excel':
-                excel_buffer = export_depo_stok_excel(stok_listesi)
-                if excel_buffer:
-                    from datetime import datetime
-                    filename = f'depo_stoklari_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
-                    
-                    # Log kaydı
-                    log_islem('export', 'depo_stoklari', {
-                        'format': 'excel',
-                        'kayit_sayisi': len(stok_listesi)
-                    })
-                    
-                    return send_file(
-                        excel_buffer,
-                        as_attachment=True,
-                        download_name=filename,
-                        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                    )
-                else:
-                    flash('Excel dosyası oluşturulamadı.', 'danger')
-                    return redirect(url_for('admin_depo_stoklari'))
-            
-            # Ürün gruplarını getir (filtre için)
+            # Filtre için gerekli verileri getir
+            from models import Otel
+            oteller = Otel.query.filter_by(aktif=True).order_by(Otel.ad).all()
+            depo_sorumlular = Kullanici.query.filter_by(rol='depo_sorumlusu', aktif=True).order_by(Kullanici.ad, Kullanici.soyad).all()
             gruplar = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
             
-            # Log kaydı
-            log_islem('goruntuleme', 'depo_stoklari', {
-                'grup_id': grup_id,
-                'kayit_sayisi': len(stok_listesi)
-            })
+            # Otel seçilmeden stok listesi gösterme
+            stok_listesi = []
+            if otel_id:
+                # Stok durumlarını getir
+                stok_listesi = get_depo_stok_durumu(grup_id=grup_id)
+                
+                # Excel export
+                if export_format == 'excel':
+                    excel_buffer = export_depo_stok_excel(stok_listesi)
+                    if excel_buffer:
+                        from datetime import datetime
+                        filename = f'depo_stoklari_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+                        
+                        # Log kaydı
+                        log_islem('export', 'depo_stoklari', {
+                            'format': 'excel',
+                            'otel_id': otel_id,
+                            'kayit_sayisi': len(stok_listesi)
+                        })
+                        
+                        return send_file(
+                            excel_buffer,
+                            as_attachment=True,
+                            download_name=filename,
+                            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                        )
+                    else:
+                        flash('Excel dosyası oluşturulamadı.', 'danger')
+                        return redirect(url_for('admin_depo_stoklari'))
+                
+                # Log kaydı
+                log_islem('goruntuleme', 'depo_stoklari', {
+                    'otel_id': otel_id,
+                    'depo_id': depo_id,
+                    'kayit_sayisi': len(stok_listesi)
+                })
             
             return render_template('sistem_yoneticisi/depo_stoklari.html',
                                  stok_listesi=stok_listesi,
+                                 oteller=oteller,
+                                 depo_sorumlular=depo_sorumlular,
                                  gruplar=gruplar,
+                                 secili_otel_id=otel_id,
+                                 secili_depo_id=depo_id,
                                  secili_grup_id=grup_id)
             
         except Exception as e:

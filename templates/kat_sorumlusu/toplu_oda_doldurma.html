@@ -16,7 +16,7 @@
                 </label>
                 <div class="mt-1">
                     <select id="kat_id" required
-                        class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                        class="no-choices appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                         <option value="">Kat seçiniz...</option>
                         {% for kat in katlar %}
                         <option value="{{ kat.id }}">{{ kat.kat_adi }}</option>
@@ -67,7 +67,7 @@
                     </label>
                     <div class="mt-1">
                         <select id="urun_grup_id" required
-                            class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            class="no-choices appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             <option value="">Ürün grubu seçiniz...</option>
                             {% for grup in urun_gruplari %}
                             <option value="{{ grup.id }}">{{ grup.grup_adi }}</option>
@@ -83,7 +83,7 @@
                     </label>
                     <div class="mt-1">
                         <select id="urun_id" required disabled
-                            class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
+                            class="no-choices appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm">
                             <option value="">Önce grup seçiniz...</option>
                         </select>
                     </div>
@@ -565,6 +565,13 @@
                 } );
 
                 document.getElementById( 'mevcut_durum_panel' ).classList.remove( 'hidden' );
+                
+                // Tablo dolduktan sonra filter'ı başlat
+                setTimeout(() => {
+                    if (window.initMevcutDurumFilter) {
+                        window.initMevcutDurumFilter();
+                    }
+                }, 100);
             }
         } catch ( error ) {
             console.error( 'Mevcut durum yüklenirken hata:', error );
@@ -740,56 +747,4 @@
     } );
 </script>
 
-{% block extra_scripts %}
-<script src="{{ url_for('static', filename='js/table-search-filter.js') }}"></script>
-<script>
-    // Mevcut Durum Tablosu için TableSearchFilter - dinamik tablo
-    let mevcutDurumFilter = null;
-
-    // Tablonun doldurulduğu yeri bulup override edelim
-    // data.durum.forEach döngüsünden sonra çalışacak
-    const originalAppendChild = Element.prototype.appendChild;
-
-    // Sadece mevcut_durum_tbody için override
-    const tbody = document.getElementById( 'mevcut_durum_tbody' );
-    if ( tbody ) {
-        const originalAppendChild = tbody.appendChild;
-        let rowCount = 0;
-
-        tbody.appendChild = function ( child ) {
-            const result = originalAppendChild.call( this, child );
-
-            // Her satır eklendiğinde sayacı artır
-            if ( child.tagName === 'TR' ) {
-                rowCount++;
-
-                // Son satır eklendikten sonra filter'ı başlat
-                // Küçük bir gecikme ile çalıştır
-                setTimeout( () => {
-                    const panel = document.getElementById( 'mevcut_durum_panel' );
-                    if ( !panel.classList.contains( 'hidden' ) && rowCount > 0 ) {
-                        // Var olan filter'ı temizle
-                        if ( mevcutDurumFilter ) {
-                            mevcutDurumFilter = null;
-                        }
-
-                        // Yeni filter oluştur
-                        mevcutDurumFilter = new TableSearchFilter( 'mevcut-durum-table', {
-                            searchPlaceholder: '🔍 Oda no ara...',
-                            defaultItemsPerPage: 10,
-                            skipTableReload: true,
-                            paginationOptions: [10, 25, 50]
-                        } );
-
-                        // Sayacı sıfırla
-                        rowCount = 0;
-                    }
-                }, 100 );
-            }
-
-            return result;
-        };
-    }
-</script>
-{% endblock %}
 {% endblock %}

@@ -1,0 +1,918 @@
+{
+  "liste_adi": "Otel Kayıtları - Otel ID 3",
+  "aciklama": "Otel ID, Kat No, Kat Adı, Oda No ve Oda Tipi bilgileri",
+  "kayitlar": [
+    {
+      "otel_id": 3,
+      "kat_no": 0,
+      "kat_adi": "Zemin Kat",
+      "oda_no": 182,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 0,
+      "kat_adi": "Zemin Kat",
+      "oda_no": 183,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 0,
+      "kat_adi": "Zemin Kat",
+      "oda_no": 184,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 0,
+      "kat_adi": "Zemin Kat",
+      "oda_no": 185,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 0,
+      "kat_adi": "Zemin Kat",
+      "oda_no": 186,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 0,
+      "kat_adi": "Zemin Kat",
+      "oda_no": 187,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 0,
+      "kat_adi": "Zemin Kat",
+      "oda_no": 189,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 0,
+      "kat_adi": "Zemin Kat",
+      "oda_no": 190,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 0,
+      "kat_adi": "Zemin Kat",
+      "oda_no": 191,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 0,
+      "kat_adi": "Zemin Kat",
+      "oda_no": 192,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 0,
+      "kat_adi": "Zemin Kat",
+      "oda_no": 193,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 0,
+      "kat_adi": "Zemin Kat",
+      "oda_no": 194,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 151,
+      "oda_tipi": "QUEEN DÜZ SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 152,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 153,
+      "oda_tipi": "STANDART TWİN CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 154,
+      "oda_tipi": "STANDART FRENCH CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 155,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 156,
+      "oda_tipi": "STANDART SINGLE ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 157,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 158,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 159,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 160,
+      "oda_tipi": "STANDART TWİN CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 161,
+      "oda_tipi": "STANDART FRENCH CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 162,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 163,
+      "oda_tipi": "JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 164,
+      "oda_tipi": "SINGLE JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 165,
+      "oda_tipi": "KING SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 166,
+      "oda_tipi": "SINGLE JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 167,
+      "oda_tipi": "KING SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 168,
+      "oda_tipi": "SINGLE JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 169,
+      "oda_tipi": "JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 170,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 171,
+      "oda_tipi": "STANDART FRENCH CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 172,
+      "oda_tipi": "STANDART TWİN CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 173,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 174,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 175,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 176,
+      "oda_tipi": "STANDART SINGLE ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 177,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 178,
+      "oda_tipi": "STANDART FRENCH CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 179,
+      "oda_tipi": "STANDART TWİN CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 180,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 1,
+      "kat_adi": "1. Kat",
+      "oda_no": 181,
+      "oda_tipi": "QUEEN DÜZ SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 251,
+      "oda_tipi": "QUEEN DÜZ SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 252,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 253,
+      "oda_tipi": "STANDART TWİN CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 254,
+      "oda_tipi": "STANDART FRENCH CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 255,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 256,
+      "oda_tipi": "STANDART DÜZ CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 257,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 258,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 259,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 260,
+      "oda_tipi": "STANDART TWİN CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 261,
+      "oda_tipi": "STANDART FRENCH CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 262,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 263,
+      "oda_tipi": "JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 264,
+      "oda_tipi": "SINGLE JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 265,
+      "oda_tipi": "KING SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 266,
+      "oda_tipi": "SINGLE JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 267,
+      "oda_tipi": "KING SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 268,
+      "oda_tipi": "SINGLE JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 269,
+      "oda_tipi": "JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 270,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 271,
+      "oda_tipi": "STANDART FRENCH CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 272,
+      "oda_tipi": "STANDART TWİN CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 273,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 274,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 275,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 276,
+      "oda_tipi": "STANDART SINGLE ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 277,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 278,
+      "oda_tipi": "STANDART FRENCH CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 279,
+      "oda_tipi": "STANDART TWİN CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 280,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 2,
+      "kat_adi": "2. Kat",
+      "oda_no": 281,
+      "oda_tipi": "QUEEN DÜZ SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 351,
+      "oda_tipi": "QUEEN DÜZ SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 352,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 353,
+      "oda_tipi": "STANDART TWİN CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 354,
+      "oda_tipi": "STANDART FRENCH CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 355,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 356,
+      "oda_tipi": "STANDART SINGLE ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 357,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 358,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 359,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 360,
+      "oda_tipi": "STANDART TWİN CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 361,
+      "oda_tipi": "STANDART FRENCH CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 362,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 363,
+      "oda_tipi": "JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 365,
+      "oda_tipi": "KING SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 367,
+      "oda_tipi": "KING SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 369,
+      "oda_tipi": "JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 370,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 371,
+      "oda_tipi": "STANDART FRENCH CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 372,
+      "oda_tipi": "STANDART TWİN CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 373,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 374,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 375,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 376,
+      "oda_tipi": "STANDART SINGLE ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 377,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 378,
+      "oda_tipi": "STANDART FRENCH CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 379,
+      "oda_tipi": "STANDART TWİN CONNECTION ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 380,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 3,
+      "kat_adi": "3. Kat",
+      "oda_no": 381,
+      "oda_tipi": "QUEEN DÜZ SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 457,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 458,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 459,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 460,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 461,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 462,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 463,
+      "oda_tipi": "JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 465,
+      "oda_tipi": "KING SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 467,
+      "oda_tipi": "KING SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 469,
+      "oda_tipi": "JUNIOR SUIT ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 470,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 471,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 472,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 473,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 474,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 4,
+      "kat_adi": "4. Kat",
+      "oda_no": 475,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 5,
+      "kat_adi": "5. Kat",
+      "oda_no": 557,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 5,
+      "kat_adi": "5. Kat",
+      "oda_no": 558,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 5,
+      "kat_adi": "5. Kat",
+      "oda_no": 559,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 5,
+      "kat_adi": "5. Kat",
+      "oda_no": 560,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 5,
+      "kat_adi": "5. Kat",
+      "oda_no": 561,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 5,
+      "kat_adi": "5. Kat",
+      "oda_no": 562,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 5,
+      "kat_adi": "5. Kat",
+      "oda_no": 570,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 5,
+      "kat_adi": "5. Kat",
+      "oda_no": 571,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 5,
+      "kat_adi": "5. Kat",
+      "oda_no": 572,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 5,
+      "kat_adi": "5. Kat",
+      "oda_no": 573,
+      "oda_tipi": "STANDART FRENCH ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 5,
+      "kat_adi": "5. Kat",
+      "oda_no": 574,
+      "oda_tipi": "STANDART TWİN ODA"
+    },
+    {
+      "otel_id": 3,
+      "kat_no": 5,
+      "kat_adi": "5. Kat",
+      "oda_no": 575,
+      "oda_tipi": "STANDART FRENCH ODA"
+    }
+  ],
+  "toplam_kayit": 129,
+  "olusturma_tarihi": "2025-11-08"
+}

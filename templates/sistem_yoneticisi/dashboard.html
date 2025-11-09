@@ -5,106 +5,274 @@
 
 {% block content %}
 <div class="space-y-4 md:space-y-6">
-    <!-- İstatistik Kartları - Responsive Grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
-        <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow">
-            <div class="p-4 md:p-5">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <div class="w-10 h-10 md:w-12 md:h-12 bg-blue-500 rounded-md flex items-center justify-center">
-                            <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
-                                </path>
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="ml-4 md:ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-xs md:text-sm font-medium text-slate-500 truncate">Toplam Kat</dt>
-                            <dd class="text-xl md:text-2xl font-semibold text-slate-900">{{ toplam_kat }}</dd>
-                        </dl>
-                    </div>
-                </div>
-            </div>
+    <!-- Otel Bazlı Doluluk Durumu -->
+    {% if otel_doluluk_raporlari %}
+    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-4 md:p-6">
+        <div class="flex items-center mb-4">
+            <h3 class="text-lg font-medium text-slate-900 dark:text-white">
+                <i class="fas fa-calendar-check mr-2 text-slate-600 dark:text-slate-400"></i>
+                {% set gun_adlari = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar'] %}
+                {{ now().strftime('%d.%m.%y') }} - {{ gun_adlari[now().weekday()] }} - Doluluk Durumu
+            </h3>
         </div>
 
-        <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow">
-            <div class="p-4 md:p-5">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <div class="w-10 h-10 md:w-12 md:h-12 bg-green-500 rounded-md flex items-center justify-center">
-                            <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
-                            </svg>
-                        </div>
+        <!-- Otel Kartları -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {% for rapor in otel_doluluk_raporlari %}
+            <div class="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 rounded-lg p-4 border-2 border-slate-300 dark:border-slate-700 shadow-md hover:shadow-lg transition-shadow flex flex-col">
+                <!-- Otel Başlığı -->
+                <div class="flex items-center gap-3 mb-4 pb-3 border-b border-slate-300 dark:border-slate-600">
+                    {% if rapor.otel.logo %}
+                    <img src="data:image/png;base64,{{ rapor.otel.logo }}" 
+                         alt="{{ rapor.otel.ad }}" 
+                         class="w-10 h-10 rounded-lg object-cover border border-slate-300 dark:border-slate-600">
+                    {% else %}
+                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-hotel text-white text-lg"></i>
                     </div>
-                    <div class="ml-4 md:ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-xs md:text-sm font-medium text-slate-500 truncate">Toplam Oda</dt>
-                            <dd class="text-xl md:text-2xl font-semibold text-slate-900">{{ toplam_oda }}</dd>
-                        </dl>
+                    {% endif %}
+                    <div class="flex-1 min-w-0">
+                        <h4 class="font-bold text-slate-900 dark:text-white truncate">{{ rapor.otel.ad }}</h4>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">Doluluk: {{ rapor.doluluk_orani }}%</p>
                     </div>
                 </div>
+
+                <!-- Doluluk Bilgileri - 3 Satır -->
+                <div class="space-y-2 flex-grow">
+                    <!-- Satır 1: Toplam & Dolu -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-slate-200 dark:bg-slate-700 rounded flex items-center justify-center">
+                                <i class="fas fa-door-closed text-slate-600 dark:text-slate-400 text-sm"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-slate-500 dark:text-slate-400">Toplam</p>
+                                <p class="text-lg font-bold text-slate-900 dark:text-white">{{ rapor.toplam_oda }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-red-100 dark:bg-red-900/30 rounded flex items-center justify-center">
+                                <i class="fas fa-door-open text-red-600 dark:text-red-400 text-sm"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-red-500 dark:text-red-400">Dolu</p>
+                                <p class="text-lg font-bold text-red-700 dark:text-red-300">{{ rapor.dolu_oda }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Satır 2: Giriş & Çıkış -->
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-green-100 dark:bg-green-900/30 rounded flex items-center justify-center">
+                                <i class="fas fa-arrow-right text-green-600 dark:text-green-400 text-sm"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-green-500 dark:text-green-400">Giriş</p>
+                                <p class="text-lg font-bold text-green-700 dark:text-green-300">{{ rapor.giris_sayisi }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded flex items-center justify-center">
+                                <i class="fas fa-arrow-left text-orange-600 dark:text-orange-400 text-sm"></i>
+                            </div>
+                            <div>
+                                <p class="text-xs text-orange-500 dark:text-orange-400">Çıkış</p>
+                                <p class="text-lg font-bold text-orange-700 dark:text-orange-300">{{ rapor.cikis_sayisi }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Satır 3: Doluluk Progress Bar -->
+                    <div class="pt-2">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="text-xs font-medium text-slate-600 dark:text-slate-400">Doluluk Oranı</span>
+                            <span class="text-xs font-bold text-slate-900 dark:text-white">{{ rapor.doluluk_orani }}%</span>
+                        </div>
+                        <div class="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2">
+                            <div class="h-2 rounded-full transition-all duration-300 
+                                {% if rapor.doluluk_orani >= 80 %}bg-gradient-to-r from-red-500 to-red-600
+                                {% elif rapor.doluluk_orani >= 50 %}bg-gradient-to-r from-yellow-500 to-orange-500
+                                {% else %}bg-gradient-to-r from-green-500 to-green-600{% endif %}"
+                                style="width: {{ rapor.doluluk_orani }}%">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Kat Bazlı Özet (Varsa) -->
+                {% if rapor.kat_bazli %}
+                <div class="mt-3 pt-3 border-t border-slate-300 dark:border-slate-600">
+                    <p class="text-xs text-slate-500 dark:text-slate-400 mb-2">Kat Bazlı:</p>
+                    <div class="flex flex-wrap gap-1">
+                        {% for kat_id, kat_info in rapor.kat_bazli.items() %}
+                        <a href="{{ url_for('doluluk.kat_doluluk_detay', kat_id=kat_info.kat.id) }}"
+                            class="inline-flex items-center px-2 py-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 rounded text-xs transition-colors">
+                            <span class="font-semibold text-slate-900 dark:text-white">{{ kat_info.kat.kat_adi }}:</span>
+                            <span class="ml-1 text-red-600 dark:text-red-400">{{ kat_info.dolu_oda_sayisi }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Detaylı Rapor Butonu - Her zaman en altta -->
+                <div class="mt-auto pt-3 border-t border-slate-300 dark:border-slate-600">
+                    <a href="{{ url_for('doluluk.gunluk_doluluk', otel_id=rapor.otel.id) }}"
+                        class="flex items-center justify-center gap-2 w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white text-sm font-medium rounded-lg transition-all duration-200 shadow-sm hover:shadow-md">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Detaylı Rapor</span>
+                        <i class="fas fa-arrow-right text-xs"></i>
+                    </a>
+                </div>
             </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- ML Anomali Uyarıları -->
+    {% if ml_enabled and ml_alert_count > 0 %}
+    <div class="bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-lg shadow-lg border-2 border-red-300 dark:border-red-700 p-4 md:p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-red-800 dark:text-red-300">
+                <i class="fas fa-exclamation-triangle mr-2"></i>
+                🤖 ML Anomali Uyarıları
+                <span class="ml-2 px-2 py-1 text-xs bg-red-600 text-white rounded-full">{{ ml_alert_count }}</span>
+            </h3>
+            <a href="{{ url_for('ml.dashboard') }}" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm rounded-lg transition">
+                <i class="fas fa-chart-line mr-1"></i>
+                Tüm Uyarılar
+            </a>
         </div>
 
-        <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow">
-            <div class="p-4 md:p-5">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <div
-                            class="w-10 h-10 md:w-12 md:h-12 bg-yellow-500 rounded-md flex items-center justify-center">
-                            <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z">
-                                </path>
-                            </svg>
+        <div class="space-y-3">
+            {% for alert in ml_alerts %}
+            <div class="bg-white dark:bg-slate-800 rounded-lg p-4 border-l-4 
+                {% if alert.severity == 'kritik' %}
+                    border-red-500
+                {% elif alert.severity == 'yuksek' %}
+                    border-orange-500
+                {% elif alert.severity == 'orta' %}
+                    border-yellow-500
+                {% else %}
+                    border-blue-500
+                {% endif %}">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="px-2 py-1 text-xs font-semibold rounded
+                                {% if alert.severity == 'kritik' %}
+                                    bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200
+                                {% elif alert.severity == 'yuksek' %}
+                                    bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200
+                                {% elif alert.severity == 'orta' %}
+                                    bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200
+                                {% else %}
+                                    bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200
+                                {% endif %}">
+                                {{ alert.severity.upper() }}
+                            </span>
+                            <span class="text-xs text-slate-500 dark:text-slate-400">
+                                {{ alert.created_at.strftime('%d.%m.%Y %H:%M') }}
+                            </span>
                         </div>
-                    </div>
-                    <div class="ml-4 md:ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-xs md:text-sm font-medium text-slate-500 truncate">Toplam Kullanıcı</dt>
-                            <dd class="text-xl md:text-2xl font-semibold text-slate-900">{{ toplam_kullanici }}</dd>
-                        </dl>
+                        <p class="text-sm font-medium text-slate-900 dark:text-white mb-1">
+                            {{ alert.message }}
+                        </p>
+                        <p class="text-xs text-slate-600 dark:text-slate-400">
+                            💡 {{ alert.suggested_action }}
+                        </p>
                     </div>
                 </div>
             </div>
+            {% endfor %}
         </div>
 
-        <div class="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow">
-            <div class="p-4 md:p-5">
-                <div class="flex items-center">
-                    <div class="flex-shrink-0">
-                        <div
-                            class="w-10 h-10 md:w-12 md:h-12 bg-purple-500 rounded-md flex items-center justify-center">
-                            <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor"
-                                viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z">
-                                </path>
-                            </svg>
-                        </div>
-                    </div>
-                    <div class="ml-4 md:ml-5 w-0 flex-1">
-                        <dl>
-                            <dt class="text-xs md:text-sm font-medium text-slate-500 truncate">Toplam Personel</dt>
-                            <dd class="text-xl md:text-2xl font-semibold text-slate-900">{{ toplam_personel }}</dd>
-                        </dl>
-                    </div>
+        <div class="mt-4 text-center">
+            <a href="{{ url_for('ml.dashboard') }}" class="text-sm text-red-700 dark:text-red-400 hover:underline">
+                Tüm uyarıları görüntüle ve yönet →
+            </a>
+        </div>
+    </div>
+    {% endif %}
+
+
+
+    <!-- Hızlı Rapor Erişimi -->
+    <div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700 p-6">
+        <div class="flex items-center mb-4">
+            <i class="fas fa-chart-bar text-2xl text-blue-600 dark:text-blue-400 mr-3"></i>
+            <h3 class="text-lg font-medium text-slate-900 dark:text-white">Hızlı Rapor Erişimi</h3>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <a href="{{ url_for('raporlar.doluluk_raporlari') }}"
+                class="flex items-center gap-3 p-4 bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg border border-blue-200 dark:border-blue-800 hover:shadow-md transition-all">
+                <div class="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-calendar-alt text-white text-xl"></i>
                 </div>
-            </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-slate-900 dark:text-white">Doluluk Raporları</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 truncate">Günlük doluluk analizi</p>
+                </div>
+                <i class="fas fa-arrow-right text-blue-600 dark:text-blue-400"></i>
+            </a>
+
+            <a href="{{ url_for('raporlar.stok_raporlari') }}"
+                class="flex items-center gap-3 p-4 bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg border border-green-200 dark:border-green-800 hover:shadow-md transition-all">
+                <div class="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-boxes text-white text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-slate-900 dark:text-white">Stok Raporları</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 truncate">Stok durumu ve hareketler</p>
+                </div>
+                <i class="fas fa-arrow-right text-green-600 dark:text-green-400"></i>
+            </a>
+
+            <a href="{{ url_for('raporlar.minibar_raporlari') }}"
+                class="flex items-center gap-3 p-4 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg border border-purple-200 dark:border-purple-800 hover:shadow-md transition-all">
+                <div class="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-wine-bottle text-white text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-slate-900 dark:text-white">Minibar Raporları</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 truncate">Satış ve tüketim analizi</p>
+                </div>
+                <i class="fas fa-arrow-right text-purple-600 dark:text-purple-400"></i>
+            </a>
+
+            <a href="{{ url_for('raporlar.zimmet_raporlari') }}"
+                class="flex items-center gap-3 p-4 bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg border border-orange-200 dark:border-orange-800 hover:shadow-md transition-all">
+                <div class="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-user-tag text-white text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-slate-900 dark:text-white">Zimmet Raporları</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 truncate">Personel zimmet takibi</p>
+                </div>
+                <i class="fas fa-arrow-right text-orange-600 dark:text-orange-400"></i>
+            </a>
+
+            <a href="{{ url_for('raporlar.performans_raporlari') }}"
+                class="flex items-center gap-3 p-4 bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-lg border border-indigo-200 dark:border-indigo-800 hover:shadow-md transition-all">
+                <div class="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i class="fas fa-chart-line text-white text-xl"></i>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-slate-900 dark:text-white">Performans Raporları</p>
+                    <p class="text-xs text-slate-600 dark:text-slate-400 truncate">Personel performans analizi</p>
+                </div>
+                <i class="fas fa-arrow-right text-indigo-600 dark:text-indigo-400"></i>
+            </a>
         </div>
     </div>
 
     <!-- Sistem Yönetimi -->
-    <div class="bg-white shadow rounded-lg">
+    <div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700">
         <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 mb-4">Sistem Yönetimi</h3>
+            <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 dark:text-white mb-4">Sistem Yönetimi</h3>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 <a href="{{ url_for('otel_tanimla') }}"
                     class="relative group bg-white p-4 md:p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-slate-500 rounded-lg border border-slate-200 hover:border-slate-300 transition-colors">
@@ -190,9 +358,9 @@
     <!-- YENİ: Dashboard Widget'ları -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <!-- Ürün Bazlı Tüketim Grafiği -->
-        <div class="bg-white shadow rounded-lg p-4 md:p-6">
+        <div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700 p-4 md:p-6">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900">📈 Ürün Bazlı Tüketim</h3>
+                <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 dark:text-white">📈 Ürün Bazlı Tüketim</h3>
                 <span class="text-xs text-slate-500">Son 30 gün</span>
             </div>
             {% if urun_labels %}
@@ -212,9 +380,9 @@
         </div>
 
         <!-- Kullanıcı Aktivite Widget'ı -->
-        <div class="bg-white shadow rounded-lg p-4 md:p-6">
+        <div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700 p-4 md:p-6">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900">Son Kullanıcı Aktiviteleri</h3>
+                <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 dark:text-white">Son Kullanıcı Aktiviteleri</h3>
                 <button onclick="aktiviteleriYenile()" class="text-sm text-slate-600 hover:text-slate-900">
                     <svg class="w-4 h-4 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -242,7 +410,7 @@
 
     <!-- Stok Durumu İstatistikleri - Kompakt Görünüm -->
     {% if stok_durumlari %}
-    <div class="bg-white shadow rounded-lg">
+    <div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700">
         <div class="px-4 py-5 sm:p-6">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900">📊 Stok Durumu Özeti</h3>
@@ -348,137 +516,103 @@
         </div>
     </div>
     {% endif %}
-    <!-- Grafikler - Responsive Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        <!-- Kullanıcı Rol Dağılımı -->
-        <div class="bg-white shadow rounded-lg p-4 md:p-6">
-            <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 mb-4">Kullanıcı Rol Dağılımı</h3>
-            <div class="h-64 md:h-80">
-                <canvas id="rolDagilimChart"></canvas>
+        <!-- İstatistik Kartları - Responsive Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-5">
+        <div class="bg-white dark:bg-slate-800 overflow-hidden shadow-md hover:shadow-lg transition-shadow rounded-lg border border-slate-200 dark:border-slate-700">
+            <div class="p-4 md:p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 md:w-12 md:h-12 bg-blue-500 rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
+                                </path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-4 md:ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-xs md:text-sm font-medium text-slate-500 truncate">Toplam Kat</dt>
+                            <dd class="text-xl md:text-2xl font-semibold text-slate-900">{{ toplam_kat }}</dd>
+                        </dl>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <!-- Kat Bazlı Oda Sayıları -->
-        <div class="bg-white shadow rounded-lg p-4 md:p-6">
-            <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 mb-4">Kat Bazlı Oda Sayıları</h3>
-            <div class="h-64 md:h-80">
-                <canvas id="katOdaChart"></canvas>
-            </div>
-        </div>
-    </div>
-    <!-- Son Eklenen Katlar ve Odalar - Responsive Tablo -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        <!-- Son Eklenen Katlar -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 mb-4">Son Eklenen Katlar</h3>
-                {% if son_katlar %}
-                <div class="table-wrapper -mx-4 sm:mx-0">
-                    <div class="inline-block min-w-full align-middle">
-                        <table id="son-katlar-table" class="min-w-full divide-y divide-slate-200">
-                            <thead class="bg-slate-50">
-                                <tr>
-                                    <th
-                                        class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                        Kat Adı
-                                        <span
-                                            class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
-                                            {{ son_katlar|length }} kat
-                                        </span>
-                                    </th>
-                                    <th
-                                        class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden sm:table-cell">
-                                        Kat No</th>
-                                    <th
-                                        class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                        Oda Sayısı</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-slate-200">
-                                {% for kat in son_katlar %}
-                                <tr class="hover:bg-slate-50 transition-colors duration-150">
-                                    <td
-                                        class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-slate-900">
-                                        🏢 {{ kat.kat_adi }}</td>
-                                    <td
-                                        class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm hidden sm:table-cell">
-                                        <span
-                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                                            #{{ kat.kat_no }}
-                                        </span>
-                                    </td>
-                                    <td class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm">
-                                        <span
-                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                            🚪 {{ kat.odalar|length }}
-                                        </span>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+        <div class="bg-white dark:bg-slate-800 overflow-hidden shadow-md hover:shadow-lg transition-shadow rounded-lg border border-slate-200 dark:border-slate-700">
+            <div class="p-4 md:p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-10 h-10 md:w-12 md:h-12 bg-green-500 rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-4 md:ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-xs md:text-sm font-medium text-slate-500 truncate">Toplam Oda</dt>
+                            <dd class="text-xl md:text-2xl font-semibold text-slate-900">{{ toplam_oda }}</dd>
+                        </dl>
                     </div>
                 </div>
-                {% else %}
-                <p class="text-slate-500 text-center py-4 text-sm">Henüz kat eklenmemiş.</p>
-                {% endif %}
             </div>
         </div>
 
-        <!-- Son Eklenen Odalar -->
-        <div class="bg-white shadow rounded-lg">
-            <div class="px-4 py-5 sm:p-6">
-                <h3 class="text-base md:text-lg leading-6 font-medium text-slate-900 mb-4">Son Eklenen Odalar</h3>
-                {% if son_odalar %}
-                <div class="table-wrapper -mx-4 sm:mx-0">
-                    <div class="inline-block min-w-full align-middle">
-                        <table id="son-odalar-table" class="min-w-full divide-y divide-slate-200">
-                            <thead class="bg-slate-50">
-                                <tr>
-                                    <th
-                                        class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                        Oda No
-                                        <span
-                                            class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                                            {{ son_odalar|length }} oda
-                                        </span>
-                                    </th>
-                                    <th
-                                        class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden sm:table-cell">
-                                        Kat</th>
-                                    <th
-                                        class="px-3 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                                        Oda Tipi</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white divide-y divide-slate-200">
-                                {% for oda in son_odalar %}
-                                <tr class="hover:bg-slate-50 transition-colors duration-150">
-                                    <td
-                                        class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm font-medium text-slate-900">
-                                        🚪 {{ oda.oda_no }}</td>
-                                    <td
-                                        class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm hidden sm:table-cell">
-                                        <span
-                                            class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                                            🏢 {{ oda.kat.kat_adi }}
-                                        </span>
-                                    </td>
-                                    <td
-                                        class="px-3 md:px-6 py-3 md:py-4 whitespace-nowrap text-xs md:text-sm text-slate-500">
-                                        {{ oda.oda_tipi or '-' }}</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+        <div class="bg-white dark:bg-slate-800 overflow-hidden shadow-md hover:shadow-lg transition-shadow rounded-lg border border-slate-200 dark:border-slate-700">
+            <div class="p-4 md:p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div
+                            class="w-10 h-10 md:w-12 md:h-12 bg-yellow-500 rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z">
+                                </path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-4 md:ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-xs md:text-sm font-medium text-slate-500 truncate">Toplam Kullanıcı</dt>
+                            <dd class="text-xl md:text-2xl font-semibold text-slate-900">{{ toplam_kullanici }}</dd>
+                        </dl>
                     </div>
                 </div>
-                {% else %}
-                <p class="text-slate-500 text-center py-4 text-sm">Henüz oda eklenmemiş.</p>
-                {% endif %}
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-slate-800 overflow-hidden shadow-md hover:shadow-lg transition-shadow rounded-lg border border-slate-200 dark:border-slate-700">
+            <div class="p-4 md:p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div
+                            class="w-10 h-10 md:w-12 md:h-12 bg-purple-500 rounded-md flex items-center justify-center">
+                            <svg class="w-5 h-5 md:w-6 md:h-6 text-white" fill="none" stroke="currentColor"
+                                viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z">
+                                </path>
+                            </svg>
+                        </div>
+                    </div>
+                    <div class="ml-4 md:ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-xs md:text-sm font-medium text-slate-500 truncate">Toplam Personel</dt>
+                            <dd class="text-xl md:text-2xl font-semibold text-slate-900">{{ toplam_personel }}</dd>
+                        </dl>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
+  
+   
 </div>
 
 <script>
@@ -571,134 +705,8 @@
     }
     {% endif %}
 
-    // Kullanıcı Rol Dağılımı Pie Chart
-    const rolCtx = document.getElementById( 'rolDagilimChart' );
-    if ( rolCtx ) {
-        new Chart( rolCtx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Admin', 'Depo Sorumlusu', 'Kat Sorumlusu'],
-                datasets: [{
-                    data: [{{ admin_count }}, {{ depo_count }}, {{ kat_count }}],
-    backgroundColor: [
-        'rgba(59, 130, 246, 0.8)',   // Blue
-        'rgba(16, 185, 129, 0.8)',   // Green
-        'rgba(245, 158, 11, 0.8)'    // Yellow
-    ],
-        borderColor: [
-            'rgba(59, 130, 246, 1)',
-            'rgba(16, 185, 129, 1)',
-            'rgba(245, 158, 11, 1)'
-        ],
-            borderWidth: 2
-            }]
-        },
-    options: {
-        responsive: true,
-            maintainAspectRatio: false,
-                plugins: {
-            legend: {
-                position: 'bottom',
-                    labels: {
-                    padding: 15,
-                        font: {
-                        size: window.innerWidth < 768 ? 11 : 12
-                    }
-                }
-            },
-            title: {
-                display: false
-            }
-        }
-    }
-    });
-}
+    
 
-    // Kat Bazlı Oda Sayıları Bar Chart
-    const katOdaCtx = document.getElementById( 'katOdaChart' );
-    if ( katOdaCtx ) {
-        new Chart( katOdaCtx, {
-            type: 'bar',
-            data: {
-                labels: {{ kat_labels| tojson }},
-    datasets: [{
-        label: 'Oda Sayısı',
-        data: {{ kat_oda_sayilari| tojson }},
-        backgroundColor: 'rgba(139, 92, 246, 0.8)',
-        borderColor: 'rgba(139, 92, 246, 1)',
-        borderWidth: 2,
-        borderRadius: 6
-            }]
-        },
-    options: {
-        responsive: true,
-            maintainAspectRatio: false,
-                scales: {
-            y: {
-                beginAtZero: true,
-                    ticks: {
-                    stepSize: 1,
-                        font: {
-                        size: window.innerWidth < 768 ? 10 : 11
-                    }
-                },
-                grid: {
-                    color: 'rgba(0, 0, 0, 0.05)'
-                }
-            },
-            x: {
-                ticks: {
-                    font: {
-                        size: window.innerWidth < 768 ? 10 : 11
-                    }
-                },
-                grid: {
-                    display: false
-                }
-            }
-        },
-        plugins: {
-            legend: {
-                display: false
-            },
-            title: {
-                display: false
-            }
-        }
-    }
-    });
-}
-
-    // Responsive chart resize
-    window.addEventListener('resize', function() {
-        // Chart.js v3+ kullanıyoruz, instances yerine manuel resize
-        if (typeof stokDurumChart !== 'undefined' && stokDurumChart) {
-            stokDurumChart.resize();
-        }
-        if (typeof hareketChart !== 'undefined' && hareketChart) {
-            hareketChart.resize();
-        }
-    });
-
-    // TableSearchFilter - Son Katlar
-    {% if son_katlar %}
-    if ( typeof TableSearchFilter !== 'undefined' ) {
-        new TableSearchFilter( 'son-katlar-table', {
-            searchPlaceholder: 'Katlarda ara...',
-            defaultItemsPerPage: 10
-        } );
-    }
-    {% endif %}
-
-    // TableSearchFilter - Son Odalar
-    {% if son_odalar %}
-    if ( typeof TableSearchFilter !== 'undefined' ) {
-        new TableSearchFilter( 'son-odalar-table', {
-            searchPlaceholder: 'Odalarda ara...',
-            defaultItemsPerPage: 10
-        } );
-    }
-    {% endif %}
 
     // ========================================================================
     // YENİ: Dashboard Widget İşlevleri

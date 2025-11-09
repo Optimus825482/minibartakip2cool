@@ -80,6 +80,14 @@ def register_sistem_yoneticisi_routes(app):
         
         if form.validate_on_submit():
             try:
+                # Logo işleme
+                import base64
+                logo_data = None
+                if form.logo.data:
+                    logo_file = form.logo.data
+                    logo_bytes = logo_file.read()
+                    logo_data = base64.b64encode(logo_bytes).decode('utf-8')
+                
                 if otel:
                     # Eski değeri sakla
                     eski_deger = serialize_model(otel)
@@ -90,6 +98,10 @@ def register_sistem_yoneticisi_routes(app):
                     otel.telefon = form.telefon.data
                     otel.email = form.email.data
                     otel.vergi_no = form.vergi_no.data or ''
+                    
+                    # Logo güncelle (sadece yeni logo yüklendiyse)
+                    if logo_data:
+                        otel.logo = logo_data
                     
                     # Audit log
                     audit_update(
@@ -106,7 +118,8 @@ def register_sistem_yoneticisi_routes(app):
                         adres=form.adres.data,
                         telefon=form.telefon.data,
                         email=form.email.data,
-                        vergi_no=form.vergi_no.data or ''
+                        vergi_no=form.vergi_no.data or '',
+                        logo=logo_data
                     )
                     db.session.add(otel)
                     db.session.flush()
@@ -302,6 +315,80 @@ def register_sistem_yoneticisi_routes(app):
         """Oda tanımlama"""
         from forms import OdaForm
         from models import Otel
+        from flask import send_file
+        from datetime import datetime
+        import io
+        
+        # Excel export kontrolü
+        export_format = request.args.get('format', '')
+        if export_format == 'excel':
+            try:
+                from openpyxl import Workbook
+                from openpyxl.styles import Font, Alignment, PatternFill
+                
+                # Tüm odaları getir
+                odalar = Oda.query.options(
+                    db.joinedload(Oda.kat).joinedload(Kat.otel)
+                ).filter_by(aktif=True).order_by(Oda.oda_no).all()
+                
+                # Excel workbook oluştur
+                wb = Workbook()
+                ws = wb.active
+                ws.title = "Odalar"
+                
+                # Başlık satırı
+                headers = ['Otel Adı', 'Kat No', 'Oda No']
+                ws.append(headers)
+                
+                # Başlık stilini ayarla
+                header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+                header_font = Font(bold=True, color="FFFFFF")
+                
+                for cell in ws[1]:
+                    cell.fill = header_fill
+                    cell.font = header_font
+                    cell.alignment = Alignment(horizontal='center', vertical='center')
+                
+                # Veri satırları
+                for oda in odalar:
+                    otel_adi = oda.kat.otel.ad if oda.kat and oda.kat.otel else '-'
+                    kat_no = oda.kat.kat_no if oda.kat else '-'
+                    
+                    ws.append([
+                        otel_adi,
+                        kat_no,
+                        oda.oda_no
+                    ])
+                
+                # Sütun genişliklerini ayarla
+                ws.column_dimensions['A'].width = 30
+                ws.column_dimensions['B'].width = 15
+                ws.column_dimensions['C'].width = 15
+                
+                # Excel dosyasını memory'ye kaydet
+                excel_buffer = io.BytesIO()
+                wb.save(excel_buffer)
+                excel_buffer.seek(0)
+                
+                filename = f'odalar_{datetime.now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+                
+                # Log kaydı
+                log_islem('export', 'odalar', {
+                    'format': 'excel',
+                    'kayit_sayisi': len(odalar)
+                })
+                
+                return send_file(
+                    excel_buffer,
+                    as_attachment=True,
+                    download_name=filename,
+                    mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                )
+                
+            except Exception as e:
+                log_hata(e, modul='oda_tanimla_excel')
+                flash('Excel dosyası oluşturulamadı.', 'danger')
+                return redirect(url_for('oda_tanimla'))
         
         form = OdaForm()
         
@@ -361,9 +448,11 @@ def register_sistem_yoneticisi_routes(app):
                 log_hata(e, modul='oda_tanimla')
                 flash('Oda eklenirken hata oluştu.', 'danger')
         
-        # Katlar ve odalar
+        # Katlar ve odalar (eager loading ile otel bilgisini de çek)
         katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
-        odalar = Oda.query.filter_by(aktif=True).order_by(Oda.oda_no).all()
+        odalar = Oda.query.options(
+            db.joinedload(Oda.kat).joinedload(Kat.otel)
+        ).filter_by(aktif=True).order_by(Oda.oda_no).all()
         
         return render_template('sistem_yoneticisi/oda_tanimla.html', katlar=katlar, odalar=odalar, form=form, oteller=oteller)
     

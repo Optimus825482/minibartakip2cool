@@ -19,6 +19,25 @@ def register_kat_sorumlusu_ilk_dolum_routes(app):
     def api_ilk_dolum_kontrol(oda_id, urun_id):
         """Bir ürüne ilk dolum yapılmış mı kontrol et"""
         try:
+            # Kat sorumlusunun otelini kontrol et
+            from utils.authorization import get_kat_sorumlusu_otel
+            kullanici_id = session['kullanici_id']
+            kullanici_oteli = get_kat_sorumlusu_otel(kullanici_id)
+            
+            if not kullanici_oteli:
+                return jsonify({
+                    'success': False,
+                    'message': 'Otel atamanız bulunamadı'
+                }), 403
+            
+            # Odanın bu otele ait olduğunu kontrol et
+            oda = db.session.get(Oda, oda_id)
+            if not oda or oda.kat.otel_id != kullanici_oteli.id:
+                return jsonify({
+                    'success': False,
+                    'message': 'Bu odaya erişim yetkiniz yok'
+                }), 403
+            
             # Bu oda için bu ürüne ilk dolum yapılmış mı?
             ilk_dolum = db.session.query(MinibarIslemDetay).join(
                 MinibarIslem
@@ -92,6 +111,17 @@ def register_kat_sorumlusu_ilk_dolum_routes(app):
                     'message': 'Geçersiz miktar formatı'
                 }), 400
             
+            # Kat sorumlusunun otelini kontrol et
+            from utils.authorization import get_kat_sorumlusu_otel
+            kullanici_id = session['kullanici_id']
+            kullanici_oteli = get_kat_sorumlusu_otel(kullanici_id)
+            
+            if not kullanici_oteli:
+                return jsonify({
+                    'success': False,
+                    'message': 'Otel atamanız bulunamadı'
+                }), 403
+            
             # Oda ve ürün kontrolü
             oda = db.session.get(Oda, oda_id)
             urun = db.session.get(Urun, urun_id)
@@ -101,6 +131,13 @@ def register_kat_sorumlusu_ilk_dolum_routes(app):
                     'success': False,
                     'message': 'Oda bulunamadı'
                 }), 404
+            
+            # Odanın bu otele ait olduğunu kontrol et
+            if oda.kat.otel_id != kullanici_oteli.id:
+                return jsonify({
+                    'success': False,
+                    'message': 'Bu odaya erişim yetkiniz yok'
+                }), 403
             
             if not urun:
                 return jsonify({
@@ -282,6 +319,17 @@ def register_kat_sorumlusu_ilk_dolum_routes(app):
                     'message': 'En az bir ürün seçmelisiniz'
                 }), 400
             
+            # Kat sorumlusunun otelini kontrol et
+            from utils.authorization import get_kat_sorumlusu_otel
+            kullanici_id = session['kullanici_id']
+            kullanici_oteli = get_kat_sorumlusu_otel(kullanici_id)
+            
+            if not kullanici_oteli:
+                return jsonify({
+                    'success': False,
+                    'message': 'Otel atamanız bulunamadı'
+                }), 403
+            
             # Oda kontrolü
             oda = db.session.get(Oda, oda_id)
             if not oda:
@@ -290,7 +338,12 @@ def register_kat_sorumlusu_ilk_dolum_routes(app):
                     'message': 'Oda bulunamadı'
                 }), 404
             
-            kullanici_id = session['kullanici_id']
+            # Odanın bu otele ait olduğunu kontrol et
+            if oda.kat.otel_id != kullanici_oteli.id:
+                return jsonify({
+                    'success': False,
+                    'message': 'Bu odaya erişim yetkiniz yok'
+                }), 403
             
             # Bu oda için hangi ürünlere ilk dolum yapılmış kontrol et
             mevcut_ilk_dolumlar = db.session.query(MinibarIslemDetay.urun_id).join(

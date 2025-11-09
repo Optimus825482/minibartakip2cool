@@ -59,30 +59,12 @@
 
     <!-- Bootstrap CSS (for modals) -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css">
-    
+
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- Tailwind CSS Play CDN -->
+
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com/3.4.1"></script>
-
-    <!-- jQuery CDN -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-    <!-- Bootstrap JS (for modals) -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
-
-    <!-- Chart.js CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-
-    <!-- SweetAlert2 CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
-    <!-- Select2 CSS & JS -->
-    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
-    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
-    <!-- Tailwind Config -->
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -107,6 +89,22 @@
             }
         }
     </script>
+
+    <!-- jQuery CDN -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+    <!-- Bootstrap JS (for modals) -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+    <!-- SweetAlert2 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <!-- Choices.js CSS & JS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/styles/choices.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/choices.js@10.2.0/public/assets/scripts/choices.min.js"></script>
 
     <!-- Custom CSS -->
     <style>
@@ -900,6 +898,37 @@
                         Raporlar
                     </a>
 
+                    <a href="{{ url_for('doluluk.doluluk_yonetimi') }}"
+                        class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        Doluluk Yönetimi
+                    </a>
+
+                    <a href="{{ url_for('doluluk.gunluk_doluluk') }}"
+                        class="flex items-center px-4 py-2 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700">
+                        <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4">
+                            </path>
+                        </svg>
+                        Günlük Doluluk
+                    </a>
+                    
+                    <!-- PWA Install Button - Depo Sorumlusu -->
+                    <div class="mt-6 px-4">
+                        <button id="pwa-sidebar-install-btn" 
+                                class="pwa-install-button hidden w-full flex items-center justify-center px-3 py-2 text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors border border-purple-200 dark:border-purple-800">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Uygulama Olarak Yükle
+                        </button>
+                    </div>
+
                     {% elif current_user.rol == 'kat_sorumlusu' %}
                     <!-- Ana Sayfa -->
                     <a href="{{ url_for('kat_sorumlusu_dashboard') }}"
@@ -977,16 +1006,35 @@
                         class="flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 rounded-lg text-base">
                         <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                            </path>
                         </svg>
                         Kritik Stoklar
+                    </a>
+
+                    <!-- Doluluk Yönetimi -->
+                    <div class="px-4 py-2 mt-4">
+                        <p class="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                            Doluluk Bilgileri
+                        </p>
+                    </div>
+
+                    <a href="{{ url_for('doluluk.gunluk_doluluk') }}"
+                        class="flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 rounded-lg text-base">
+                        <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                        Günlük Doluluk
                     </a>
 
                     <a href="{{ url_for('kat_sorumlusu_siparis_hazirla') }}"
                         class="flex items-center px-4 py-3 text-slate-700 dark:text-slate-200 rounded-lg text-base">
                         <svg class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2">
+                            </path>
                         </svg>
                         Sipariş Ver
                     </a>
@@ -1016,6 +1064,17 @@
                         </svg>
                         Kat Bazlı Rapor
                     </a>
+                    
+                    <!-- PWA Install Button - Kat Sorumlusu -->
+                    <div class="mt-6 px-4">
+                        <button id="pwa-sidebar-install-btn" 
+                                class="pwa-install-button hidden w-full flex items-center justify-center px-3 py-2 text-xs font-medium text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-900/20 rounded-lg hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors border border-purple-200 dark:border-purple-800">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            Uygulama Olarak Yükle
+                        </button>
+                    </div>
                     {% endif %}
                     {% endif %}
                 </nav>
@@ -1054,11 +1113,32 @@
                     <!-- Spacer for mobile menu button -->
                     <div class="w-12 md:hidden"></div>
 
-                    <!-- Page Title - Responsive -->
-                    <h1
-                        class="text-base sm:text-lg md:text-xl font-semibold text-slate-900 dark:text-slate-100 truncate flex-1 text-center md:text-left">
-                        {% block page_title %}Panel{% endblock %}
-                    </h1>
+                    <!-- Page Title & Hotel Info - Responsive -->
+                    <div class="flex items-center gap-3 flex-1 min-w-0">
+                        {% if kullanici_otel %}
+                        <!-- Otel Logosu -->
+                        {% if kullanici_otel.logo %}
+                        <img src="data:image/png;base64,{{ kullanici_otel.logo }}" 
+                             alt="{{ kullanici_otel.ad }}" 
+                             class="h-8 w-auto object-contain hidden sm:block">
+                        {% endif %}
+                        
+                        <!-- Otel Adı ve Sayfa Başlığı -->
+                        <div class="flex flex-col min-w-0 flex-1">
+                            <span class="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                {{ kullanici_otel.ad }}
+                            </span>
+                            <h1 class="text-base sm:text-lg md:text-xl font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                {% block page_title_content %}Panel{% endblock %}
+                            </h1>
+                        </div>
+                        {% else %}
+                        <!-- Sadece Sayfa Başlığı -->
+                        <h1 class="text-base sm:text-lg md:text-xl font-semibold text-slate-900 dark:text-slate-100 truncate flex-1 text-center md:text-left">
+                            {% block page_title %}Panel{% endblock %}
+                        </h1>
+                        {% endif %}
+                    </div>
 
                     <!-- Right side - Touch-friendly -->
                     <div class="flex items-center space-x-2 sm:space-x-4">
@@ -1602,7 +1682,7 @@
     <script>
         // SweetAlert2 Dark Mode Konfigürasyonu
         const getSwalTheme = () => {
-            const isDark = document.documentElement.classList.contains('dark');
+            const isDark = document.documentElement.classList.contains( 'dark' );
             return {
                 background: isDark ? '#1e293b' : '#ffffff',
                 color: isDark ? '#f1f5f9' : '#0f172a',
@@ -1617,11 +1697,11 @@
         };
 
         // Başarı Mesajı
-        window.showSuccess = (message, title = 'Başarılı!') => {
+        window.showSuccess = ( message, title = 'Başarılı!' ) => {
             // Önceki modal'ı kapat
             Swal.close();
             // Yeni modal'ı göster
-            return Swal.fire({
+            return Swal.fire( {
                 icon: 'success',
                 title: title,
                 text: message,
@@ -1629,54 +1709,54 @@
                 timerProgressBar: true,
                 showConfirmButton: false,
                 ...getSwalTheme()
-            });
+            } );
         };
 
         // Hata Mesajı
-        window.showError = (message, title = 'Hata!') => {
+        window.showError = ( message, title = 'Hata!' ) => {
             // Önceki modal'ı kapat
             Swal.close();
             // Yeni modal'ı göster
-            return Swal.fire({
+            return Swal.fire( {
                 icon: 'error',
                 title: title,
                 text: message,
                 confirmButtonText: 'Tamam',
                 ...getSwalTheme()
-            });
+            } );
         };
 
         // Uyarı Mesajı
-        window.showWarning = (message, title = 'Dikkat!') => {
+        window.showWarning = ( message, title = 'Dikkat!' ) => {
             // Önceki modal'ı kapat
             Swal.close();
             // Yeni modal'ı göster
-            return Swal.fire({
+            return Swal.fire( {
                 icon: 'warning',
                 title: title,
                 text: message,
                 confirmButtonText: 'Tamam',
                 ...getSwalTheme()
-            });
+            } );
         };
 
         // Bilgi Mesajı
-        window.showInfo = (message, title = 'Bilgi') => {
+        window.showInfo = ( message, title = 'Bilgi' ) => {
             // Önceki modal'ı kapat
             Swal.close();
             // Yeni modal'ı göster
-            return Swal.fire({
+            return Swal.fire( {
                 icon: 'info',
                 title: title,
                 text: message,
                 confirmButtonText: 'Tamam',
                 ...getSwalTheme()
-            });
+            } );
         };
 
         // Onay Mesajı (Promise döner)
-        window.showConfirm = (message, title = 'Emin misiniz?') => {
-            return Swal.fire({
+        window.showConfirm = ( message, title = 'Emin misiniz?' ) => {
+            return Swal.fire( {
                 icon: 'question',
                 title: title,
                 text: message,
@@ -1685,12 +1765,12 @@
                 cancelButtonText: 'Hayır',
                 reverseButtons: true,
                 ...getSwalTheme()
-            });
+            } );
         };
 
         // Loading Göster
-        window.showLoading = (message = 'İşlem yapılıyor...') => {
-            Swal.fire({
+        window.showLoading = ( message = 'İşlem yapılıyor...' ) => {
+            Swal.fire( {
                 title: message,
                 allowOutsideClick: false,
                 allowEscapeKey: false,
@@ -1698,7 +1778,7 @@
                     Swal.showLoading();
                 },
                 ...getSwalTheme()
-            });
+            } );
         };
 
         // Loading Kapat
@@ -1713,51 +1793,202 @@
             background-color: #1e293b !important;
             color: #f1f5f9 !important;
         }
-        
+
         .dark .swal2-title {
             color: #f1f5f9 !important;
         }
-        
+
         .dark .swal2-html-container {
             color: #cbd5e1 !important;
         }
-        
+
         .dark .swal2-icon.swal2-success [class^='swal2-success-line'] {
             background-color: #10b981 !important;
         }
-        
+
         .dark .swal2-icon.swal2-success .swal2-success-ring {
             border-color: rgba(16, 185, 129, 0.3) !important;
         }
-        
+
         .dark .swal2-icon.swal2-error [class^='swal2-x-mark-line'] {
             background-color: #ef4444 !important;
         }
-        
+
         .dark .swal2-timer-progress-bar {
             background: #3b82f6 !important;
+        }
+
+        /* Choices.js Özel Stiller - Temaya Uygun */
+        .choices {
+            margin-bottom: 0 !important;
+        }
+
+        .choices__inner {
+            background-color: white !important;
+            border: 2px solid #cbd5e1 !important;
+            border-radius: 0.5rem !important;
+            padding: 0.5rem !important;
+            min-height: 44px !important;
+            font-size: 0.875rem !important;
+        }
+
+        .dark .choices__inner {
+            background-color: #1e293b !important;
+            border-color: #475569 !important;
+            color: #f1f5f9 !important;
+        }
+
+        .choices[data-type*="select-multiple"] .choices__inner {
+            min-height: 80px !important;
+            padding: 0.75rem !important;
+        }
+
+        .choices__input {
+            background-color: transparent !important;
+            color: inherit !important;
+        }
+
+        .dark .choices__input {
+            color: #f1f5f9 !important;
+        }
+
+        .choices__list--multiple .choices__item {
+            background-color: #4f46e5 !important;
+            border: none !important;
+            color: white !important;
+            padding: 0.5rem 0.75rem !important;
+            border-radius: 0.375rem !important;
+            font-size: 0.875rem !important;
+            font-weight: 500 !important;
+            margin: 0.25rem !important;
+        }
+
+        .choices__list--multiple .choices__item.is-highlighted {
+            background-color: #4338ca !important;
+        }
+
+        .choices__button {
+            border-left: 1px solid rgba(255, 255, 255, 0.3) !important;
+            opacity: 1 !important;
+            padding: 0 8px !important;
+        }
+
+        .choices__button:hover {
+            opacity: 0.8 !important;
+        }
+
+        .choices__list--dropdown {
+            background-color: white !important;
+            border: 2px solid #c7d2fe !important;
+            border-radius: 0.5rem !important;
+            margin-top: 4px !important;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+        }
+
+        .dark .choices__list--dropdown {
+            background-color: #1e293b !important;
+            border-color: #4f46e5 !important;
+        }
+
+        .choices__list--dropdown .choices__item {
+            padding: 0.75rem 1rem !important;
+            font-size: 0.875rem !important;
+            color: #334155 !important;
+        }
+
+        .dark .choices__list--dropdown .choices__item {
+            color: #f1f5f9 !important;
+        }
+
+        .choices__list--dropdown .choices__item--selectable.is-highlighted {
+            background-color: #4f46e5 !important;
+            color: white !important;
+        }
+
+        .choices.is-focused .choices__inner {
+            border-color: #4f46e5 !important;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1) !important;
+        }
+
+        .choices.is-disabled .choices__inner {
+            background-color: #f1f5f9 !important;
+            cursor: not-allowed !important;
+            opacity: 0.6 !important;
+        }
+
+        .dark .choices.is-disabled .choices__inner {
+            background-color: #0f172a !important;
+        }
+
+        .dark .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable {
+            background-color: #4f46e5 !important;
+            color: white !important;
         }
     </style>
 
     <!-- Select2 Initialization -->
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Tüm select elementlerine Select2 uygula (otel, kat, depo sorumlusu seçimleri için)
-            $('select[name="otel_id"], select[name="otel_ids"], select[name="kat_id"], select[name="depo_sorumlusu_id"]').select2({
-                placeholder: 'Seçiniz...',
-                allowClear: true,
-                width: '100%',
-                language: {
-                    noResults: function() {
-                        return "Sonuç bulunamadı";
-                    },
-                    searching: function() {
-                        return "Aranıyor...";
-                    }
+        // Global Choices.js instances
+        window.choicesInstances = {};
+
+        document.addEventListener( 'DOMContentLoaded', function () {
+            // Tüm select elementlerini Choices.js ile başlat
+            initializeChoices();
+        } );
+
+        function initializeChoices() {
+            // Çoklu seçim için (otel_ids)
+            const multiSelects = document.querySelectorAll( 'select[name="otel_ids"], select[multiple]' );
+            multiSelects.forEach( function ( select ) {
+                if ( !select.classList.contains( 'choices__input' ) ) {
+                    const choices = new Choices( select, {
+                        removeItemButton: true,
+                        searchEnabled: true,
+                        searchPlaceholderValue: 'Ara...',
+                        noResultsText: 'Sonuç bulunamadı',
+                        noChoicesText: 'Seçenek yok',
+                        itemSelectText: 'Seçmek için tıklayın',
+                        placeholder: true,
+                        placeholderValue: select.getAttribute( 'data-placeholder' ) || '🏨 Otel seçiniz...',
+                        shouldSort: false
+                    } );
+                    window.choicesInstances[select.id || select.name] = choices;
                 }
-            });
-        });
+            } );
+
+            // Tekli seçim için (otel_id, kat_id, rol, vb.)
+            const singleSelects = document.querySelectorAll( 'select:not([multiple]):not(.no-choices)' );
+            singleSelects.forEach( function ( select ) {
+                if ( !select.classList.contains( 'choices__input' ) && select.name !== 'otel_ids' ) {
+                    const choices = new Choices( select, {
+                        searchEnabled: true,
+                        searchPlaceholderValue: 'Ara...',
+                        noResultsText: 'Sonuç bulunamadı',
+                        noChoicesText: 'Seçenek yok',
+                        itemSelectText: 'Seçmek için tıklayın',
+                        placeholder: true,
+                        placeholderValue: select.getAttribute( 'data-placeholder' ) || 'Seçiniz...',
+                        shouldSort: false,
+                        allowHTML: true
+                    } );
+                    window.choicesInstances[select.id || select.name] = choices;
+                }
+            } );
+        }
+
+        // Choices.js instance'ını yeniden başlatma fonksiyonu
+        function reinitializeChoices( selector ) {
+            const select = document.querySelector( selector );
+            if ( select && window.choicesInstances[select.id || select.name] ) {
+                window.choicesInstances[select.id || select.name].destroy();
+                delete window.choicesInstances[select.id || select.name];
+            }
+            initializeChoices();
+        }
     </script>
+
+    <!-- PWA Kurulum Uyarısı -->
+    <script src="{{ url_for('static', filename='js/pwa-install.js') }}"></script>
 
     {% block extra_scripts %}{% endblock %}
 </body>

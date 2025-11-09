@@ -1,46 +1,36 @@
 {% extends "base.html" %}
 {% from "_form_helpers.html" import render_field, render_submit, flash_messages %}
 
-{% block title %}Kat Tanımla - Minibar Takip Sistemi{% endblock %}
-{% block page_title %}Kat Tanımla{% endblock %}
+{% block title %}Kat Yönetimi - Minibar Takip Sistemi{% endblock %}
+{% block page_title %}Kat Yönetimi{% endblock %}
 
 {% block content %}
 <div class="space-y-6">
     <!-- Flash Messages -->
     {{ flash_messages() }}
 
-    <!-- Kat Ekleme Formu -->
-    <div class="bg-white shadow rounded-lg">
+    <!-- Yeni Kat Ekle Butonu -->
+    <div class="bg-white dark:bg-slate-800 shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-slate-900 mb-6">Yeni Kat Ekle</h3>
-
-            <form method="POST" class="space-y-6">
-                {{ form.csrf_token }}
-
-                <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                    <div class="sm:col-span-2">
-                        {{ render_field(form.otel_id, placeholder="Otel Seçin...") }}
-                    </div>
-                    
-                    {{ render_field(form.kat_adi, placeholder="Örn: 1. Kat, Zemin Kat") }}
-                    {{ render_field(form.kat_no, placeholder="Örn: 0 (Zemin), 1, 2, 3") }}
-
-                    <div class="sm:col-span-2">
-                        {{ render_field(form.aciklama, placeholder="Kat hakkında ek bilgiler...") }}
-                    </div>
-                </div>
-
-                {{ render_submit("Kat Ekle", class="flex justify-end") }}
-            </form>
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg leading-6 font-medium text-slate-900 dark:text-slate-100">Kat Yönetimi</h3>
+                <button onclick="yeniKatModal()" 
+                        class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                    <svg class="h-5 w-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Yeni Kat Ekle
+                </button>
+            </div>
         </div>
     </div>
 
     <!-- Mevcut Katlar Listesi -->
-    <div class="bg-white shadow rounded-lg">
+    <div class="bg-white dark:bg-slate-800 shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
             <div class="flex items-center justify-between mb-4">
-                <h3 class="text-lg leading-6 font-medium text-slate-900">Mevcut Katlar</h3>
-                <div class="flex items-center gap-2 text-sm text-slate-600">
+                <h3 class="text-lg leading-6 font-medium text-slate-900 dark:text-slate-100">Mevcut Katlar</h3>
+                <div class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                     <span class="font-medium" data-stats-for="katlar-table" data-stat="total">{{ katlar|length }}</span>
                     <span>Toplam Kat</span>
                 </div>
@@ -48,71 +38,81 @@
 
             {% if katlar %}
             <div class="table-wrapper">
-                <table id="katlar-table" class="min-w-full divide-y divide-slate-200">
-                    <thead class="bg-slate-50">
+                <table id="katlar-table" class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                    <thead class="bg-slate-50 dark:bg-slate-900">
                         <tr>
                             <th
-                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                 Otel</th>
                             <th
-                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                 Kat Adı</th>
                             <th
-                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                 Kat No</th>
                             <th
-                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider hidden md:table-cell">
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider hidden md:table-cell">
                                 Oda Sayısı</th>
                             <th
-                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                                 Durum</th>
                             <th
-                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider no-sort">
+                                class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider no-sort">
                                 İşlemler</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-slate-200">
+                    <tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
                         {% for kat in katlar %}
-                        <tr class="hover:bg-slate-50 transition-colors">
-                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500">
-                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                        <tr class="hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 dark:bg-indigo-900 text-indigo-800 dark:text-indigo-200">
                                     🏨 {{ kat.otel.ad if kat.otel else 'Otel Yok' }}
                                 </span>
                             </td>
-                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-slate-900">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm font-medium text-slate-900 dark:text-slate-100">
                                 {{ kat.kat_adi }}
                             </td>
-                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500">
+                            <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400">
                                 <span
-                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200">
                                     {% if kat.kat_no == 0 %}Zemin Kat{% else %}{{ kat.kat_no }}. Kat{% endif %}
                                 </span>
                             </td>
                             <td
-                                class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 hidden md:table-cell">
+                                class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-sm text-slate-500 dark:text-slate-400 hidden md:table-cell">
                                 <span
-                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
                                     {{ kat.odalar|length }} oda
                                 </span>
                             </td>
                             <td class="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                                 <span
                                     class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
-                                        {% if kat.aktif %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                        {% if kat.aktif %}bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200{% else %}bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200{% endif %}">
                                     {% if kat.aktif %}Aktif{% else %}Pasif{% endif %}
                                 </span>
                             </td>
                             <td class="px-3 sm:px-6 py-3 sm:py-4 text-sm font-medium">
-                                <div class="flex flex-col sm:flex-row gap-2">
-                                    <a href="{{ url_for('kat_duzenle', kat_id=kat.id) }}"
-                                        class="text-slate-600 hover:text-slate-900 whitespace-nowrap">
+                                <div class="flex flex-wrap gap-2">
+                                    <!-- Düzenle Butonu -->
+                                    <button onclick="katDuzenleModal({{ kat.id }}, '{{ kat.otel_id }}', '{{ kat.kat_adi }}', '{{ kat.kat_no }}', '{{ kat.aciklama or '' }}')"
+                                        class="inline-flex items-center px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-md text-xs font-medium text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-700 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors">
+                                        <svg class="h-3.5 w-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                        </svg>
                                         Düzenle
-                                    </a>
+                                    </button>
+                                    
+                                    <!-- Sil Butonu -->
                                     {% if kat.aktif %}
                                     <form method="POST" action="{{ url_for('kat_sil', kat_id=kat.id) }}" class="inline">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
-                                        <button type="submit" class="text-red-600 hover:text-red-900 whitespace-nowrap"
+                                        <button type="submit"
+                                            class="inline-flex items-center px-3 py-1.5 border border-red-300 dark:border-red-600 rounded-md text-xs font-medium text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors"
                                             onclick="return confirm('Bu katı silmek istediğinizden emin misiniz?')">
+                                            <svg class="h-3.5 w-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
                                             Sil
                                         </button>
                                     </form>
@@ -126,22 +126,161 @@
             </div>
             {% else %}
             <div class="text-center py-8">
-                <svg class="mx-auto h-12 w-12 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="mx-auto h-12 w-12 text-slate-400 dark:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                         d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
                     </path>
                 </svg>
-                <h3 class="mt-2 text-sm font-medium text-slate-900">Henüz kat eklenmemiş</h3>
-                <p class="mt-1 text-sm text-slate-500">Yukarıdaki formu kullanarak ilk katınızı ekleyin.</p>
+                <h3 class="mt-2 text-sm font-medium text-slate-900 dark:text-slate-100">Henüz kat eklenmemiş</h3>
+                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Yukarıdaki formu kullanarak ilk katınızı ekleyin.</p>
             </div>
             {% endif %}
         </div>
     </div>
 </div>
+
+<!-- Yeni Kat Ekle Modal -->
+<div class="modal fade" id="yeniKatModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content bg-white dark:bg-slate-800 border-0 shadow-xl">
+            <div class="modal-header border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                <h5 class="modal-title text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    <svg class="inline-block h-5 w-5 mr-2 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    Yeni Kat Ekle
+                </h5>
+                <button type="button" class="close text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" data-dismiss="modal">
+                    <span class="text-2xl">&times;</span>
+                </button>
+            </div>
+            <form method="POST" action="{{ url_for('kat_tanimla') }}">
+                {{ form.csrf_token }}
+                <div class="modal-body p-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Otel <span class="text-red-500">*</span>
+                            </label>
+                            {{ form.otel_id(class="no-choices w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100") }}
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Kat Adı <span class="text-red-500">*</span>
+                            </label>
+                            {{ form.kat_adi(class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100", placeholder="Örn: 1. Kat, Zemin Kat") }}
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Kat No <span class="text-red-500">*</span>
+                            </label>
+                            {{ form.kat_no(class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100", placeholder="Örn: 0 (Zemin), 1, 2, 3") }}
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Açıklama
+                            </label>
+                            {{ form.aciklama(class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100", rows="3", placeholder="Kat hakkında ek bilgiler...") }}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-6 py-4">
+                    <button type="button" class="inline-flex items-center px-4 py-2 border border-slate-300 dark:border-slate-600 shadow-sm text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700" data-dismiss="modal">
+                        İptal
+                    </button>
+                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                        Kat Ekle
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Kat Düzenle Modal -->
+<div class="modal fade" id="katDuzenleModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content bg-white dark:bg-slate-800 border-0 shadow-xl">
+            <div class="modal-header border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900">
+                <h5 class="modal-title text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    <svg class="inline-block h-5 w-5 mr-2 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                    </svg>
+                    Kat Düzenle
+                </h5>
+                <button type="button" class="close text-slate-400 hover:text-slate-600 dark:hover:text-slate-200" data-dismiss="modal">
+                    <span class="text-2xl">&times;</span>
+                </button>
+            </div>
+            <form id="katDuzenleForm" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+                <div class="modal-body p-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Otel <span class="text-red-500">*</span>
+                            </label>
+                            <select id="duzenle_otel_id" name="otel_id" class="no-choices w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100" required>
+                                {% for otel in form.otel_id.choices %}
+                                <option value="{{ otel[0] }}">{{ otel[1] }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Kat Adı <span class="text-red-500">*</span>
+                            </label>
+                            <input type="text" id="duzenle_kat_adi" name="kat_adi" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Kat No <span class="text-red-500">*</span>
+                            </label>
+                            <input type="number" id="duzenle_kat_no" name="kat_no" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100" required>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                                Açıklama
+                            </label>
+                            <textarea id="duzenle_aciklama" name="aciklama" rows="3" class="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-6 py-4">
+                    <button type="button" class="inline-flex items-center px-4 py-2 border border-slate-300 dark:border-slate-600 shadow-sm text-sm font-medium rounded-md text-slate-700 dark:text-slate-300 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700" data-dismiss="modal">
+                        İptal
+                    </button>
+                    <button type="submit" class="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                        Güncelle
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
+    // Modal açma fonksiyonları
+    function yeniKatModal() {
+        $('#yeniKatModal').modal('show');
+    }
+    
+    function katDuzenleModal(katId, otelId, katAdi, katNo, aciklama) {
+        document.getElementById('duzenle_otel_id').value = otelId;
+        document.getElementById('duzenle_kat_adi').value = katAdi;
+        document.getElementById('duzenle_kat_no').value = katNo;
+        document.getElementById('duzenle_aciklama').value = aciklama || '';
+        
+        // Form action'ı güncelle
+        document.getElementById('katDuzenleForm').action = `/kat-duzenle/${katId}`;
+        
+        $('#katDuzenleModal').modal('show');
+    }
+    
+    // Tablo filtreleme
     document.addEventListener( 'DOMContentLoaded', function () {
         const katlarTable = document.getElementById( 'katlar-table' );
         if ( katlarTable ) {
@@ -157,7 +296,7 @@
                         ]
                     }
                 ],
-                defaultItemsPerPage: 25 // Orta seviye - katlar genelde çok fazla değil
+                defaultItemsPerPage: 25
             } );
         }
     } );

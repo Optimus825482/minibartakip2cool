@@ -6,7 +6,7 @@ echo "DOCKER CONTAINER BAŞLATILIYOR"
 echo "=========================================="
 
 # Database bağlantısını bekle
-echo "[1/3] Database bağlantısı kontrol ediliyor..."
+echo "[1/1] Database bağlantısı kontrol ediliyor..."
 python -c "
 import time
 import sys
@@ -35,23 +35,21 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# Migration'ları uygula
 echo ""
-echo "[2/3] Database migration'ları uygulanıyor..."
-python apply_multi_hotel_migration.py
+echo "[2/2] Veritabanı tabloları kontrol ediliyor..."
+python -c "
+from app import app, db
+from models import *
 
-if [ $? -ne 0 ]; then
-    echo "⚠️  Migration hatası! Devam ediliyor..."
-fi
-
-# Veri migrasyonunu uygula
-echo ""
-echo "[3/3] Veri migrasyonu uygulanıyor..."
-python migrate_to_multi_hotel.py
-
-if [ $? -ne 0 ]; then
-    echo "⚠️  Veri migrasyonu hatası! Devam ediliyor..."
-fi
+with app.app_context():
+    try:
+        # Tabloları oluştur
+        db.create_all()
+        print('✅ Veritabanı tabloları hazır!')
+    except Exception as e:
+        print(f'⚠️  Tablo oluşturma uyarısı: {e}')
+        print('ℹ️  Devam ediliyor...')
+"
 
 echo ""
 echo "=========================================="

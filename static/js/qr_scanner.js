@@ -4,6 +4,12 @@
  */
 
 let html5QrCode = null;
+let secilenOdaId = null; // Global variable tanımı
+
+// jQuery kontrolü
+if (typeof $ === 'undefined' || typeof jQuery === 'undefined') {
+    console.error('jQuery yüklenmemiş! QR Scanner çalışmayacak.');
+}
 
 // QR ile başlat
 function qrIleBaslat() {
@@ -22,7 +28,11 @@ function startQRScanner() {
     const qrReaderDiv = document.getElementById("qrReader");
     
     if (!qrReaderDiv) {
-        toastr.error('QR okuyucu bulunamadı');
+        if (window.Toast) {
+            window.Toast.error('QR okuyucu bulunamadı');
+        } else {
+            console.error('QR okuyucu bulunamadı');
+        }
         return;
     }
     
@@ -46,7 +56,9 @@ function startQRScanner() {
         }
     ).catch((err) => {
         console.error('QR Scanner başlatma hatası:', err);
-        toastr.error('Kamera erişimi reddedildi veya hata oluştu');
+        if (window.Toast) {
+            window.Toast.error('Kamera erişimi reddedildi veya hata oluştu');
+        }
         $('#qrScannerModal').modal('hide');
     });
 }
@@ -70,7 +82,9 @@ function onQRCodeScanned(qrUrl) {
     const token = urlParts[urlParts.length - 1];
     
     if (!token) {
-        toastr.error('Geçersiz QR kod formatı');
+        if (window.Toast) {
+            window.Toast.error('Geçersiz QR kod formatı');
+        }
         return;
     }
     
@@ -141,7 +155,9 @@ function onQRCodeScanned(qrUrl) {
                                     </div>
                                 `);
                                 
-                                toastr.success(`Oda ${data.oda_no} otomatik seçildi!`);
+                                if (window.Toast) {
+                                    window.Toast.success(`Oda ${data.oda_no} otomatik seçildi!`);
+                                }
                                 
                                 // Modal'ı 2 saniye sonra kapat
                                 setTimeout(() => {
@@ -149,12 +165,16 @@ function onQRCodeScanned(qrUrl) {
                                 }, 2000);
                             } else {
                                 odaSelect.html('<option value="">Bu katta oda yok</option>');
-                                toastr.error('Bu katta oda bulunamadı');
+                                if (window.Toast) {
+                                    window.Toast.error('Bu katta oda bulunamadı');
+                                }
                             }
                         },
                         error: function() {
                             odaSelect.html('<option value="">Hata oluştu</option>');
-                            toastr.error('Odalar yüklenirken hata oluştu');
+                            if (window.Toast) {
+                                window.Toast.error('Odalar yüklenirken hata oluştu');
+                            }
                         }
                     });
                 }
@@ -164,7 +184,9 @@ function onQRCodeScanned(qrUrl) {
                         <i class="fas fa-times-circle"></i> ${response.message}
                     </div>
                 `);
-                toastr.error(response.message);
+                if (window.Toast) {
+                    window.Toast.error(response.message);
+                }
             }
         },
         error: function(xhr) {
@@ -181,7 +203,9 @@ function onQRCodeScanned(qrUrl) {
                     <i class="fas fa-times-circle"></i> ${errorMsg}
                 </div>
             `);
-            toastr.error(errorMsg);
+            if (window.Toast) {
+                window.Toast.error(errorMsg);
+            }
         }
     });
 }

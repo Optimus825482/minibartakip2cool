@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}Stok Raporları - Minibar Takip Sistemi{% endblock %}
+{% block page_title %}Stok Raporları{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <!-- Mevcut Stok Kartı -->
+    <div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700 p-6">
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                <i class="fas fa-warehouse text-white text-xl"></i>
+            </div>
+            <div>
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white">Mevcut Stok Durumu</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Anlık stok durumu raporu</p>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('raporlar.mevcut_stok_raporu_olustur') }}" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <i class="fas fa-hotel mr-1"></i> Otel (Opsiyonel)
+                </label>
+                <select name="otel_id"
+                    class="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Tüm Oteller</option>
+                    {% for otel in oteller %}
+                    <option value="{{ otel.id }}" {% if request.form.get('otel_id')|int == otel.id %}selected{% endif %}>{{ otel.ad }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex items-end">
+                <button type="submit"
+                    class="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg transition-all shadow-md">
+                    <i class="fas fa-chart-bar mr-2"></i>
+                    Rapor Oluştur
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Stok Hareketleri Kartı -->
+    <div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700 p-6">
+        <div class="flex items-center gap-3 mb-6">
+            <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                <i class="fas fa-exchange-alt text-white text-xl"></i>
+            </div>
+            <div>
+                <h3 class="text-xl font-bold text-slate-900 dark:text-white">Stok Hareketleri</h3>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Giriş-çıkış hareketleri raporu</p>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('raporlar.stok_hareketleri_raporu_olustur') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            
+            <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <i class="fas fa-hotel mr-1"></i> Otel (Opsiyonel)
+                </label>
+                <select name="otel_id"
+                    class="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">Tüm Oteller</option>
+                    {% for otel in oteller %}
+                    <option value="{{ otel.id }}" {% if request.form.get('otel_id')|int == otel.id %}selected{% endif %}>{{ otel.ad }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <i class="fas fa-calendar mr-1"></i> Başlangıç
+                </label>
+                <input type="date" name="baslangic" required value="{{ request.form.get('baslangic', '') }}"
+                    class="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <i class="fas fa-calendar mr-1"></i> Bitiş
+                </label>
+                <input type="date" name="bitis" required value="{{ request.form.get('bitis', '') }}"
+                    class="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:ring-blue-500 focus:border-blue-500">
+            </div>
+
+            <div class="flex items-end">
+                <button type="submit"
+                    class="w-full px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-medium rounded-lg transition-all shadow-md">
+                    <i class="fas fa-chart-bar mr-2"></i>
+                    Rapor Oluştur
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Rapor Sonuçları -->
+    {% if mevcut_stok_raporu %}
+    <div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700 p-6">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-check-circle text-white text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">{% if mevcut_stok_raporu.otel_id %}{{ mevcut_stok_raporu.otel_ad }} - {% endif %}Mevcut Stok Raporu</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">{{ mevcut_stok_raporu.toplam_urun }} ürün</p>
+                </div>
+            </div>
+            <a href="{{ url_for('raporlar.stok_excel', tip='mevcut', otel_id=mevcut_stok_raporu.otel_id or '') }}"
+                class="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg transition-all shadow-md flex items-center gap-2">
+                <i class="fas fa-file-excel text-xl"></i>
+                <span>Excel İndir</span>
+            </a>
+        </div>
+
+        <!-- Stok Tablosu -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                <thead class="bg-slate-50 dark:bg-slate-900">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Otel</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Ürün</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Kat Sorumlusu</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Zimmet Stok</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Birim</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Durum</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                    {% for urun in mevcut_stok_raporu.urunler %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700">
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ urun.otel }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-900 dark:text-white font-medium">{{ urun.urun_ad }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ urun.personel }}</td>
+                        <td class="px-4 py-3 text-sm text-center text-slate-900 dark:text-white font-semibold">{{ urun.stok }}</td>
+                        <td class="px-4 py-3 text-sm text-center text-slate-600 dark:text-slate-400">{{ urun.birim }}</td>
+                        <td class="px-4 py-3 text-sm text-center">
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                {% if urun.durum == 'Tükendi' %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400
+                                {% elif urun.durum == 'Kritik' %}bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400
+                                {% elif urun.durum == 'Düşük' %}bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400
+                                {% else %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400{% endif %}">
+                                {{ urun.durum }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if stok_hareketleri_raporu %}
+    <div class="bg-white dark:bg-slate-800 shadow-lg rounded-lg border border-slate-200 dark:border-slate-700 p-6">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center">
+                    <i class="fas fa-check-circle text-white text-xl"></i>
+                </div>
+                <div>
+                    <h3 class="text-xl font-bold text-slate-900 dark:text-white">{% if stok_hareketleri_raporu.otel_id %}{{ stok_hareketleri_raporu.otel_ad }} - {% endif %}Stok Hareketleri Raporu</h3>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">{{ stok_hareketleri_raporu.baslangic }} / {{ stok_hareketleri_raporu.bitis }} ({{ stok_hareketleri_raporu.toplam_hareket }} hareket)</p>
+                </div>
+            </div>
+            <a href="{{ url_for('raporlar.stok_excel', tip='hareketler', otel_id=stok_hareketleri_raporu.otel_id or '', baslangic=stok_hareketleri_raporu.baslangic, bitis=stok_hareketleri_raporu.bitis) }}"
+                class="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white font-medium rounded-lg transition-all shadow-md flex items-center gap-2">
+                <i class="fas fa-file-excel text-xl"></i>
+                <span>Excel İndir</span>
+            </a>
+        </div>
+
+        <!-- Hareketler Tablosu -->
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                <thead class="bg-slate-50 dark:bg-slate-900">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Tarih</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Otel</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Ürün</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">İşlem</th>
+                        <th class="px-4 py-3 text-center text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Miktar</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase">Kullanıcı</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
+                    {% for hareket in stok_hareketleri_raporu.hareketler %}
+                    <tr class="hover:bg-slate-50 dark:hover:bg-slate-700">
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ hareket.tarih }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ hareket.otel }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-900 dark:text-white">{{ hareket.urun }}</td>
+                        <td class="px-4 py-3 text-sm text-center">
+                            <span class="px-2 py-1 rounded-full text-xs font-semibold
+                                {% if hareket.islem_tipi == 'GIRIS' %}bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400
+                                {% else %}bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400{% endif %}">
+                                {{ hareket.islem_tipi }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm text-center text-slate-900 dark:text-white font-semibold">{{ hareket.miktar }}</td>
+                        <td class="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">{{ hareket.kullanici }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1227,3 +1227,269 @@ def register_api_routes(app):
         except Exception as e:
             log_hata(e, modul='api_otel_depo_sorumluları')
             return jsonify({'error': str(e)}), 500
+
+    # AJAX endpoint - Otele göre oda tiplerini getir
+    @app.route('/api/oteller/<int:otel_id>/oda-tipleri', methods=['GET'])
+    @login_required
+    @role_required('sistem_yoneticisi', 'admin')
+    def api_otel_oda_tipleri(otel_id):
+        """Otele göre oda tiplerini getir"""
+        try:
+            from utils.oda_tipleri import get_oda_tipleri_by_otel_id
+            
+            oda_tipleri = get_oda_tipleri_by_otel_id(otel_id)
+            
+            return jsonify({
+                'success': True,
+                'oda_tipleri': oda_tipleri
+            })
+            
+        except Exception as e:
+            log_hata(e, modul='api_otel_oda_tipleri')
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
+    # AJAX endpoint - Yeni oda ekle
+    @app.route('/api/oda-ekle', methods=['POST'])
+    @login_required
+    @role_required('sistem_yoneticisi', 'admin')
+    def api_oda_ekle():
+        """AJAX ile yeni oda ekle"""
+        try:
+            from models import Oda, Kat, Otel
+            from utils.audit import audit_create, serialize_model
+            
+            data = request.get_json()
+            
+            # Zorunlu alanları kontrol et
+            if not data.get('otel_id'):
+                return jsonify({
+                    'success': False,
+                    'error': 'Otel seçimi zorunludur!'
+                }), 400
+            
+            if not data.get('kat_id'):
+                return jsonify({
+                    'success': False,
+                    'error': 'Kat seçimi zorunludur!'
+                }), 400
+            
+            if not data.get('oda_no'):
+                return jsonify({
+                    'success': False,
+                    'error': 'Oda numarası zorunludur!'
+                }), 400
+            
+            # Kat'ın seçilen otele ait olduğunu kontrol et
+            kat = Kat.query.get(data['kat_id'])
+            if not kat:
+                return jsonify({
+                    'success': False,
+                    'error': 'Seçilen kat bulunamadı!'
+                }), 404
+            
+            if kat.otel_id != int(data['otel_id']):
+                return jsonify({
+                    'success': False,
+                    'error': 'Seçilen kat, seçilen otele ait değil!'
+                }), 400
+            
+            # Aynı oda numarası var mı kontrol et
+            mevcut_oda = Oda.query.filter_by(oda_no=data['oda_no']).first()
+            if mevcut_oda:
+                return jsonify({
+                    'success': False,
+                    'error': f'Bu oda numarası ({data["oda_no"]}) zaten kullanılıyor!'
+                }), 400
+            
+            # Yeni oda oluştur
+            oda = Oda(
+                oda_no=data['oda_no'],
+                kat_id=data['kat_id'],
+                oda_tipi=data.get('oda_tipi', ''),
+                kapasite=data.get('kapasite'),
+                aktif=True
+            )
+            
+            db.session.add(oda)
+            db.session.flush()
+            
+            # Audit log
+            audit_create(
+                tablo_adi='odalar',
+                kayit_id=oda.id,
+                yeni_deger=serialize_model(oda),
+                aciklama=f'Oda oluşturuldu - {oda.oda_no}'
+            )
+            
+            db.session.commit()
+            
+            # Log kaydı
+            log_islem('ekleme', 'oda', {
+                'oda_id': oda.id,
+                'oda_no': oda.oda_no,
+                'kat_id': oda.kat_id,
+                'oda_tipi': oda.oda_tipi
+            })
+            
+            return jsonify({
+                'success': True,
+                'message': f'Oda {oda.oda_no} başarıyla eklendi.',
+                'oda': {
+                    'id': oda.id,
+                    'oda_no': oda.oda_no,
+                    'kat_id': oda.kat_id,
+                    'oda_tipi': oda.oda_tipi,
+                    'kapasite': oda.kapasite
+                }
+            })
+            
+        except Exception as e:
+            db.session.rollback()
+            log_hata(e, modul='api_oda_ekle')
+            return jsonify({
+                'success': False,
+                'error': f'Oda eklenirken hata oluştu: {str(e)}'
+            }), 500
+
+    # AJAX endpoint - Oda bilgilerini getir
+    @app.route('/api/odalar/<int:oda_id>', methods=['GET'])
+    @login_required
+    @role_required('sistem_yoneticisi', 'admin')
+    def api_oda_bilgi(oda_id):
+        """Oda bilgilerini getir"""
+        try:
+            from models import Oda, Kat
+            
+            oda = Oda.query.get_or_404(oda_id)
+            kat = Kat.query.get(oda.kat_id)
+            
+            return jsonify({
+                'success': True,
+                'oda': {
+                    'id': oda.id,
+                    'oda_no': oda.oda_no,
+                    'kat_id': oda.kat_id,
+                    'otel_id': kat.otel_id if kat else None,
+                    'oda_tipi': oda.oda_tipi,
+                    'kapasite': oda.kapasite,
+                    'aktif': oda.aktif
+                }
+            })
+            
+        except Exception as e:
+            log_hata(e, modul='api_oda_bilgi')
+            return jsonify({
+                'success': False,
+                'error': str(e)
+            }), 500
+
+    # AJAX endpoint - Oda güncelle
+    @app.route('/api/oda-guncelle/<int:oda_id>', methods=['PUT'])
+    @login_required
+    @role_required('sistem_yoneticisi', 'admin')
+    def api_oda_guncelle(oda_id):
+        """AJAX ile oda güncelle"""
+        try:
+            from models import Oda, Kat
+            from utils.audit import audit_create, serialize_model
+            
+            data = request.get_json()
+            
+            # Odayı bul
+            oda = Oda.query.get_or_404(oda_id)
+            
+            # Eski değerleri kaydet (audit için)
+            eski_deger = serialize_model(oda)
+            
+            # Zorunlu alanları kontrol et
+            if not data.get('otel_id'):
+                return jsonify({
+                    'success': False,
+                    'error': 'Otel seçimi zorunludur!'
+                }), 400
+            
+            if not data.get('kat_id'):
+                return jsonify({
+                    'success': False,
+                    'error': 'Kat seçimi zorunludur!'
+                }), 400
+            
+            if not data.get('oda_no'):
+                return jsonify({
+                    'success': False,
+                    'error': 'Oda numarası zorunludur!'
+                }), 400
+            
+            # Kat'ın seçilen otele ait olduğunu kontrol et
+            kat = Kat.query.get(data['kat_id'])
+            if not kat:
+                return jsonify({
+                    'success': False,
+                    'error': 'Seçilen kat bulunamadı!'
+                }), 404
+            
+            if kat.otel_id != int(data['otel_id']):
+                return jsonify({
+                    'success': False,
+                    'error': 'Seçilen kat, seçilen otele ait değil!'
+                }), 400
+            
+            # Aynı oda numarası başka bir odada var mı kontrol et
+            mevcut_oda = Oda.query.filter(
+                Oda.oda_no == data['oda_no'],
+                Oda.id != oda_id
+            ).first()
+            
+            if mevcut_oda:
+                return jsonify({
+                    'success': False,
+                    'error': f'Bu oda numarası ({data["oda_no"]}) başka bir oda tarafından kullanılıyor!'
+                }), 400
+            
+            # Oda bilgilerini güncelle
+            oda.oda_no = data['oda_no']
+            oda.kat_id = data['kat_id']
+            oda.oda_tipi = data.get('oda_tipi', '')
+            oda.kapasite = data.get('kapasite')
+            
+            # Audit log
+            audit_create(
+                tablo_adi='odalar',
+                kayit_id=oda.id,
+                eski_deger=eski_deger,
+                yeni_deger=serialize_model(oda),
+                aciklama=f'Oda güncellendi - {oda.oda_no}'
+            )
+            
+            db.session.commit()
+            
+            # Log kaydı
+            log_islem('guncelleme', 'oda', {
+                'oda_id': oda.id,
+                'oda_no': oda.oda_no,
+                'kat_id': oda.kat_id,
+                'oda_tipi': oda.oda_tipi
+            })
+            
+            return jsonify({
+                'success': True,
+                'message': f'Oda {oda.oda_no} başarıyla güncellendi.',
+                'oda': {
+                    'id': oda.id,
+                    'oda_no': oda.oda_no,
+                    'kat_id': oda.kat_id,
+                    'oda_tipi': oda.oda_tipi,
+                    'kapasite': oda.kapasite
+                }
+            })
+            
+        except Exception as e:
+            db.session.rollback()
+            log_hata(e, modul='api_oda_guncelle')
+            return jsonify({
+                'success': False,
+                'error': f'Oda güncellenirken hata oluştu: {str(e)}'
+            }), 500

@@ -20,6 +20,8 @@ class FormValidator {
         this.validationRules = {};
         this.fieldStates = new Map();
         this.isValid = false;
+        this.debounceTimer = null;
+        this.eventListeners = [];
         this.init();
     }
 
@@ -77,10 +79,15 @@ class FormValidator {
             return true;
         });
 
-        // Form değişikliklerini dinle
-        this.form.addEventListener('input', () => {
-            this.updateSubmitButton();
-        });
+        // Form değişikliklerini dinle (debounced)
+        const debouncedUpdate = () => {
+            clearTimeout(this.debounceTimer);
+            this.debounceTimer = setTimeout(() => {
+                this.updateSubmitButton();
+            }, 300);
+        };
+        this.form.addEventListener('input', debouncedUpdate);
+        this.eventListeners.push({ element: this.form, event: 'input', handler: debouncedUpdate });
     }
 
     /**
@@ -390,6 +397,23 @@ class FormValidator {
         this.fieldStates.clear();
         this.updateSubmitButton();
         this.hideLoadingState();
+    }
+
+    /**
+     * Validator'ı temizle ve event listener'ları kaldır
+     */
+    destroy() {
+        // Debounce timer'ı temizle
+        clearTimeout(this.debounceTimer);
+        
+        // Event listener'ları kaldır
+        this.eventListeners.forEach(({ element, event, handler }) => {
+            element.removeEventListener(event, handler);
+        });
+        this.eventListeners = [];
+        
+        // State'i temizle
+        this.fieldStates.clear();
     }
 }
 

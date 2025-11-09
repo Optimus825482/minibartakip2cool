@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block title %}ML Anomali Tespit Sistemi - Minibar Takip{% endblock %}
+{% block page_title %}🤖 ML Anomali Tespit Sistemi{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    
+    <!-- Özet Kartlar -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Aktif Uyarılar -->
+        <div class="bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 rounded-lg p-6 border-2 border-red-300 dark:border-red-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-red-600 dark:text-red-400 font-medium">Aktif Uyarılar</p>
+                    <p class="text-3xl font-bold text-red-700 dark:text-red-300 mt-2">
+                        {{ dashboard_metrics.aktif_alert_count or 0 }}
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-red-200 dark:bg-red-800 rounded-full flex items-center justify-center">
+                    <i class="fas fa-exclamation-triangle text-red-600 dark:text-red-300 text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Kritik Ürünler -->
+        <div class="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg p-6 border-2 border-orange-300 dark:border-orange-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-orange-600 dark:text-orange-400 font-medium">Kritik Stok</p>
+                    <p class="text-3xl font-bold text-orange-700 dark:text-orange-300 mt-2">
+                        {{ dashboard_metrics.kritik_urun_count or 0 }}
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-orange-200 dark:bg-orange-800 rounded-full flex items-center justify-center">
+                    <i class="fas fa-box text-orange-600 dark:text-orange-300 text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Veri Toplama (24h) -->
+        <div class="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-6 border-2 border-blue-300 dark:border-blue-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-blue-600 dark:text-blue-400 font-medium">Veri Toplama (24h)</p>
+                    <p class="text-3xl font-bold text-blue-700 dark:text-blue-300 mt-2">
+                        {{ dashboard_metrics.stok_metrik_count_24h or 0 }}
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-blue-200 dark:bg-blue-800 rounded-full flex items-center justify-center">
+                    <i class="fas fa-database text-blue-600 dark:text-blue-300 text-xl"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Performansı -->
+        <div class="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg p-6 border-2 border-green-300 dark:border-green-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-green-600 dark:text-green-400 font-medium">Aktif Modeller</p>
+                    <p class="text-3xl font-bold text-green-700 dark:text-green-300 mt-2">
+                        {{ models|length }}
+                    </p>
+                </div>
+                <div class="w-12 h-12 bg-green-200 dark:bg-green-800 rounded-full flex items-center justify-center">
+                    <i class="fas fa-brain text-green-600 dark:text-green-300 text-xl"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aktif Uyarılar -->
+    <div class="bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-6">
+        <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white">
+                <i class="fas fa-bell mr-2 text-red-500"></i>
+                Aktif Uyarılar
+            </h3>
+            <div class="flex gap-2">
+                <button onclick="filterAlerts('all')" class="px-3 py-1 text-sm rounded bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                    Tümü
+                </button>
+                <button onclick="filterAlerts('kritik')" class="px-3 py-1 text-sm rounded bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300">
+                    Kritik
+                </button>
+                <button onclick="filterAlerts('yuksek')" class="px-3 py-1 text-sm rounded bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300">
+                    Yüksek
+                </button>
+            </div>
+        </div>
+
+        {% if active_alerts %}
+        <div class="space-y-3" id="alertsContainer">
+            {% for alert in active_alerts %}
+            <div class="alert-item border-l-4 p-4 rounded-r-lg 
+                {% if alert.severity == 'kritik' %}
+                    border-red-500 bg-red-50 dark:bg-red-900/20
+                {% elif alert.severity == 'yuksek' %}
+                    border-orange-500 bg-orange-50 dark:bg-orange-900/20
+                {% elif alert.severity == 'orta' %}
+                    border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20
+                {% else %}
+                    border-blue-500 bg-blue-50 dark:bg-blue-900/20
+                {% endif %}"
+                data-severity="{{ alert.severity }}">
+                
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-2">
+                            <span class="px-2 py-1 text-xs font-semibold rounded
+                                {% if alert.severity == 'kritik' %}
+                                    bg-red-200 dark:bg-red-800 text-red-800 dark:text-red-200
+                                {% elif alert.severity == 'yuksek' %}
+                                    bg-orange-200 dark:bg-orange-800 text-orange-800 dark:text-orange-200
+                                {% elif alert.severity == 'orta' %}
+                                    bg-yellow-200 dark:bg-yellow-800 text-yellow-800 dark:text-yellow-200
+                                {% else %}
+                                    bg-blue-200 dark:bg-blue-800 text-blue-800 dark:text-blue-200
+                                {% endif %}">
+                                {{ alert.severity.upper() }}
+                            </span>
+                            <span class="text-xs text-slate-500 dark:text-slate-400">
+                                {{ alert.created_at.strftime('%d.%m.%Y %H:%M') }}
+                            </span>
+                        </div>
+                        <p class="text-sm font-medium text-slate-900 dark:text-white mb-1">
+                            {{ alert.message }}
+                        </p>
+                        <p class="text-xs text-slate-600 dark:text-slate-400">
+                            💡 {{ alert.suggested_action }}
+                        </p>
+                    </div>
+                    <div class="flex gap-2 ml-4">
+                        <button onclick="markAsRead({{ alert.id }})" 
+                                class="px-3 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded transition">
+                            <i class="fas fa-check"></i> Okundu
+                        </button>
+                        <button onclick="markAsFalsePositive({{ alert.id }})" 
+                                class="px-3 py-1 text-xs bg-slate-500 hover:bg-slate-600 text-white rounded transition">
+                            <i class="fas fa-times"></i> Yanlış
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-slate-500 dark:text-slate-400">
+            <i class="fas fa-check-circle text-4xl mb-2 text-green-500"></i>
+            <p>Aktif uyarı bulunmuyor</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- İstatistikler ve Model Performansı -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- Alert İstatistikleri -->
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-6">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+                <i class="fas fa-chart-pie mr-2 text-blue-500"></i>
+                Alert İstatistikleri (30 Gün)
+            </h3>
+            
+            {% if alert_stats %}
+            <div class="space-y-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">Toplam Alert</span>
+                    <span class="text-lg font-bold text-slate-900 dark:text-white">{{ alert_stats.total_alerts }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">Okunmamış</span>
+                    <span class="text-lg font-bold text-orange-600 dark:text-orange-400">{{ alert_stats.unread_alerts }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">Yanlış Pozitif</span>
+                    <span class="text-lg font-bold text-slate-600 dark:text-slate-400">{{ alert_stats.false_positives }}</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-sm text-slate-600 dark:text-slate-400">Doğruluk Oranı</span>
+                    <span class="text-lg font-bold text-green-600 dark:text-green-400">
+                        {{ "%.1f"|format(100 - alert_stats.false_positive_rate) }}%
+                    </span>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Model Performansı -->
+        <div class="bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-6">
+            <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-4">
+                <i class="fas fa-brain mr-2 text-purple-500"></i>
+                Model Performansı
+            </h3>
+            
+            {% if models %}
+            <div class="space-y-3">
+                {% for model in models %}
+                <div class="border border-slate-200 dark:border-slate-700 rounded-lg p-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-sm font-medium text-slate-900 dark:text-white">
+                            {{ model.metric_type.replace('_', ' ').title() }}
+                        </span>
+                        <span class="text-xs text-slate-500 dark:text-slate-400">
+                            {{ model.model_type }}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                            <span class="text-slate-600 dark:text-slate-400">Accuracy</span>
+                            <p class="font-bold text-green-600 dark:text-green-400">
+                                {{ "%.1f"|format(model.accuracy * 100) if model.accuracy else "N/A" }}%
+                            </p>
+                        </div>
+                        <div>
+                            <span class="text-slate-600 dark:text-slate-400">Precision</span>
+                            <p class="font-bold text-blue-600 dark:text-blue-400">
+                                {{ "%.1f"|format(model.precision * 100) if model.precision else "N/A" }}%
+                            </p>
+                        </div>
+                        <div>
+                            <span class="text-slate-600 dark:text-slate-400">Recall</span>
+                            <p class="font-bold text-purple-600 dark:text-purple-400">
+                                {{ "%.1f"|format(model.recall * 100) if model.recall else "N/A" }}%
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-center text-slate-500 dark:text-slate-400 py-4">
+                Henüz eğitilmiş model yok
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+</div>
+
+<script>
+// Alert filtreleme
+function filterAlerts(severity) {
+    const alerts = document.querySelectorAll('.alert-item');
+    alerts.forEach(alert => {
+        if (severity === 'all' || alert.dataset.severity === severity) {
+            alert.style.display = 'block';
+        } else {
+            alert.style.display = 'none';
+        }
+    });
+}
+
+// Alert'i okundu işaretle
+function markAsRead(alertId) {
+    if (!confirm('Bu uyarıyı okundu olarak işaretlemek istediğinize emin misiniz?')) {
+        return;
+    }
+    
+    fetch(`/ml/api/alerts/${alertId}/read`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Hata: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Bir hata oluştu');
+    });
+}
+
+// Yanlış pozitif işaretle
+function markAsFalsePositive(alertId) {
+    if (!confirm('Bu uyarıyı yanlış pozitif olarak işaretlemek istediğinize emin misiniz? Bu, sistemin öğrenmesine yardımcı olacaktır.')) {
+        return;
+    }
+    
+    fetch(`/ml/api/alerts/${alertId}/false-positive`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Hata: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Bir hata oluştu');
+    });
+}
+</script>
+
+{% endblock %}

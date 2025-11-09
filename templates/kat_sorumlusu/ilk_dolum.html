@@ -26,7 +26,7 @@
                     </label>
                     <div class="mt-1">
                         <select id="kat_id" required
-                            class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
+                            class="no-choices appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
                             <option value="">Kat seçiniz...</option>
                             {% for kat in katlar %}
                             <option value="{{ kat.id }}">{{ kat.kat_adi }}</option>
@@ -41,7 +41,7 @@
                     </label>
                     <div class="mt-1">
                         <select id="oda_id" required disabled
-                            class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
+                            class="no-choices appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md placeholder-slate-400 focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
                             <option value="">Önce kat seçiniz...</option>
                         </select>
                     </div>
@@ -63,7 +63,7 @@
                     </label>
                     <div class="mt-1">
                         <select id="urun_grubu"
-                            class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
+                            class="no-choices appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
                             <option value="">Ürün grubu seçiniz...</option>
                             {% for grup in urun_gruplari %}
                             <option value="{{ grup.id }}">{{ grup.grup_adi }}</option>
@@ -79,7 +79,7 @@
                     </label>
                     <div class="mt-1">
                         <select id="urun_secim" disabled
-                            class="appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
+                            class="no-choices appearance-none block w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-slate-500 focus:border-slate-500 sm:text-sm">
                             <option value="">Önce grup seçiniz...</option>
                         </select>
                     </div>

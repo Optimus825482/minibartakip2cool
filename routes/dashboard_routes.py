@@ -52,6 +52,46 @@ def register_dashboard_routes(app):
     @role_required('sistem_yoneticisi', 'admin')
     def sistem_yoneticisi_dashboard():
         """Sistem yöneticisi dashboard"""
+        from utils.occupancy_service import OccupancyService
+        from utils.authorization import get_kullanici_otelleri
+        from datetime import date
+        import os
+        
+        # ML Alertleri (ML_ENABLED ise)
+        ml_alerts = []
+        ml_alert_count = 0
+        ml_enabled = os.getenv('ML_ENABLED', 'false').lower() == 'true'
+        
+        if ml_enabled:
+            try:
+                from models import MLAlert
+                from utils.ml.alert_manager import AlertManager
+                
+                alert_manager = AlertManager(db)
+                # Son 5 kritik/yüksek alert
+                ml_alerts = alert_manager.get_active_alerts(limit=5)
+                ml_alert_count = len(alert_manager.get_active_alerts())
+            except Exception as e:
+                print(f"ML alert hatası: {str(e)}")
+        
+        # Tüm oteller için doluluk raporları
+        otel_doluluk_raporlari = []
+        try:
+            kullanici_otelleri = get_kullanici_otelleri()
+            for otel in kullanici_otelleri:
+                doluluk = OccupancyService.get_gunluk_doluluk_raporu(date.today(), otel.id)
+                # Doluluk oranı hesapla
+                if doluluk['toplam_oda'] > 0:
+                    doluluk['doluluk_orani'] = round((doluluk['dolu_oda'] / doluluk['toplam_oda']) * 100)
+                else:
+                    doluluk['doluluk_orani'] = 0
+                
+                # Otel bilgilerini ekle
+                doluluk['otel'] = otel
+                otel_doluluk_raporlari.append(doluluk)
+        except Exception as e:
+            print(f"Doluluk raporları hatası: {str(e)}")
+        
         # İstatistikler
         toplam_kat = Kat.query.count()
         toplam_oda = Oda.query.count()
@@ -123,6 +163,7 @@ def register_dashboard_routes(app):
         urun_tuketim_miktarlari = [float(u[1] or 0) for u in urun_tuketim]
         
         return render_template('sistem_yoneticisi/dashboard.html',
+                             otel_doluluk_raporlari=otel_doluluk_raporlari,
                              toplam_kat=toplam_kat,
                              toplam_oda=toplam_oda,
                              toplam_kullanici=toplam_kullanici,
@@ -141,7 +182,10 @@ def register_dashboard_routes(app):
                              son_personeller=son_personeller,
                              son_urunler=son_urunler,
                              urun_labels=urun_labels,
-                             urun_tuketim_miktarlari=urun_tuketim_miktarlari)
+                             urun_tuketim_miktarlari=urun_tuketim_miktarlari,
+                             ml_enabled=ml_enabled,
+                             ml_alerts=ml_alerts,
+                             ml_alert_count=ml_alert_count)
 
     
     @app.route('/depo')
@@ -149,6 +193,33 @@ def register_dashboard_routes(app):
     @role_required('depo_sorumlusu')
     def depo_dashboard():
         """Depo sorumlusu dashboard"""
+        from utils.occupancy_service import OccupancyService
+        from utils.authorization import get_kullanici_otelleri
+        
+        # Depo sorumlusunun atandığı otelleri al
+        atanan_oteller = get_kullanici_otelleri()
+        
+        # Her otel için bugünkü doluluk bilgilerini al
+        otel_doluluk_bilgileri = []
+        bugun = datetime.now().date()
+        
+        for otel in atanan_oteller:
+            doluluk_raporu = OccupancyService.get_gunluk_doluluk_raporu(bugun, otel.id)
+            doluluk_orani = round((doluluk_raporu['dolu_oda'] / doluluk_raporu['toplam_oda'] * 100) if doluluk_raporu['toplam_oda'] > 0 else 0, 1)
+            
+            # Logo'yu kullan (boyut kontrolü kaldırıldı - template'de handle edilecek)
+            logo = otel.logo
+            
+            otel_doluluk_bilgileri.append({
+                'otel_id': otel.id,
+                'otel_ad': otel.ad,
+                'otel_logo': logo,
+                'toplam_oda': doluluk_raporu['toplam_oda'],
+                'dolu_oda': doluluk_raporu['dolu_oda'],
+                'bos_oda': doluluk_raporu['bos_oda'],
+                'doluluk_orani': doluluk_orani
+            })
+        
         # İstatistikler
         toplam_urun = Urun.query.filter_by(aktif=True).count()
         kritik_urunler = get_kritik_stok_urunler()
@@ -249,6 +320,7 @@ def register_dashboard_routes(app):
         urun_tuketim_miktarlari = [float(u[1] or 0) for u in urun_tuketim]
         
         return render_template('depo_sorumlusu/dashboard.html',
+                             otel_doluluk_bilgileri=otel_doluluk_bilgileri,
                              toplam_urun=toplam_urun,
                              kritik_urunler=kritik_urunler,
                              stok_durumlari=stok_durumlari,
@@ -272,7 +344,26 @@ def register_dashboard_routes(app):
     @role_required('kat_sorumlusu')
     def kat_sorumlusu_dashboard():
         """Kat sorumlusu dashboard"""
+        from utils.occupancy_service import OccupancyService
+        from utils.authorization import get_kullanici_otelleri
+        from datetime import date
+        
         kullanici_id = session['kullanici_id']
+        
+        # Doluluk raporu - Bugün için
+        doluluk_raporu = None
+        try:
+            kullanici_otelleri = get_kullanici_otelleri()
+            if kullanici_otelleri:
+                otel_id = kullanici_otelleri[0].id
+                doluluk_raporu = OccupancyService.get_gunluk_doluluk_raporu(date.today(), otel_id)
+                # Doluluk oranı hesapla
+                if doluluk_raporu['toplam_oda'] > 0:
+                    doluluk_raporu['doluluk_orani'] = round((doluluk_raporu['dolu_oda'] / doluluk_raporu['toplam_oda']) * 100)
+                else:
+                    doluluk_raporu['doluluk_orani'] = 0
+        except Exception as e:
+            print(f"Doluluk raporu hatası: {str(e)}")
         
         # İstatistikler
         aktif_zimmetler = PersonelZimmet.query.filter_by(
@@ -365,16 +456,17 @@ def register_dashboard_routes(app):
             personel_id=kullanici_id,
             islem_tipi='ilk_dolum'
         ).count()
-        islem_kontrol = MinibarIslem.query.filter_by(
+        islem_yeniden_dolum = MinibarIslem.query.filter_by(
             personel_id=kullanici_id,
-            islem_tipi='kontrol'
+            islem_tipi='yeniden_dolum'
         ).count()
-        islem_doldurma = MinibarIslem.query.filter_by(
+        islem_eksik_tamamlama = MinibarIslem.query.filter_by(
             personel_id=kullanici_id,
-            islem_tipi='doldurma'
+            islem_tipi='eksik_tamamlama'
         ).count()
         
         return render_template('kat_sorumlusu/dashboard.html',
+                             doluluk_raporu=doluluk_raporu,
                              aktif_zimmetler=aktif_zimmetler,
                              zimmet_toplam=zimmet_detaylari,
                              kritik_stok_sayisi=kritik_stok_sayisi,
@@ -389,5 +481,5 @@ def register_dashboard_routes(app):
                              gunluk_tuketim=gunluk_tuketim,
                              gunluk_labels=gunluk_labels,
                              islem_ilk_dolum=islem_ilk_dolum,
-                             islem_kontrol=islem_kontrol,
-                             islem_doldurma=islem_doldurma)
+                             islem_yeniden_dolum=islem_yeniden_dolum,
+                             islem_eksik_tamamlama=islem_eksik_tamamlama)

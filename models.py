@@ -45,9 +45,10 @@ class ZimmetDurum(str, enum.Enum):
 
 class MinibarIslemTipi(str, enum.Enum):
     ILK_DOLUM = 'ilk_dolum'
-    KONTROL = 'kontrol'
-    DOLDURMA = 'doldurma'
-    EK_DOLUM = 'ek_dolum'
+    YENIDEN_DOLUM = 'yeniden_dolum'
+    EKSIK_TAMAMLAMA = 'eksik_tamamlama'
+    SAYIM = 'sayim'
+    DUZELTME = 'duzeltme'
 
 class AuditIslemTipi(str, enum.Enum):
     CREATE = 'create'
@@ -84,6 +85,7 @@ class Otel(db.Model):
     telefon = db.Column(db.String(20))
     email = db.Column(db.String(100))
     vergi_no = db.Column(db.String(50))
+    logo = db.Column(db.Text, nullable=True)  # Base64 encoded logo
     olusturma_tarihi = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     aktif = db.Column(db.Boolean, default=True)
     
@@ -219,7 +221,7 @@ class Oda(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     kat_id = db.Column(db.Integer, db.ForeignKey('katlar.id'), nullable=False)
     oda_no = db.Column(db.String(20), nullable=False, unique=True)
-    oda_tipi = db.Column(db.String(50))
+    oda_tipi = db.Column(db.String(100))  # Artık 100 karakter (uzun oda tipi isimleri için)
     kapasite = db.Column(db.Integer)
     aktif = db.Column(db.Boolean, default=True)
     olusturma_tarihi = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
@@ -566,3 +568,211 @@ class QRKodOkutmaLog(db.Model):
     
     def __repr__(self):
         return f'<QRKodOkutmaLog #{self.id} - {self.okutma_tipi} - {self.okutma_tarihi}>'
+
+
+class MisafirKayit(db.Model):
+    """Misafir kayıt tablosu - Excel'den yüklenen oda doluluk verileri"""
+    __tablename__ = 'misafir_kayitlari'
+    __table_args__ = (
+        db.Index('idx_misafir_islem_kodu', 'islem_kodu'),
+        db.Index('idx_misafir_oda_tarih', 'oda_id', 'giris_tarihi', 'cikis_tarihi'),
+        db.Index('idx_misafir_giris', 'giris_tarihi'),
+        db.Index('idx_misafir_cikis', 'cikis_tarihi'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    oda_id = db.Column(db.Integer, db.ForeignKey('odalar.id'), nullable=False)
+    islem_kodu = db.Column(db.String(50), nullable=False, index=True)
+    
+    # Misafir Bilgileri (İsim kaydedilmez - sadece sayı)
+    misafir_sayisi = db.Column(db.Integer, nullable=False)
+    
+    # Tarih ve Saat Bilgileri
+    giris_tarihi = db.Column(db.Date, nullable=False, index=True)
+    giris_saati = db.Column(db.Time, nullable=True)  # Sadece ARRIVALS için (Arr.Time)
+    cikis_tarihi = db.Column(db.Date, nullable=False, index=True)
+    
+    # Kayıt Tipi (Otomatik algılanır: in_house veya arrival)
+    kayit_tipi = db.Column(db.Enum('in_house', 'arrival', name='misafir_kayit_tipi'), nullable=False)
+    
+    # Sistem Bilgileri
+    olusturma_tarihi = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    olusturan_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id'))
+    
+    # İlişkiler
+    oda = db.relationship('Oda', backref='misafir_kayitlari')
+    olusturan = db.relationship('Kullanici', foreign_keys=[olusturan_id])
+    
+    def __repr__(self):
+        return f'<MisafirKayit #{self.id} - Oda {self.oda_id} - {self.kayit_tipi}>'
+
+
+class DosyaYukleme(db.Model):
+    """Excel dosya yükleme kayıtları"""
+    __tablename__ = 'dosya_yuklemeleri'
+    __table_args__ = (
+        db.Index('idx_dosya_islem_kodu', 'islem_kodu'),
+        db.Index('idx_dosya_yukleme_tarihi', 'yukleme_tarihi'),
+        db.Index('idx_dosya_silme_tarihi', 'silme_tarihi'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    islem_kodu = db.Column(db.String(50), unique=True, nullable=False, index=True)
+    
+    # Dosya Bilgileri
+    dosya_adi = db.Column(db.String(255), nullable=False)
+    dosya_yolu = db.Column(db.String(500), nullable=False)
+    dosya_tipi = db.Column(db.Enum('in_house', 'arrivals', name='dosya_tipi'), nullable=False)  # Otomatik algılanır
+    dosya_boyutu = db.Column(db.Integer)  # bytes
+    
+    # İşlem Bilgileri
+    yukleme_tarihi = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    silme_tarihi = db.Column(db.DateTime(timezone=True), nullable=True)  # Otomatik silme için
+    durum = db.Column(db.Enum('yuklendi', 'isleniyor', 'tamamlandi', 'hata', 'silindi', name='yukleme_durum'), default='yuklendi', nullable=False)
+    
+    # İstatistikler
+    toplam_satir = db.Column(db.Integer, default=0)
+    basarili_satir = db.Column(db.Integer, default=0)
+    hatali_satir = db.Column(db.Integer, default=0)
+    hata_detaylari = db.Column(JSONB, nullable=True)  # Hata mesajları (JSONB formatında)
+    
+    # Kullanıcı Bilgileri
+    yuklenen_kullanici_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id'))
+    
+    # İlişkiler
+    yuklenen_kullanici = db.relationship('Kullanici', foreign_keys=[yuklenen_kullanici_id])
+    
+    def __repr__(self):
+        return f'<DosyaYukleme #{self.id} - {self.islem_kodu} - {self.durum}>'
+
+
+# ============================================
+# MACHINE LEARNING MODELS
+# ============================================
+
+class MLMetricType(str, enum.Enum):
+    """ML metrik tipleri"""
+    STOK_SEVIYE = 'stok_seviye'
+    TUKETIM_MIKTAR = 'tuketim_miktar'
+    DOLUM_SURE = 'dolum_sure'
+    STOK_BITIS_TAHMINI = 'stok_bitis_tahmini'
+
+class MLAlertType(str, enum.Enum):
+    """ML uyarı tipleri"""
+    STOK_ANOMALI = 'stok_anomali'
+    TUKETIM_ANOMALI = 'tuketim_anomali'
+    DOLUM_GECIKME = 'dolum_gecikme'
+    STOK_BITIS_UYARI = 'stok_bitis_uyari'
+
+class MLAlertSeverity(str, enum.Enum):
+    """ML uyarı önem seviyeleri"""
+    DUSUK = 'dusuk'
+    ORTA = 'orta'
+    YUKSEK = 'yuksek'
+    KRITIK = 'kritik'
+
+
+class MLMetric(db.Model):
+    """ML metrik kayıtları - zaman serisi verileri"""
+    __tablename__ = 'ml_metrics'
+    __table_args__ = (
+        db.Index('idx_ml_metrics_type_time', 'metric_type', 'timestamp'),
+        db.Index('idx_ml_metrics_entity', 'entity_type', 'entity_id'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    metric_type = db.Column(
+        db.Enum('stok_seviye', 'tuketim_miktar', 'dolum_sure', 'stok_bitis_tahmini', name='ml_metric_type'),
+        nullable=False
+    )
+    entity_type = db.Column(db.String(50), nullable=False)  # 'urun', 'oda', 'kat_sorumlusu'
+    entity_id = db.Column(db.Integer, nullable=False)
+    metric_value = db.Column(db.Float, nullable=False)
+    timestamp = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    extra_data = db.Column(JSONB, nullable=True)  # Ek bilgiler (JSONB formatında)
+    
+    def __repr__(self):
+        return f'<MLMetric {self.metric_type} - {self.entity_type}#{self.entity_id}>'
+
+
+class MLModel(db.Model):
+    """Eğitilmiş ML modelleri"""
+    __tablename__ = 'ml_models'
+    __table_args__ = (
+        db.Index('idx_ml_models_type_active', 'model_type', 'metric_type', 'is_active'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    model_type = db.Column(db.String(50), nullable=False)  # 'isolation_forest', 'z_score'
+    metric_type = db.Column(db.String(50), nullable=False)
+    model_data = db.Column(db.LargeBinary, nullable=False)  # Pickle serialized model
+    parameters = db.Column(JSONB, nullable=True)  # Model parametreleri
+    training_date = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    accuracy = db.Column(db.Float)
+    precision = db.Column(db.Float)
+    recall = db.Column(db.Float)
+    is_active = db.Column(db.Boolean, default=True, nullable=False)
+    
+    # İlişkiler
+    training_logs = db.relationship('MLTrainingLog', backref='model', lazy=True)
+    
+    def __repr__(self):
+        return f'<MLModel {self.model_type} - {self.metric_type}>'
+
+
+class MLAlert(db.Model):
+    """ML uyarıları"""
+    __tablename__ = 'ml_alerts'
+    __table_args__ = (
+        db.Index('idx_ml_alerts_severity_read', 'severity', 'is_read'),
+        db.Index('idx_ml_alerts_created', 'created_at'),
+        db.Index('idx_ml_alerts_entity', 'entity_type', 'entity_id'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    alert_type = db.Column(
+        db.Enum('stok_anomali', 'tuketim_anomali', 'dolum_gecikme', 'stok_bitis_uyari', name='ml_alert_type'),
+        nullable=False
+    )
+    severity = db.Column(
+        db.Enum('dusuk', 'orta', 'yuksek', 'kritik', name='ml_alert_severity'),
+        nullable=False
+    )
+    entity_type = db.Column(db.String(50), nullable=False)  # 'urun', 'oda', 'kat_sorumlusu'
+    entity_id = db.Column(db.Integer, nullable=False)
+    metric_value = db.Column(db.Float, nullable=False)
+    expected_value = db.Column(db.Float)
+    deviation_percent = db.Column(db.Float)
+    message = db.Column(db.Text, nullable=False)
+    suggested_action = db.Column(db.Text)
+    created_at = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    is_false_positive = db.Column(db.Boolean, default=False, nullable=False)
+    resolved_at = db.Column(db.DateTime(timezone=True), nullable=True)
+    resolved_by_id = db.Column(db.Integer, db.ForeignKey('kullanicilar.id'), nullable=True)
+    
+    # İlişkiler
+    resolved_by = db.relationship('Kullanici', foreign_keys=[resolved_by_id], backref='resolved_ml_alerts')
+    
+    def __repr__(self):
+        return f'<MLAlert {self.alert_type} - {self.severity}>'
+
+
+class MLTrainingLog(db.Model):
+    """Model eğitim logları"""
+    __tablename__ = 'ml_training_logs'
+    __table_args__ = (
+        db.Index('idx_ml_training_logs_date', 'training_start'),
+    )
+    
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    model_id = db.Column(db.Integer, db.ForeignKey('ml_models.id'), nullable=True)
+    training_start = db.Column(db.DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    training_end = db.Column(db.DateTime(timezone=True), nullable=True)
+    data_points = db.Column(db.Integer)
+    success = db.Column(db.Boolean, default=False, nullable=False)
+    error_message = db.Column(db.Text, nullable=True)
+    metrics = db.Column(JSONB, nullable=True)  # Performans metrikleri (JSONB formatında)
+    
+    def __repr__(self):
+        return f'<MLTrainingLog #{self.id} - {"Success" if self.success else "Failed"}>'

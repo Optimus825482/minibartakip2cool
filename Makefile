@@ -104,6 +104,23 @@ phpmyadmin: ## phpMyAdmin'i başlat
 	@docker-compose --profile tools up -d phpmyadmin
 	@echo "✅ phpMyAdmin başlatıldı: http://localhost:8080"
 
+pgadmin: ## pgAdmin'i başlat (PostgreSQL yönetimi)
+	@docker-compose --profile tools up -d pgadmin
+	@echo "✅ pgAdmin başlatıldı: http://localhost:8080"
+	@echo "📧 Email: admin@minibar.com"
+	@echo "🔑 Şifre: admin123"
+	@echo ""
+	@echo "PostgreSQL Bağlantı Bilgileri (pgAdmin içinde ekle):"
+	@echo "  Host: postgres"
+	@echo "  Port: 5432"
+	@echo "  Database: minibar_takip"
+	@echo "  Username: minibar_user"
+	@echo "  Password: minibar123"
+
+pgadmin-stop: ## pgAdmin'i durdur
+	@docker-compose stop pgadmin
+	@echo "✅ pgAdmin durduruldu"
+
 update: ## Kodu güncelle ve yeniden başlat
 	@echo "🔄 Güncelleme yapılıyor..."
 	@git pull

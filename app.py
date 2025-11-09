@@ -109,7 +109,7 @@ from utils.audit import (
 from models import (
     Otel, Kullanici, Kat, Oda, UrunGrup, Urun, StokHareket, 
     PersonelZimmet, PersonelZimmetDetay, MinibarIslem, MinibarIslemDetay, 
-    SistemAyar, SistemLog, HataLog, OtomatikRapor
+    MinibarIslemTipi, SistemAyar, SistemLog, HataLog, OtomatikRapor
 )
 
 # Context processor - tüm template'lere kullanıcı bilgisini gönder
@@ -121,6 +121,60 @@ def inject_user():
 @app.context_processor
 def inject_builtins():
     return dict(min=min, max=max)
+
+# Context processor - Datetime ve tarih fonksiyonları
+@app.context_processor
+def inject_datetime():
+    """Şablonlara datetime ve tarih yardımcı fonksiyonlarını ekle"""
+    gun_adlari = ['Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi', 'Pazar']
+    return dict(
+        now=datetime.now,
+        gun_adlari=gun_adlari
+    )
+
+# Context processor - Otel bilgisi ve logo
+@app.context_processor
+def inject_otel_info():
+    """Kullanıcının otel bilgisini ve logosunu template'lere gönder"""
+    from models import Otel, Kullanici
+    from utils.authorization import get_kat_sorumlusu_otel, get_depo_sorumlusu_oteller
+    
+    kullanici = get_current_user()
+    otel_bilgi = None
+    
+    if kullanici:
+        try:
+            # Kat sorumlusu - tek otel
+            if kullanici.rol == 'kat_sorumlusu':
+                otel = get_kat_sorumlusu_otel(kullanici.id)
+                if otel:
+                    otel_bilgi = {
+                        'ad': otel.ad,
+                        'logo': otel.logo
+                    }
+            
+            # Depo sorumlusu - ilk atandığı oteli göster
+            elif kullanici.rol == 'depo_sorumlusu':
+                oteller = get_depo_sorumlusu_oteller(kullanici.id)
+                if oteller:
+                    otel = oteller[0]  # İlk oteli göster
+                    otel_bilgi = {
+                        'ad': otel.ad,
+                        'logo': otel.logo
+                    }
+            
+            # Admin ve sistem yöneticisi - ilk oteli göster
+            elif kullanici.rol in ['admin', 'sistem_yoneticisi']:
+                otel = Otel.query.filter_by(aktif=True).first()
+                if otel:
+                    otel_bilgi = {
+                        'ad': otel.ad,
+                        'logo': otel.logo
+                    }
+        except Exception as e:
+            logger.error(f"Otel bilgisi alınırken hata: {str(e)}")
+    
+    return dict(kullanici_otel=otel_bilgi)
 
 # ============================================
 # ROUTE REGISTRATION - Merkezi Route Yönetimi
@@ -2495,7 +2549,17 @@ def api_kat_sorumlusu_siparis_kaydet():
 def ilk_dolum():
     """İlk dolum sayfası - boş minibar'lara ilk ürün ekleme"""
     try:
-        katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+        # Kat sorumlusunun atandığı otele ait katları getir
+        kullanici = get_current_user()
+        if not kullanici or not kullanici.otel_id:
+            flash('Henüz bir otele atanmadınız. Lütfen yöneticinizle iletişime geçin.', 'warning')
+            return redirect(url_for('kat_sorumlusu_dashboard'))
+        
+        katlar = Kat.query.filter_by(
+            otel_id=kullanici.otel_id,
+            aktif=True
+        ).order_by(Kat.kat_no).all()
+        
         urun_gruplari = UrunGrup.query.filter_by(aktif=True).order_by(UrunGrup.grup_adi).all()
         return render_template('kat_sorumlusu/ilk_dolum.html', katlar=katlar, urun_gruplari=urun_gruplari)
     except Exception as e:
@@ -2510,12 +2574,81 @@ def ilk_dolum():
 def oda_kontrol():
     """Oda kontrol sayfası - sadece görüntüleme ve yeniden dolum"""
     try:
-        katlar = Kat.query.filter_by(aktif=True).order_by(Kat.kat_no).all()
+        # Kat sorumlusunun atandığı otele ait katları getir
+        kullanici = get_current_user()
+        if not kullanici or not kullanici.otel_id:
+            flash('Henüz bir otele atanmadınız. Lütfen yöneticinizle iletişime geçin.', 'warning')
+            return redirect(url_for('kat_sorumlusu_dashboard'))
+        
+        katlar = Kat.query.filter_by(
+            otel_id=kullanici.otel_id,
+            aktif=True
+        ).order_by(Kat.kat_no).all()
+        
         return render_template('kat_sorumlusu/oda_kontrol.html', katlar=katlar)
     except Exception as e:
         log_hata(e, modul='oda_kontrol')
         flash('Sayfa yüklenirken bir hata oluştu.', 'danger')
         return redirect(url_for('kat_sorumlusu_dashboard'))
+
+
+@app.route('/api/kat-sorumlusu/minibar-urunler', methods=['POST'])
+@login_required
+@role_required('kat_sorumlusu')
+def api_minibar_urunler():
+    """Odanın minibar ürünlerini getir - son işlemdeki stok durumu"""
+    try:
+        data = request.get_json()
+        oda_id = data.get('oda_id')
+        
+        if not oda_id:
+            return jsonify({'success': False, 'message': 'Oda ID gerekli'}), 400
+        
+        # Oda bilgilerini getir
+        oda = Oda.query.get(oda_id)
+        if not oda:
+            return jsonify({'success': False, 'message': 'Oda bulunamadı'}), 404
+        
+        # Kullanıcının bu otele erişimi var mı kontrol et
+        kullanici = get_current_user()
+        if not kullanici or kullanici.otel_id != oda.kat.otel_id:
+            return jsonify({'success': False, 'message': 'Bu odaya erişim yetkiniz yok'}), 403
+        
+        # Son minibar işlemini bul
+        son_islem = MinibarIslem.query.filter_by(
+            oda_id=oda_id
+        ).order_by(MinibarIslem.islem_tarihi.desc()).first()
+        
+        urunler = []
+        
+        if son_islem:
+            # Son işlemdeki ürünleri getir
+            detaylar = MinibarIslemDetay.query.filter_by(
+                islem_id=son_islem.id
+            ).join(Urun).all()
+            
+            for detay in detaylar:
+                urunler.append({
+                    'id': detay.id,
+                    'urun_id': detay.urun_id,
+                    'urun_adi': detay.urun.urun_adi,
+                    'mevcut_miktar': detay.bitis_stok,
+                    'birim': detay.urun.birim,
+                    'grup_adi': detay.urun.grup.grup_adi if detay.urun.grup else '-'
+                })
+        
+        return jsonify({
+            'success': True,
+            'data': {
+                'oda_no': oda.oda_no,
+                'kat_adi': oda.kat.kat_adi,
+                'urunler': urunler
+            }
+        })
+        
+    except Exception as e:
+        log_hata(e, modul='api_minibar_urunler')
+        return jsonify({'success': False, 'message': 'Ürünler yüklenirken hata oluştu'}), 500
 
 
 @app.route('/api/kat-sorumlusu/yeniden-dolum', methods=['POST'])
@@ -2559,6 +2692,21 @@ def api_yeniden_dolum():
                 'success': False,
                 'message': 'Oda bulunamadı'
             }), 404
+        
+        # Kat sorumlusunun otel kontrolü
+        kullanici = get_current_user()
+        if not kullanici or not kullanici.otel_id:
+            return jsonify({
+                'success': False,
+                'message': 'Henüz bir otele atanmadınız'
+            }), 403
+        
+        # Odanın katını kontrol et ve otele ait olup olmadığını doğrula
+        if oda.kat.otel_id != kullanici.otel_id:
+            return jsonify({
+                'success': False,
+                'message': 'Bu oda sizin atandığınız otele ait değil'
+            }), 403
         
         if not urun:
             return jsonify({
@@ -2629,7 +2777,7 @@ def api_yeniden_dolum():
             yeni_islem = MinibarIslem(
                 oda_id=oda_id,
                 personel_id=kullanici_id,
-                islem_tipi='doldurma',
+                islem_tipi='yeniden_dolum',  # Veritabanındaki enum değeri
                 aciklama=f'Yeniden dolum: {urun.urun_adi}'
             )
             db.session.add(yeni_islem)
@@ -2711,6 +2859,110 @@ def api_yeniden_dolum():
 
 # ============================================
 # Tüm route'lar merkezi olarak register edildi (routes/__init__.py)
+# ============================================
+
+# ============================================
+# SCHEDULER - Otomatik Görevler
+# ============================================
+from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
+from utils.file_management_service import FileManagementService
+
+def start_scheduler():
+    """Zamanlanmış görevleri başlat"""
+    scheduler = BackgroundScheduler()
+    
+    # Her gün saat 02:00'de eski dosyaları temizle
+    scheduler.add_job(
+        func=lambda: FileManagementService.cleanup_old_files(),
+        trigger=CronTrigger(hour=2, minute=0),
+        id='cleanup_old_files',
+        name='Eski doluluk dosyalarını temizle',
+        replace_existing=True
+    )
+    
+    # ML SYSTEM JOBS - Sadece ML_ENABLED=true ise çalışır
+    ml_enabled = os.getenv('ML_ENABLED', 'false').lower() == 'true'
+    
+    if ml_enabled:
+        # Her 15 dakikada veri toplama
+        data_collection_interval = int(os.getenv('ML_DATA_COLLECTION_INTERVAL', 900))  # 900 saniye = 15 dakika
+        scheduler.add_job(
+            func=lambda: collect_ml_data(),
+            trigger='interval',
+            seconds=data_collection_interval,
+            id='ml_data_collection',
+            name='ML Veri Toplama',
+            replace_existing=True
+        )
+        
+        # Her 5 dakikada anomali tespiti
+        anomaly_check_interval = int(os.getenv('ML_ANOMALY_CHECK_INTERVAL', 300))  # 300 saniye = 5 dakika
+        scheduler.add_job(
+            func=lambda: detect_anomalies(),
+            trigger='interval',
+            seconds=anomaly_check_interval,
+            id='ml_anomaly_detection',
+            name='ML Anomali Tespiti',
+            replace_existing=True
+        )
+        
+        # Her gece yarısı model eğitimi
+        ml_training_schedule = os.getenv('ML_TRAINING_SCHEDULE', '0 0 * * *')  # Cron format
+        scheduler.add_job(
+            func=lambda: train_ml_models(),
+            trigger=CronTrigger.from_crontab(ml_training_schedule),
+            id='ml_model_training',
+            name='ML Model Eğitimi',
+            replace_existing=True
+        )
+        
+        print("✅ ML Scheduler başlatıldı")
+        print(f"   - Veri toplama: Her {data_collection_interval//60} dakika")
+        print(f"   - Anomali tespiti: Her {anomaly_check_interval//60} dakika")
+        print(f"   - Model eğitimi: {ml_training_schedule}")
+    
+    scheduler.start()
+    print("✅ Scheduler başlatıldı (Günlük dosya temizleme: 02:00)")
+
+def collect_ml_data():
+    """ML veri toplama job'u"""
+    try:
+        from utils.ml.data_collector import DataCollector
+        with app.app_context():
+            collector = DataCollector(db)
+            collector.collect_all_metrics()
+            # Eski metrikleri temizle (90 günden eski)
+            collector.cleanup_old_metrics(days=90)
+    except Exception as e:
+        logger.error(f"❌ ML veri toplama hatası: {str(e)}")
+
+def detect_anomalies():
+    """ML anomali tespiti job'u"""
+    try:
+        from utils.ml.anomaly_detector import AnomalyDetector
+        with app.app_context():
+            detector = AnomalyDetector(db)
+            detector.detect_all_anomalies()
+    except Exception as e:
+        logger.error(f"❌ ML anomali tespiti hatası: {str(e)}")
+
+def train_ml_models():
+    """ML model eğitimi job'u"""
+    try:
+        from utils.ml.model_trainer import ModelTrainer
+        with app.app_context():
+            trainer = ModelTrainer(db)
+            trainer.train_all_models()
+    except Exception as e:
+        logger.error(f"❌ ML model eğitimi hatası: {str(e)}")
+
+# Scheduler'ı başlat
+try:
+    start_scheduler()
+except Exception as e:
+    print(f"⚠️  Scheduler başlatılamadı: {str(e)}")
+
 # ============================================
 
 

@@ -8,9 +8,9 @@
 <div class="max-w-2xl mx-auto">
     {{ flash_messages() }}
 
-    <div class="bg-white shadow rounded-lg">
+    <div class="bg-white dark:bg-slate-800 shadow rounded-lg">
         <div class="px-4 py-5 sm:p-6">
-            <h3 class="text-lg leading-6 font-medium text-slate-900 mb-6">Kullanıcı Bilgilerini Düzenle</h3>
+            <h3 class="text-lg leading-6 font-medium text-slate-900 dark:text-slate-100 mb-6">Kullanıcı Bilgilerini Düzenle</h3>
 
             <form method="POST" class="space-y-6">
                 {{ form.csrf_token }}
@@ -20,40 +20,56 @@
 
                     <div>
                         {{ render_field(form.yeni_sifre, placeholder="Yeni şifre (boş bırakırsanız değişmez)") }}
-                        <p class="mt-1 text-sm text-slate-500">Şifre değiştirmek istemiyorsanız boş bırakın</p>
+                        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Şifre değiştirmek istemiyorsanız boş bırakın</p>
                     </div>
 
                     {{ render_field(form.ad) }}
                     {{ render_field(form.soyad) }}
 
                     {% if form.rol is defined %}
-                    <div>
+                    <div class="sm:col-span-2">
                         {{ render_select(form.rol) }}
-                        <p class="mt-2 text-sm text-slate-500">
-                            <strong>Admin:</strong> Tüm sistem yetkileri<br>
+                        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                            <strong>Sistem Yöneticisi:</strong> Tüm sistem yetkileri<br>
                             <strong>Depo Sorumlusu:</strong> Stok yönetimi ve zimmet atama<br>
                             <strong>Kat Sorumlusu:</strong> Minibar kontrol ve oda işlemleri
                         </p>
                     </div>
                     {% endif %}
-
-                    {{ render_field(form.email, placeholder="email@example.com") }}
-                    {{ render_field(form.telefon, placeholder="Telefon numarası") }}
                     
                     {% if form.otel_ids is defined %}
                     <div class="sm:col-span-2">
-                        {{ render_select(form.otel_ids) }}
-                        <p class="mt-1 text-sm text-slate-500">Depo sorumlusu birden fazla otele atanabilir (Ctrl tuşu ile çoklu seçim)</p>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            🏨 {{ form.otel_ids.label.text }}
+                        </label>
+                        <div class="otel-select-wrapper">
+                            {{ form.otel_ids(class="otel-select", style="width: 100%;") }}
+                        </div>
+                        <div class="mt-3 flex items-start bg-indigo-50 dark:bg-indigo-900/30 rounded-md p-3">
+                            <svg class="h-5 w-5 text-indigo-600 dark:text-indigo-400 mr-2 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <div class="text-sm text-indigo-800 dark:text-indigo-200">
+                                <p class="font-semibold mb-1">💡 Çoklu Seçim</p>
+                                <p>Birden fazla otel seçebilirsiniz. Seçili otelleri kaldırmak için × işaretine tıklayın.</p>
+                            </div>
+                        </div>
                     </div>
                     {% elif form.otel_id is defined %}
                     <div class="sm:col-span-2">
-                        {{ render_select(form.otel_id) }}
-                        <p class="mt-1 text-sm text-slate-500">Kat sorumlusu sadece bir otele atanabilir</p>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            {{ form.otel_id.label.text }}
+                        </label>
+                        {{ form.otel_id(class="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors sm:text-sm") }}
+                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Kat sorumlusu sadece bir otele atanabilir</p>
                     </div>
                     {% if form.depo_sorumlusu_id is defined %}
                     <div class="sm:col-span-2">
-                        {{ render_select(form.depo_sorumlusu_id) }}
-                        <p class="mt-1 text-sm text-slate-500">Kat sorumlusunun bağlı olduğu depo sorumlusu (opsiyonel)</p>
+                        <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                            {{ form.depo_sorumlusu_id.label.text }}
+                        </label>
+                        {{ form.depo_sorumlusu_id(class="block w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors sm:text-sm") }}
+                        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">Kat sorumlusunun bağlı olduğu depo sorumlusu (opsiyonel)</p>
                     </div>
                     {% endif %}
                     {% endif %}
@@ -61,11 +77,11 @@
 
                 <div class="flex justify-end space-x-3">
                     <a href="{{ url_for('personel_tanimla') }}"
-                        class="bg-white py-2 px-4 border border-slate-300 rounded-md shadow-sm text-sm font-medium text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                        class="bg-white dark:bg-slate-700 py-2 px-4 border border-slate-300 dark:border-slate-600 rounded-md shadow-sm text-sm font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
                         İptal
                     </a>
                     <button type="submit"
-                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-slate-600 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500">
+                        class="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
                         Güncelle
                     </button>
                 </div>
@@ -74,3 +90,4 @@
     </div>
 </div>
 {% endblock %}
+

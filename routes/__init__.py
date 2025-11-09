@@ -48,6 +48,10 @@ def register_all_routes(app):
     from routes.depo_routes import register_depo_routes
     register_depo_routes(app)
     
+    # Doluluk Yönetimi Routes
+    from routes.doluluk_routes import register_doluluk_routes
+    register_doluluk_routes(app)
+    
     # Mevcut route modülleri (zaten ayrı dosyalarda)
     from routes.admin_qr_routes import register_admin_qr_routes
     register_admin_qr_routes(app)
@@ -75,5 +79,13 @@ def register_all_routes(app):
     # Health Check Routes
     from routes.health_routes import health_bp
     app.register_blueprint(health_bp)
+    
+    # Rapor Routes
+    from routes.rapor_routes import register_rapor_routes
+    register_rapor_routes(app)
+    
+    # ML Routes
+    from routes.ml_routes import register_ml_routes
+    register_ml_routes(app)
     
     print("✅ Tüm route modülleri başarıyla register edildi!")

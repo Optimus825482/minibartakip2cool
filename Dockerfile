@@ -8,11 +8,10 @@ LABEL description="Minibar Takip Sistemi - Docker Container"
 # Çalışma dizini
 WORKDIR /app
 
-# Sistem bağımlılıkları (MySQL client ve güvenlik güncellemeleri)
+# Sistem bağımlılıkları (PostgreSQL client ve curl - psycopg2-binary kullandığımız için gcc gerekmez)
 RUN apt-get update && apt-get install -y \
-    default-libmysqlclient-dev \
-    build-essential \
-    pkg-config \
+    libpq5 \
+    curl \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -33,12 +32,12 @@ RUN useradd -m -u 1000 appuser && \
 USER appuser
 
 # Port expose et
-EXPOSE 8080
+EXPOSE 5000
 
-# Health check ekle
+# Health check ekle (curl ile basit ve güvenilir)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8080/health', timeout=5)" || exit 1
+    CMD curl -f http://localhost:5000/health || exit 1
 
-# Entrypoint ve CMD
+# Entrypoint ve CMD (optimize edilmiş worker/thread sayısı)
 ENTRYPOINT ["./docker-entrypoint.sh"]
-CMD ["gunicorn", "--bind", "0.0.0.0:8080", "--workers", "4", "--threads", "2", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "--timeout", "120", "--access-logfile", "-", "--error-logfile", "-", "app:app"]
