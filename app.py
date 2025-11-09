@@ -61,6 +61,14 @@ with app.app_context():
             result = conn.execute(db.text("SELECT 1"))
             result.close()
         logger.info("✅ Database engine yenilendi ve test edildi")
+        
+        # Startup ML Fix - entity_type kolonunu kaldır
+        try:
+            from startup_fix_ml import fix_ml_metrics_on_startup
+            fix_ml_metrics_on_startup()
+        except Exception as fix_error:
+            logger.warning(f"⚠️ ML startup fix hatası (devam ediliyor): {str(fix_error)[:200]}")
+            
     except Exception as e:
         logger.warning(f"⚠️ Engine refresh hatası: {str(e)[:200]}")
 
