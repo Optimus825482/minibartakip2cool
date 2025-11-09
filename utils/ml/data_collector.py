@@ -51,7 +51,6 @@ class DataCollector:
                 # Metrik kaydı oluştur
                 metric = MLMetric(
                     metric_type='stok_seviye',
-                    entity_type='urun',
                     entity_id=urun.id,
                     metric_value=float(mevcut_stok),
                     timestamp=timestamp,
@@ -170,7 +169,6 @@ class DataCollector:
                         
                         metric = MLMetric(
                             metric_type='dolum_sure',
-                            entity_type='kat_sorumlusu',
                             entity_id=personel.id,
                             metric_value=float(ortalama_sure),
                             timestamp=timestamp,
@@ -236,7 +234,6 @@ class DataCollector:
                     kullanim_oran = (toplam_kullanim / toplam_zimmet * 100)
                     metric = MLMetric(
                         metric_type='zimmet_kullanim',
-                        entity_type='kat_sorumlusu',
                         entity_id=personel.id,
                         metric_value=float(kullanim_oran),
                         timestamp=timestamp,
@@ -253,7 +250,6 @@ class DataCollector:
                     fire_oran = (toplam_fire / toplam_zimmet * 100)
                     metric = MLMetric(
                         metric_type='zimmet_fire',
-                        entity_type='kat_sorumlusu',
                         entity_id=personel.id,
                         metric_value=float(fire_oran),
                         timestamp=timestamp,
@@ -330,7 +326,6 @@ class DataCollector:
                 if not oda_dolu and tuketim_toplam > 0:
                     metric = MLMetric(
                         metric_type='bosta_tuketim',
-                        entity_type='oda',
                         entity_id=oda.id,
                         metric_value=float(tuketim_toplam),
                         timestamp=timestamp,
@@ -380,7 +375,6 @@ class DataCollector:
                     
                     metric = MLMetric(
                         metric_type='talep_yanit_sure',
-                        entity_type='oda',
                         entity_id=talep.oda_id,
                         metric_value=float(yanit_sure),
                         timestamp=timestamp,
@@ -403,7 +397,6 @@ class DataCollector:
                 if oda:
                     metric = MLMetric(
                         metric_type='talep_yogunluk',
-                        entity_type='oda',
                         entity_id=oda_id,
                         metric_value=float(talep_sayisi),
                         timestamp=timestamp,
@@ -455,7 +448,6 @@ class DataCollector:
                 if qr_count > 0:
                     metric = MLMetric(
                         metric_type='qr_okutma_siklik',
-                        entity_type='kat_sorumlusu',
                         entity_id=personel.id,
                         metric_value=float(qr_count),
                         timestamp=timestamp,

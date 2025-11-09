@@ -80,7 +80,6 @@ class AnomalyDetector:
                 # Bu ürün için son 30 günlük metrikleri al
                 metrikler = MLMetric.query.filter(
                     MLMetric.metric_type == 'stok_seviye',
-                    MLMetric.entity_type == 'urun',
                     MLMetric.entity_id == urun.id,
                     MLMetric.timestamp >= son_30_gun
                 ).order_by(MLMetric.timestamp).all()
@@ -102,7 +101,6 @@ class AnomalyDetector:
                     son_1_saat = datetime.now(timezone.utc) - timedelta(hours=1)
                     existing_alert = MLAlert.query.filter(
                         MLAlert.alert_type == 'stok_anomali',
-                        MLAlert.entity_type == 'urun',
                         MLAlert.entity_id == urun.id,
                         MLAlert.created_at >= son_1_saat,
                         MLAlert.is_false_positive == False
@@ -121,7 +119,6 @@ class AnomalyDetector:
                         alert = MLAlert(
                             alert_type='stok_anomali',
                             severity=severity,
-                            entity_type='urun',
                             entity_id=urun.id,
                             metric_value=current_value,
                             expected_value=mean,
@@ -164,7 +161,6 @@ class AnomalyDetector:
                 # Bu oda için son 7 günlük metrikleri al
                 metrikler = MLMetric.query.filter(
                     MLMetric.metric_type == 'tuketim_miktar',
-                    MLMetric.entity_type == 'oda',
                     MLMetric.entity_id == oda.id,
                     MLMetric.timestamp >= son_7_gun
                 ).order_by(MLMetric.timestamp).all()
@@ -189,7 +185,6 @@ class AnomalyDetector:
                         son_6_saat = datetime.now(timezone.utc) - timedelta(hours=6)
                         existing_alert = MLAlert.query.filter(
                             MLAlert.alert_type == 'tuketim_anomali',
-                            MLAlert.entity_type == 'oda',
                             MLAlert.entity_id == oda.id,
                             MLAlert.created_at >= son_6_saat,
                             MLAlert.is_false_positive == False
@@ -208,7 +203,6 @@ class AnomalyDetector:
                             alert = MLAlert(
                                 alert_type='tuketim_anomali',
                                 severity=severity,
-                                entity_type='oda',
                                 entity_id=oda.id,
                                 metric_value=current_value,
                                 expected_value=mean,
@@ -254,7 +248,6 @@ class AnomalyDetector:
                 # Bu personel için son 7 günlük metrikleri al
                 metrikler = MLMetric.query.filter(
                     MLMetric.metric_type == 'dolum_sure',
-                    MLMetric.entity_type == 'kat_sorumlusu',
                     MLMetric.entity_id == personel.id,
                     MLMetric.timestamp >= son_7_gun
                 ).order_by(MLMetric.timestamp).all()
@@ -279,7 +272,6 @@ class AnomalyDetector:
                         son_12_saat = datetime.now(timezone.utc) - timedelta(hours=12)
                         existing_alert = MLAlert.query.filter(
                             MLAlert.alert_type == 'dolum_gecikme',
-                            MLAlert.entity_type == 'kat_sorumlusu',
                             MLAlert.entity_id == personel.id,
                             MLAlert.created_at >= son_12_saat,
                             MLAlert.is_false_positive == False
@@ -294,7 +286,6 @@ class AnomalyDetector:
                             alert = MLAlert(
                                 alert_type='dolum_gecikme',
                                 severity=severity,
-                                entity_type='kat_sorumlusu',
                                 entity_id=personel.id,
                                 metric_value=current_value,
                                 expected_value=mean,
@@ -340,7 +331,6 @@ class AnomalyDetector:
                 # Fire oranı metriklerini al
                 fire_metrikler = MLMetric.query.filter(
                     MLMetric.metric_type == 'zimmet_fire',
-                    MLMetric.entity_type == 'kat_sorumlusu',
                     MLMetric.entity_id == personel.id,
                     MLMetric.timestamp >= son_7_gun
                 ).order_by(MLMetric.timestamp).all()
@@ -354,7 +344,6 @@ class AnomalyDetector:
                         son_24_saat = datetime.now(timezone.utc) - timedelta(hours=24)
                         existing_alert = MLAlert.query.filter(
                             MLAlert.alert_type == 'zimmet_fire_yuksek',
-                            MLAlert.entity_type == 'kat_sorumlusu',
                             MLAlert.entity_id == personel.id,
                             MLAlert.created_at >= son_24_saat,
                             MLAlert.is_false_positive == False
@@ -375,7 +364,6 @@ class AnomalyDetector:
                             alert = MLAlert(
                                 alert_type='zimmet_fire_yuksek',
                                 severity=severity,
-                                entity_type='kat_sorumlusu',
                                 entity_id=personel.id,
                                 metric_value=son_fire,
                                 expected_value=10.0,  # Beklenen fire oranı %10
@@ -389,7 +377,6 @@ class AnomalyDetector:
                 # Kullanım oranı metriklerini al
                 kullanim_metrikler = MLMetric.query.filter(
                     MLMetric.metric_type == 'zimmet_kullanim',
-                    MLMetric.entity_type == 'kat_sorumlusu',
                     MLMetric.entity_id == personel.id,
                     MLMetric.timestamp >= son_7_gun
                 ).order_by(MLMetric.timestamp).all()
@@ -402,7 +389,6 @@ class AnomalyDetector:
                         son_24_saat = datetime.now(timezone.utc) - timedelta(hours=24)
                         existing_alert = MLAlert.query.filter(
                             MLAlert.alert_type == 'zimmet_kullanim_dusuk',
-                            MLAlert.entity_type == 'kat_sorumlusu',
                             MLAlert.entity_id == personel.id,
                             MLAlert.created_at >= son_24_saat,
                             MLAlert.is_false_positive == False
@@ -416,7 +402,6 @@ class AnomalyDetector:
                             alert = MLAlert(
                                 alert_type='zimmet_kullanim_dusuk',
                                 severity=severity,
-                                entity_type='kat_sorumlusu',
                                 entity_id=personel.id,
                                 metric_value=son_kullanim,
                                 expected_value=70.0,
@@ -462,7 +447,6 @@ class AnomalyDetector:
                 son_6_saat = datetime.now(timezone.utc) - timedelta(hours=6)
                 existing_alert = MLAlert.query.filter(
                     MLAlert.alert_type == 'bosta_tuketim_var',
-                    MLAlert.entity_type == 'oda',
                     MLAlert.entity_id == metrik.entity_id,
                     MLAlert.created_at >= son_6_saat,
                     MLAlert.is_false_positive == False
@@ -481,7 +465,6 @@ class AnomalyDetector:
                     alert = MLAlert(
                         alert_type='bosta_tuketim_var',
                         severity=severity,
-                        entity_type='oda',
                         entity_id=metrik.entity_id,
                         metric_value=metrik.metric_value,
                         expected_value=0.0,
@@ -527,7 +510,6 @@ class AnomalyDetector:
                 son_1_saat = datetime.now(timezone.utc) - timedelta(hours=1)
                 existing_alert = MLAlert.query.filter(
                     MLAlert.alert_type == 'talep_yanitlanmadi',
-                    MLAlert.entity_type == 'oda',
                     MLAlert.entity_id == talep.oda_id,
                     MLAlert.created_at >= son_1_saat,
                     MLAlert.is_false_positive == False
@@ -551,7 +533,6 @@ class AnomalyDetector:
                     alert = MLAlert(
                         alert_type='talep_yanitlanmadi',
                         severity=severity,
-                        entity_type='oda',
                         entity_id=talep.oda_id,
                         metric_value=bekle_sure,
                         expected_value=15.0,  # Beklenen yanıt süresi 15 dakika
@@ -597,7 +578,6 @@ class AnomalyDetector:
                 # Son 7 günlük QR okutma metrikleri
                 qr_metrikler = MLMetric.query.filter(
                     MLMetric.metric_type == 'qr_okutma_siklik',
-                    MLMetric.entity_type == 'kat_sorumlusu',
                     MLMetric.entity_id == personel.id,
                     MLMetric.timestamp >= son_7_gun
                 ).all()
@@ -612,7 +592,6 @@ class AnomalyDetector:
                         son_24_saat = datetime.now(timezone.utc) - timedelta(hours=24)
                         existing_alert = MLAlert.query.filter(
                             MLAlert.alert_type == 'qr_kullanim_dusuk',
-                            MLAlert.entity_type == 'kat_sorumlusu',
                             MLAlert.entity_id == personel.id,
                             MLAlert.created_at >= son_24_saat,
                             MLAlert.is_false_positive == False
@@ -626,7 +605,6 @@ class AnomalyDetector:
                             alert = MLAlert(
                                 alert_type='qr_kullanim_dusuk',
                                 severity=severity,
-                                entity_type='kat_sorumlusu',
                                 entity_id=personel.id,
                                 metric_value=son_deger,
                                 expected_value=ortalama,

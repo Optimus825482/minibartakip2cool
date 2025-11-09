@@ -37,7 +37,6 @@ class MetricsCalculator:
             
             metrikler = MLMetric.query.filter(
                 MLMetric.metric_type == 'stok_seviye',
-                MLMetric.entity_type == 'urun',
                 MLMetric.entity_id == urun_id,
                 MLMetric.timestamp >= son_30_gun
             ).order_by(MLMetric.timestamp).all()
@@ -120,7 +119,6 @@ class MetricsCalculator:
             
             metrikler = MLMetric.query.filter(
                 MLMetric.metric_type == 'tuketim_miktar',
-                MLMetric.entity_type == 'oda',
                 MLMetric.entity_id == oda_id,
                 MLMetric.timestamp >= cutoff_date
             ).order_by(MLMetric.timestamp).all()
@@ -167,7 +165,6 @@ class MetricsCalculator:
             
             metrikler = MLMetric.query.filter(
                 MLMetric.metric_type == 'dolum_sure',
-                MLMetric.entity_type == 'kat_sorumlusu',
                 MLMetric.entity_id == kat_sorumlusu_id,
                 MLMetric.timestamp >= son_30_gun
             ).all()
@@ -208,7 +205,6 @@ class MetricsCalculator:
                     son_24_saat = datetime.now(timezone.utc) - timedelta(hours=24)
                     existing_alert = MLAlert.query.filter(
                         MLAlert.alert_type == 'stok_bitis_uyari',
-                        MLAlert.entity_type == 'urun',
                         MLAlert.entity_id == urun.id,
                         MLAlert.created_at >= son_24_saat,
                         MLAlert.is_false_positive == False
@@ -229,7 +225,6 @@ class MetricsCalculator:
                         alert = MLAlert(
                             alert_type='stok_bitis_uyari',
                             severity=severity,
-                            entity_type='urun',
                             entity_id=urun.id,
                             metric_value=mevcut_stok,
                             expected_value=gunluk_tuketim * 7,  # 7 günlük ideal stok
