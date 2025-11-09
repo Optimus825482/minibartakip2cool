@@ -124,31 +124,234 @@ GET /ml/api/model-performance
 GET /ml/api/statistics?days=30
 ```
 
+## 🔄 Sistem Çalışma Akışı
+
+### Adım 1: Veri Toplama (Her 15 Dakika)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. STOK VERİLERİ                                           │
+│     - Tüm ürünlerin mevcut stok seviyeleri                  │
+│     - Kritik stok seviyesi ile karşılaştırma                │
+│     - Extra data: ürün adı, grup, kritik seviye             │
+│                                                              │
+│  2. TÜKETİM VERİLERİ                                        │
+│     - Son 24 saat minibar tüketim kayıtları                 │
+│     - Oda bazlı tüketim miktarları                          │
+│     - Extra data: oda no, oda tipi, kat                     │
+│                                                              │
+│  3. DOLUM SÜRESİ VERİLERİ                                   │
+│     - Kat sorumlusu bazlı ortalama dolum süreleri           │
+│     - Son 7 gün işlem sayısı                                │
+│     - Extra data: personel adı, işlem sayısı, otel          │
+│                                                              │
+│  4. ZİMMET VERİLERİ                                         │
+│     - Zimmet kullanım oranları                              │
+│     - Fire/kayıp oranları                                   │
+│     - Extra data: toplam zimmet, kullanım, fire             │
+│                                                              │
+│  5. DOLULUK VERİLERİ                                        │
+│     - Otel doluluk oranları                                 │
+│     - Boş oda tüketim kontrolleri                           │
+│                                                              │
+│  6. QR VERİLERİ                                             │
+│     - QR okutma sıklıkları                                  │
+│     - Personel performans metrikleri                        │
+│                                                              │
+│  ➜ Toplanan veriler ml_metrics tablosuna kaydedilir        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Adım 2: Sapma Analizi (Her 5 Dakika)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. VERİ HAZIRLIĞI                                          │
+│     - Son 30 gün stok verileri çekilir                      │
+│     - Son 7 gün tüketim verileri çekilir                    │
+│     - Son 7 gün dolum verileri çekilir                      │
+│                                                              │
+│  2. İSTATİSTİKSEL ANALİZ                                    │
+│     ┌─────────────────────────────────────┐                │
+│     │  Z-Score Metodu                     │                │
+│     │  - Ortalama (μ) hesapla             │                │
+│     │  - Standart sapma (σ) hesapla       │                │
+│     │  - Z = (X - μ) / σ                  │                │
+│     │  - |Z| > 3 ise anomali              │                │
+│     └─────────────────────────────────────┘                │
+│                                                              │
+│  3. MAKİNE ÖĞRENMESİ ANALİZİ                                │
+│     ┌─────────────────────────────────────┐                │
+│     │  Isolation Forest                   │                │
+│     │  - Eğitilmiş model yükle            │                │
+│     │  - Yeni veri predict et             │                │
+│     │  - Anomaly score hesapla            │                │
+│     │  - Score < threshold ise anomali    │                │
+│     └─────────────────────────────────────┘                │
+│                                                              │
+│  4. SAPMA TESPİTİ                                           │
+│     - Stok Sapması: %30+ sapma → Alert                     │
+│     - Tüketim Sapması: %40+ sapma → Alert                  │
+│     - Dolum Gecikmesi: %50+ uzun → Alert                   │
+│     - Zimmet Fire: %20+ fire → Alert                       │
+│     - Boş Oda Tüketim: Tüketim var → Alert                 │
+│                                                              │
+│  5. UYARI OLUŞTURMA                                         │
+│     - Severity belirleme (düşük/orta/yüksek/kritik)         │
+│     - Mesaj ve önerilen aksiyon oluşturma                   │
+│     - Duplicate kontrol (son 1-24 saat)                     │
+│     - ml_alerts tablosuna kaydetme                          │
+│                                                              │
+│  ➜ Tespit edilen sapmalar alert olarak kaydedilir          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Adım 3: Model Eğitimi (Her Gece 00:00)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. VERİ TOPLAMA VE HAZIRLIK                                │
+│     - Son 90 gün metrik verileri çekilir                    │
+│     - Minimum 100 veri noktası kontrolü                     │
+│     - Eksik değerler temizlenir                             │
+│     - Outlier'lar işaretlenir                               │
+│                                                              │
+│  2. ÖZELLİK MÜHENDİSLİĞİ                                    │
+│     - Zaman bazlı özellikler (saat, gün, hafta)            │
+│     - İstatistiksel özellikler (ortalama, std, min, max)   │
+│     - Trend özellikleri (artış/azalış oranı)               │
+│     - Mevsimsellik özellikleri                              │
+│                                                              │
+│  3. MODEL EĞİTİMİ                                           │
+│     ┌─────────────────────────────────────┐                │
+│     │  Isolation Forest Eğitimi           │                │
+│     │  1. Veri setini train/test böl      │                │
+│     │  2. Hyperparameter tuning           │                │
+│     │     - n_estimators: 100             │                │
+│     │     - contamination: 0.1            │                │
+│     │     - max_samples: auto             │                │
+│     │  3. Model eğit                      │                │
+│     │  4. Cross-validation (5-fold)       │                │
+│     └─────────────────────────────────────┘                │
+│                                                              │
+│  4. MODEL DEĞERLENDİRME                                     │
+│     - Accuracy hesaplama                                    │
+│     - Precision hesaplama                                   │
+│     - Recall hesaplama                                      │
+│     - F1-Score hesaplama                                    │
+│     - Confusion Matrix analizi                              │
+│     - ROC-AUC score                                         │
+│                                                              │
+│  5. YANLIŞPOZITIF ÖĞRENME                                   │
+│     - Yanlış pozitif işaretli alertler çekilir             │
+│     - Bu veriler "normal" olarak etiketlenir                │
+│     - Model bu örneklerden öğrenir                          │
+│     - Threshold değerleri optimize edilir                   │
+│                                                              │
+│  6. MODEL KAYDETME                                          │
+│     - Model pickle formatında serialize edilir              │
+│     - ml_models tablosuna kaydedilir                        │
+│     - Eski model is_active=false yapılır                    │
+│     - Yeni model is_active=true yapılır                     │
+│     - Eğitim logları ml_training_logs'a yazılır             │
+│                                                              │
+│  7. PERFORMANS RAPORLAMA                                    │
+│     - Eğitim süresi                                         │
+│     - Veri noktası sayısı                                   │
+│     - Model metrikleri                                      │
+│     - Önceki modelle karşılaştırma                          │
+│                                                              │
+│  ➜ Eğitilmiş model sonraki sapma analizlerinde kullanılır  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Adım 4: Tahmin ve Öneriler (Sürekli)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. STOK BİTİŞ TAHMİNİ                                      │
+│     - Son 30 gün stok tüketim hızı hesaplanır               │
+│     - Linear regression ile trend belirlenir                │
+│     - Mevcut stok / günlük tüketim = kalan gün              │
+│     - 7 günden az ise uyarı oluşturulur                     │
+│                                                              │
+│  2. TÜKETİM TREND ANALİZİ                                   │
+│     - Haftalık tüketim ortalaması                           │
+│     - Aylık tüketim ortalaması                              │
+│     - Artış/azalış yüzdeleri                                │
+│     - Mevsimsel paternler                                   │
+│                                                              │
+│  3. PERFORMANS ÖLÇÜMLERİ                                    │
+│     - Kat sorumlusu dolum hızı                              │
+│     - Zimmet kullanım verimliliği                           │
+│     - QR okutma sıklığı                                     │
+│     - Talep yanıt süreleri                                  │
+│                                                              │
+│  4. ÖNERİLER OLUŞTURMA                                      │
+│     - Kritik stok için sipariş önerisi                      │
+│     - Yavaş personel için uyarı                             │
+│     - Yüksek fire için inceleme önerisi                     │
+│     - Boş oda tüketim için kontrol önerisi                  │
+│                                                              │
+│  ➜ Öneriler dashboard'da ve alert'lerde gösterilir         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Adım 5: Sürekli İyileştirme (Döngüsel)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  1. GERİ BİLDİRİM TOPLAMA                                   │
+│     - Admin alert'leri okundu işaretler                     │
+│     - Admin yanlış pozitif işaretler                        │
+│     - Sistem gerçek durumları kaydeder                      │
+│                                                              │
+│  2. ÖĞRENME                                                 │
+│     - Yanlış pozitifler analiz edilir                       │
+│     - Threshold değerleri ayarlanır                         │
+│     - Model yeniden eğitilir                                │
+│     - Doğruluk oranı artar                                  │
+│                                                              │
+│  3. OPTİMİZASYON                                            │
+│     - Yavaş sorgular optimize edilir                        │
+│     - Gereksiz metrikler kaldırılır                         │
+│     - Alert kuralları iyileştirilir                         │
+│     - Performans artırılır                                  │
+│                                                              │
+│  ➜ Sistem zamanla daha akıllı ve doğru hale gelir          │
+└─────────────────────────────────────────────────────────────┘
+```
+
 ## 🤖 Sistem Bileşenleri
 
 ### 1. Data Collector
 - **Dosya**: `utils/ml/data_collector.py`
 - **Görev**: Metrik toplama
 - **Çalışma**: Her 15 dakika (varsayılan)
+- **Çıktı**: ml_metrics tablosuna veri kaydı
 
 ### 2. Anomaly Detector
 - **Dosya**: `utils/ml/anomaly_detector.py`
-- **Görev**: Anomali tespiti
+- **Görev**: Sapma analizi
 - **Çalışma**: Her 5 dakika (varsayılan)
 - **Algoritmalar**: Z-Score, Isolation Forest
+- **Çıktı**: ml_alerts tablosuna uyarı kaydı
 
 ### 3. Model Trainer
 - **Dosya**: `utils/ml/model_trainer.py`
 - **Görev**: Model eğitimi
 - **Çalışma**: Her gece yarısı (varsayılan)
+- **Çıktı**: ml_models tablosuna model kaydı
 
 ### 4. Alert Manager
 - **Dosya**: `utils/ml/alert_manager.py`
 - **Görev**: Uyarı yönetimi
+- **Özellikler**: Okundu işaretleme, yanlış pozitif, temizleme
 
 ### 5. Metrics Calculator
 - **Dosya**: `utils/ml/metrics_calculator.py`
 - **Görev**: Stok bitiş tahmini, trend analizi
+- **Özellikler**: Linear regression, istatistiksel analiz
 
 ## 📈 Metrik Tipleri
 
