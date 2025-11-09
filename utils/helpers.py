@@ -27,7 +27,17 @@ logging.basicConfig(
 def get_current_user():
     """Oturumdaki kullanıcıyı getir"""
     if 'kullanici_id' in session:
-        return Kullanici.query.get(session['kullanici_id'])
+        try:
+            return Kullanici.query.get(session['kullanici_id'])
+        except Exception as e:
+            # Transaction hatası durumunda rollback yap ve tekrar dene
+            logging.error(f"❌ get_current_user hatası: {str(e)}")
+            db.session.rollback()
+            try:
+                return Kullanici.query.get(session['kullanici_id'])
+            except Exception as retry_error:
+                logging.error(f"❌ get_current_user retry hatası: {str(retry_error)}")
+                return None
     return None
 
 
@@ -616,6 +626,11 @@ def get_depo_stok_durumu(grup_id=None):
         sonuclar = []
         for urun in urunler:
             mevcut_stok = stok_map.get(urun.id, 0)
+            
+            # Mevcut stoku 0 olan ürünleri atla
+            if mevcut_stok == 0:
+                continue
+            
             kritik_seviye = urun.kritik_stok_seviyesi
             dikkat_esigi = kritik_seviye * 1.5
             

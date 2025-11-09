@@ -1,0 +1,318 @@
+"""
+ML Routes - ML Anomaly Detection System
+ML dashboard ve API endpoint'leri
+"""
+
+from flask import Blueprint, render_template, jsonify, request
+from utils.decorators import login_required, role_required
+from utils.helpers import get_current_user
+from utils.ml.alert_manager import AlertManager
+from utils.ml.metrics_calculator import MetricsCalculator
+from models import db, MLAlert, MLModel, MLMetric, MLTrainingLog
+from datetime import datetime, timezone, timedelta
+import logging
+
+logger = logging.getLogger(__name__)
+
+ml_bp = Blueprint('ml', __name__, url_prefix='/ml')
+
+
+@ml_bp.route('/dashboard')
+@login_required
+@role_required('admin', 'sistem_yoneticisi')
+def dashboard():
+    """ML Dashboard - Ana sayfa"""
+    try:
+        alert_manager = AlertManager(db)
+        metrics_calculator = MetricsCalculator(db)
+        
+        # Dashboard metrikleri
+        dashboard_metrics = metrics_calculator.get_dashboard_metrics()
+        
+        # Aktif alertler (ilk 10)
+        active_alerts = alert_manager.get_active_alerts(limit=10)
+        
+        # Alert istatistikleri (son 30 gün)
+        alert_stats = alert_manager.get_alert_statistics(days=30)
+        
+        # Model performans bilgileri
+        models = MLModel.query.filter_by(is_active=True).all()
+        
+        return render_template('admin/ml_dashboard.html',
+                             dashboard_metrics=dashboard_metrics,
+                             active_alerts=active_alerts,
+                             alert_stats=alert_stats,
+                             models=models)
+    
+    except Exception as e:
+        logger.error(f"❌ ML Dashboard hatası: {str(e)}")
+        # Transaction'ı rollback et
+        db.session.rollback()
+        return render_template('admin/ml_dashboard.html',
+                             dashboard_metrics={},
+                             active_alerts=[],
+                             alert_stats={},
+                             models=[])
+
+
+@ml_bp.route('/api/alerts')
+@login_required
+@role_required('admin', 'sistem_yoneticisi')
+def api_get_alerts():
+    """Aktif alertleri getir (JSON)"""
+    try:
+        severity = request.args.get('severity')
+        limit = request.args.get('limit', type=int)
+        
+        alert_manager = AlertManager(db)
+        alerts = alert_manager.get_active_alerts(severity=severity, limit=limit)
+        
+        alerts_data = []
+        for alert in alerts:
+            # Entity bilgisini al
+            entity_name = get_entity_name(alert.entity_type, alert.entity_id)
+            
+            alerts_data.append({
+                'id': alert.id,
+                'alert_type': alert.alert_type,
+                'severity': alert.severity,
+                'entity_type': alert.entity_type,
+                'entity_id': alert.entity_id,
+                'entity_name': entity_name,
+                'metric_value': alert.metric_value,
+                'expected_value': alert.expected_value,
+                'deviation_percent': alert.deviation_percent,
+                'message': alert.message,
+                'suggested_action': alert.suggested_action,
+                'created_at': alert.created_at.isoformat(),
+                'is_read': alert.is_read
+            })
+        
+        return jsonify({
+            'success': True,
+            'alerts': alerts_data,
+            'count': len(alerts_data)
+        })
+    
+    except Exception as e:
+        logger.error(f"❌ Alert API hatası: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@ml_bp.route('/api/alerts/<int:alert_id>/read', methods=['POST'])
+@login_required
+@role_required('admin', 'sistem_yoneticisi')
+def api_mark_alert_read(alert_id):
+    """Alert'i okundu işaretle"""
+    try:
+        user = get_current_user()
+        alert_manager = AlertManager(db)
+        
+        success = alert_manager.mark_as_read(alert_id, user.id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Alert okundu olarak işaretlendi'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Alert bulunamadı'
+            }), 404
+    
+    except Exception as e:
+        logger.error(f"❌ Alert okuma hatası: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@ml_bp.route('/api/alerts/<int:alert_id>/false-positive', methods=['POST'])
+@login_required
+@role_required('admin', 'sistem_yoneticisi')
+def api_mark_false_positive(alert_id):
+    """Yanlış pozitif olarak işaretle"""
+    try:
+        user = get_current_user()
+        alert_manager = AlertManager(db)
+        
+        success = alert_manager.mark_as_false_positive(alert_id, user.id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Alert yanlış pozitif olarak işaretlendi'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'Alert bulunamadı'
+            }), 404
+    
+    except Exception as e:
+        logger.error(f"❌ Yanlış pozitif işaretleme hatası: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@ml_bp.route('/api/metrics')
+@login_required
+@role_required('admin', 'sistem_yoneticisi')
+def api_get_metrics():
+    """Son metrikleri getir"""
+    try:
+        days = request.args.get('days', 7, type=int)
+        metric_type = request.args.get('type')
+        
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        
+        query = MLMetric.query.filter(MLMetric.timestamp >= cutoff_date)
+        
+        if metric_type:
+            query = query.filter_by(metric_type=metric_type)
+        
+        query = query.order_by(MLMetric.timestamp.desc()).limit(1000)
+        
+        metrics = query.all()
+        
+        metrics_data = []
+        for metric in metrics:
+            metrics_data.append({
+                'id': metric.id,
+                'metric_type': metric.metric_type,
+                'entity_type': metric.entity_type,
+                'entity_id': metric.entity_id,
+                'metric_value': metric.metric_value,
+                'timestamp': metric.timestamp.isoformat(),
+                'extra_data': metric.extra_data
+            })
+        
+        return jsonify({
+            'success': True,
+            'metrics': metrics_data,
+            'count': len(metrics_data)
+        })
+    
+    except Exception as e:
+        logger.error(f"❌ Metrik API hatası: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@ml_bp.route('/api/model-performance')
+@login_required
+@role_required('admin', 'sistem_yoneticisi')
+def api_model_performance():
+    """Model performans metrikleri"""
+    try:
+        models = MLModel.query.filter_by(is_active=True).all()
+        
+        models_data = []
+        for model in models:
+            # Son eğitim logu
+            last_training = MLTrainingLog.query.filter_by(
+                model_id=model.id,
+                success=True
+            ).order_by(MLTrainingLog.training_end.desc()).first()
+            
+            models_data.append({
+                'id': model.id,
+                'model_type': model.model_type,
+                'metric_type': model.metric_type,
+                'accuracy': model.accuracy,
+                'precision': model.precision,
+                'recall': model.recall,
+                'training_date': model.training_date.isoformat(),
+                'last_training': {
+                    'data_points': last_training.data_points if last_training else 0,
+                    'training_time': (last_training.training_end - last_training.training_start).total_seconds() if last_training else 0
+                } if last_training else None
+            })
+        
+        return jsonify({
+            'success': True,
+            'models': models_data,
+            'count': len(models_data)
+        })
+    
+    except Exception as e:
+        logger.error(f"❌ Model performans API hatası: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@ml_bp.route('/api/statistics')
+@login_required
+@role_required('admin', 'sistem_yoneticisi')
+def api_statistics():
+    """Genel istatistikler"""
+    try:
+        days = request.args.get('days', 30, type=int)
+        
+        alert_manager = AlertManager(db)
+        alert_stats = alert_manager.get_alert_statistics(days=days)
+        
+        metrics_calculator = MetricsCalculator(db)
+        dashboard_metrics = metrics_calculator.get_dashboard_metrics()
+        
+        return jsonify({
+            'success': True,
+            'alert_statistics': alert_stats,
+            'dashboard_metrics': dashboard_metrics
+        })
+    
+    except Exception as e:
+        logger.error(f"❌ İstatistik API hatası: {str(e)}")
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def get_entity_name(entity_type, entity_id):
+    """Entity adını getir"""
+    try:
+        if entity_type == 'urun':
+            from models import Urun
+            urun = db.session.get(Urun, entity_id)
+            return urun.urun_adi if urun else f"Ürün #{entity_id}"
+        
+        elif entity_type == 'oda':
+            from models import Oda
+            oda = db.session.get(Oda, entity_id)
+            return f"Oda {oda.oda_no}" if oda else f"Oda #{entity_id}"
+        
+        elif entity_type == 'kat_sorumlusu':
+            from models import Kullanici
+            kullanici = db.session.get(Kullanici, entity_id)
+            return f"{kullanici.ad} {kullanici.soyad}" if kullanici else f"Personel #{entity_id}"
+        
+        else:
+            return f"{entity_type} #{entity_id}"
+    
+    except Exception as e:
+        logger.error(f"❌ Entity adı getirme hatası: {str(e)}")
+        db.session.rollback()
+        return f"{entity_type} #{entity_id}"
+
+
+def register_ml_routes(app):
+    """ML routes'ları app'e kaydet"""
+    app.register_blueprint(ml_bp)
