@@ -894,62 +894,85 @@ function filterAlerts(severity) {
 }
 
 // Alert'i okundu işaretle
-function markAsRead(alertId) {
-    if (!confirm('Bu uyarıyı okundu olarak işaretlemek istediğinize emin misiniz?')) {
-        return;
-    }
+async function markAsRead(alertId) {
+    const result = await showConfirm(
+        'Bu uyarıyı okundu olarak işaretlemek istediğinize emin misiniz?',
+        'Uyarı İşaretle'
+    );
     
-    fetch(`/ml/api/alerts/${alertId}/read`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
+    if (!result.isConfirmed) return;
+    
+    showLoading('İşleniyor...');
+    
+    try {
+        const response = await fetch(`/ml/api/alerts/${alertId}/read`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
         if (data.success) {
+            await showToast('✅ Uyarı okundu olarak işaretlendi', 'success');
             location.reload();
         } else {
-            alert('Hata: ' + data.error);
+            showToast('❌ Hata: ' + data.error, 'error');
         }
-    })
-    .catch(error => {
+    } catch (error) {
+        hideLoading();
         console.error('Error:', error);
-        alert('Bir hata oluştu');
-    });
+        showToast('❌ Bağlantı hatası', 'error');
+    }
 }
 
 // Yanlış pozitif işaretle
-function markAsFalsePositive(alertId) {
-    if (!confirm('Bu uyarıyı yanlış pozitif olarak işaretlemek istediğinize emin misiniz? Bu, sistemin öğrenmesine yardımcı olacaktır.')) {
-        return;
-    }
+async function markAsFalsePositive(alertId) {
+    const result = await showConfirm(
+        'Bu uyarıyı yanlış pozitif olarak işaretlemek istediğinize emin misiniz?\n\nBu, sistemin öğrenmesine yardımcı olacaktır.',
+        'Yanlış Pozitif İşaretle'
+    );
     
-    fetch(`/ml/api/alerts/${alertId}/false-positive`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': '{{ csrf_token() }}'
-        }
-    })
-    .then(response => response.json())
-    .then(data => {
+    if (!result.isConfirmed) return;
+    
+    showLoading('İşleniyor...');
+    
+    try {
+        const response = await fetch(`/ml/api/alerts/${alertId}/false-positive`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
         if (data.success) {
+            await showToast('✅ Yanlış pozitif olarak işaretlendi. Sistem öğrendi!', 'success');
             location.reload();
         } else {
-            alert('Hata: ' + data.error);
+            showToast('❌ Hata: ' + data.error, 'error');
         }
-    })
-    .catch(error => {
+    } catch (error) {
+        hideLoading();
         console.error('Error:', error);
-        alert('Bir hata oluştu');
-    });
+        showToast('❌ Bağlantı hatası', 'error');
+    }
 }
 
 // Manuel Veri Toplama
 async function manuelVeriTopla() {
-    if (!confirm('Veri toplama işlemi başlatılsın mı?')) return;
+    const result = await showConfirm(
+        'Stok, tüketim ve dolum verilerini toplamak istediğinize emin misiniz?',
+        'Veri Toplama Başlat'
+    );
+    
+    if (!result.isConfirmed) return;
     
     showLoading('Veri toplanıyor...');
     
@@ -966,7 +989,7 @@ async function manuelVeriTopla() {
         hideLoading();
         
         if (data.success) {
-            showToast(`✅ Toplam ${data.collected.total} metrik toplandı!`, 'success');
+            await showToast(`✅ Başarılı! ${data.collected.total} metrik toplandı`, 'success');
             setTimeout(() => location.reload(), 1500);
         } else {
             showToast('❌ Hata: ' + data.error, 'error');
@@ -979,7 +1002,12 @@ async function manuelVeriTopla() {
 
 // Manuel Sapma Analizi
 async function manuelAnomaliTespit() {
-    if (!confirm('Sapma analizi başlatılsın mı?\n\nBu işlem mevcut verilerdeki anormal davranışları tespit eder.')) return;
+    const result = await showConfirm(
+        'Sapma analizi başlatılsın mı?\n\nBu işlem mevcut verilerdeki anormal davranışları tespit eder.',
+        'Sapma Analizi Başlat'
+    );
+    
+    if (!result.isConfirmed) return;
     
     showLoading('Sapma analizi yapılıyor...');
     
@@ -997,9 +1025,9 @@ async function manuelAnomaliTespit() {
         
         if (data.success) {
             if (data.alerts.total > 0) {
-                showToast(`⚠️ ${data.alerts.total} sapma tespit edildi!`, 'warning');
+                await showToast(`⚠️ ${data.alerts.total} sapma tespit edildi!`, 'warning');
             } else {
-                showToast('✅ Sapma tespit edilmedi', 'success');
+                await showToast('✅ Sapma tespit edilmedi. Sistem normal çalışıyor.', 'success');
             }
             setTimeout(() => location.reload(), 1500);
         } else {
@@ -1013,7 +1041,12 @@ async function manuelAnomaliTespit() {
 
 // Manuel Model Eğitimi
 async function manuelModelEgitimi() {
-    if (!confirm('Model eğitimi başlatılsın mı?\n\nBu işlem 2-5 dakika sürebilir ve sistem performansını etkileyebilir.')) return;
+    const result = await showConfirm(
+        'Model eğitimi başlatılsın mı?\n\n⚠️ Bu işlem 2-5 dakika sürebilir ve sistem performansını etkileyebilir.',
+        'Model Eğitimi Başlat'
+    );
+    
+    if (!result.isConfirmed) return;
     
     showLoading('Model eğitimi yapılıyor... (Bu işlem birkaç dakika sürebilir)');
     
@@ -1030,7 +1063,7 @@ async function manuelModelEgitimi() {
         hideLoading();
         
         if (data.success) {
-            showToast('✅ Model eğitimi başarıyla tamamlandı!', 'success');
+            await showToast('✅ Model eğitimi başarıyla tamamlandı!', 'success');
             setTimeout(() => location.reload(), 1500);
         } else {
             showToast('❌ Hata: ' + data.error, 'error');
