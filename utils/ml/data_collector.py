@@ -99,7 +99,7 @@ class DataCollector:
                 ).filter(
                     MinibarIslem.oda_id == oda.id,
                     MinibarIslem.islem_tarihi >= son_24_saat,
-                    MinibarIslem.islem_tipi.in_(['kontrol', 'doldurma'])
+                    MinibarIslem.islem_tipi.in_(['ilk_dolum', 'yeniden_dolum', 'eksik_tamamlama', 'sayim'])
                 ).scalar()
                 
                 # Sadece tüketim varsa kaydet
@@ -153,7 +153,7 @@ class DataCollector:
                 dolum_islemleri = MinibarIslem.query.filter(
                     MinibarIslem.personel_id == personel.id,
                     MinibarIslem.islem_tarihi >= son_7_gun,
-                    MinibarIslem.islem_tipi.in_(['ilk_dolum', 'doldurma', 'yeniden_dolum'])
+                    MinibarIslem.islem_tipi.in_(['ilk_dolum', 'yeniden_dolum', 'eksik_tamamlama'])
                 ).order_by(MinibarIslem.islem_tarihi).all()
                 
                 if len(dolum_islemleri) >= 2:
