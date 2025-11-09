@@ -19,6 +19,23 @@
 {% block content %}
 <div class="space-y-6">
     
+    <!-- Manuel İşlemler -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-4 mb-4">
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+                <i class="fas fa-tools mr-2"></i>Manuel İşlemler
+            </h3>
+            <div class="flex gap-2">
+                <button onclick="manuelVeriTopla()" class="btn-primary">
+                    <i class="fas fa-database mr-2"></i>Veri Topla
+                </button>
+                <button onclick="manuelAnomaliTespit()" class="btn-secondary">
+                    <i class="fas fa-search mr-2"></i>Anomali Tespit
+                </button>
+            </div>
+        </div>
+    </div>
+    
     <!-- Özet Kartlar -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Aktif Uyarılar -->
@@ -829,6 +846,66 @@ function markAsFalsePositive(alertId) {
         console.error('Error:', error);
         alert('Bir hata oluştu');
     });
+}
+
+// Manuel Veri Toplama
+async function manuelVeriTopla() {
+    if (!confirm('Veri toplama işlemi başlatılsın mı?')) return;
+    
+    showLoading('Veri toplanıyor...');
+    
+    try {
+        const response = await fetch('/ml/api/collect-data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            showToast(`✅ Toplam ${data.collected.total} metrik toplandı!`, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast('❌ Hata: ' + data.error, 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('❌ Bağlantı hatası: ' + error.message, 'error');
+    }
+}
+
+// Manuel Anomali Tespiti
+async function manuelAnomaliTespit() {
+    if (!confirm('Anomali tespiti başlatılsın mı?')) return;
+    
+    showLoading('Anomali tespiti yapılıyor...');
+    
+    try {
+        const response = await fetch('/ml/api/run-anomaly-detection', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        
+        if (data.success) {
+            showToast(`✅ ${data.alerts.total} uyarı oluşturuldu!`, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast('❌ Hata: ' + data.error, 'error');
+        }
+    } catch (error) {
+        hideLoading();
+        showToast('❌ Bağlantı hatası: ' + error.message, 'error');
+    }
 }
 </script>
 

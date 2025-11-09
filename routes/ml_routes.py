@@ -412,6 +412,74 @@ def get_entity_name(entity_type, entity_id):
         return f"#{entity_id}"
 
 
+@ml_bp.route('/api/collect-data', methods=['POST'])
+@login_required
+@role_required('admin', 'sistem_yoneticisi')
+def api_collect_data():
+    """Manuel veri toplama tetikle"""
+    try:
+        from utils.ml.data_collector import DataCollector
+        
+        collector = DataCollector(db)
+        
+        # Veri topla
+        stok_count = collector.collect_stok_metrics()
+        tuketim_count = collector.collect_tuketim_metrics()
+        dolum_count = collector.collect_dolum_metrics()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Veri toplama başarılı',
+            'collected': {
+                'stok': stok_count,
+                'tuketim': tuketim_count,
+                'dolum': dolum_count,
+                'total': stok_count + tuketim_count + dolum_count
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"❌ Manuel veri toplama hatası: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@ml_bp.route('/api/run-anomaly-detection', methods=['POST'])
+@login_required
+@role_required('admin', 'sistem_yoneticisi')
+def api_run_anomaly_detection():
+    """Manuel anomali tespiti tetikle"""
+    try:
+        from utils.ml.anomaly_detector import AnomalyDetector
+        
+        detector = AnomalyDetector(db)
+        
+        # Anomali tespiti yap
+        stok_alerts = detector.detect_stok_anomalies()
+        tuketim_alerts = detector.detect_tuketim_anomalies()
+        dolum_alerts = detector.detect_dolum_anomalies()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Anomali tespiti başarılı',
+            'alerts': {
+                'stok': stok_alerts,
+                'tuketim': tuketim_alerts,
+                'dolum': dolum_alerts,
+                'total': stok_alerts + tuketim_alerts + dolum_alerts
+            }
+        })
+    
+    except Exception as e:
+        logger.error(f"❌ Manuel anomali tespiti hatası: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 def register_ml_routes(app):
     """ML routes'ları app'e kaydet"""
     app.register_blueprint(ml_bp)
