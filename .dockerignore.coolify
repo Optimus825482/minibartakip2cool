@@ -1,0 +1,133 @@
+# Coolify için optimize edilmiş .dockerignore
+
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+dist
+build
+.pytest_cache
+.coverage
+htmlcov
+
+# Virtual Environment
+venv
+env
+ENV
+.venv
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+logs
+*.log.*
+
+# Backups
+backups
+*.sql
+*.sql.gz
+*.tar.gz
+backup_*
+
+# Data
+data
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads (production'da volume olarak mount edilecek)
+uploads/*
+xls/*
+
+# Documentation
+docs
+*.md
+!README.md
+
+# Test files
+tests
+test_*
+*_test.py
+pytest.ini
+.coveragerc
+
+# Migration scripts (production'da gerekli değil)
+migrate_*.py
+railway_*.py
+railway_*.sh
+railway_*.sql
+direct_*.py
+quick_*.py
+export_*.py
+fix_*.py
+add_*.py
+create_test_*.py
+check_*.py
+cleanup_*.py
+clean_*.py
+apply_*.py
+apply_*.bat
+
+# Docker files (sadece Dockerfile.coolify kullanılacak)
+docker-compose.yml
+docker-compose.*.yml
+!docker-compose.coolify.yml
+Dockerfile
+!Dockerfile.coolify
+docker-entrypoint.sh
+docker.bat
+
+# Environment files
+.env
+.env.*
+!.env.example
+!.env.coolify
+
+# Coolify specific
+coolify_*.sh
+!coolify_start.sh
+
+# Makefile
+Makefile
+
+# Railway specific
+Procfile
+railway.json
+railway_start.sh
+RAILWAY_*.txt
+RAILWAY_*.md
+
+# Local data
+local_*.json
+local_*.py
+
+# Reports
+*_report.md
+*_report.txt
+*_SUMMARY.md
+*_QUICKSTART.md
+
+# Misc
+*.bak
+*.tmp
+*.temp
+.cache
