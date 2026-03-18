@@ -11,10 +11,12 @@ Bu modül uygulama içi bildirimleri yönetir:
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 import pytz
+import logging
 
 from models import db
 
 KKTC_TZ = pytz.timezone('Europe/Nicosia')
+logger = logging.getLogger(__name__)
 
 def get_kktc_now():
     return datetime.now(KKTC_TZ)
@@ -31,6 +33,42 @@ class BildirimTipi:
 
 
 class BildirimService:
+    @staticmethod
+    def _row_to_bildirim_dict(row) -> Dict[str, Any]:
+        """Row objesini güvenli şekilde bildirim dict'ine dönüştür."""
+        try:
+            # SQLAlchemy RowMapping desteği
+            mapping = getattr(row, "_mapping", None)
+            if mapping:
+                olusturma_tarihi = mapping.get('olusturma_tarihi')
+                return {
+                    'id': mapping.get('id'),
+                    'hedef_rol': mapping.get('hedef_rol'),
+                    'bildirim_tipi': mapping.get('bildirim_tipi'),
+                    'baslik': mapping.get('baslik'),
+                    'mesaj': mapping.get('mesaj'),
+                    'okundu': mapping.get('okundu'),
+                    'olusturma_tarihi': olusturma_tarihi.isoformat() if olusturma_tarihi else None,
+                    'oda_id': mapping.get('oda_id'),
+                    'gorev_id': mapping.get('gorev_id')
+                }
+
+            # Geriye dönük tuple erişimi
+            return {
+                'id': row[0] if len(row) > 0 else None,
+                'hedef_rol': row[1] if len(row) > 1 else None,
+                'bildirim_tipi': row[2] if len(row) > 2 else None,
+                'baslik': row[3] if len(row) > 3 else None,
+                'mesaj': row[4] if len(row) > 4 else None,
+                'okundu': row[5] if len(row) > 5 else None,
+                'olusturma_tarihi': row[6].isoformat() if len(row) > 6 and row[6] else None,
+                'oda_id': row[7] if len(row) > 7 else None,
+                'gorev_id': row[8] if len(row) > 8 else None
+            }
+        except Exception as e:
+            logger.warning(f"Bildirim satırı parse edilemedi: {e}")
+            return {}
+
     """Bildirim işlemleri için service class"""
     
     @staticmethod
@@ -147,21 +185,14 @@ class BildirimService:
             
             bildirimler = []
             for row in result:
-                bildirimler.append({
-                    'id': row[0],
-                    'hedef_rol': row[1],
-                    'bildirim_tipi': row[2],
-                    'baslik': row[3],
-                    'mesaj': row[4],
-                    'okundu': row[5],
-                    'olusturma_tarihi': row[6].isoformat() if row[6] else None,
-                    'oda_id': row[7],
-                    'gorev_id': row[8]
-                })
+                bildirim = BildirimService._row_to_bildirim_dict(row)
+                if bildirim:
+                    bildirimler.append(bildirim)
             
             return bildirimler
             
         except Exception as e:
+            db.session.rollback()
             print(f"Bildirim getirme hatası: {e}")
             return []
     
@@ -278,17 +309,9 @@ class BildirimService:
             
             bildirimler = []
             for row in result:
-                bildirimler.append({
-                    'id': row[0],
-                    'hedef_rol': row[1],
-                    'bildirim_tipi': row[2],
-                    'baslik': row[3],
-                    'mesaj': row[4],
-                    'okundu': row[5],
-                    'olusturma_tarihi': row[6].isoformat() if row[6] else None,
-                    'oda_id': row[7],
-                    'gorev_id': row[8]
-                })
+                bildirim = BildirimService._row_to_bildirim_dict(row)
+                if bildirim:
+                    bildirimler.append(bildirim)
             
             return bildirimler
             

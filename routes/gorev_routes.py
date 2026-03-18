@@ -6,6 +6,7 @@ Kat sorumlusu, depo sorumlusu ve sistem yöneticisi için görev route'ları
 from flask import Blueprint, render_template, request, jsonify, session, redirect, url_for, flash
 from datetime import datetime, date, timezone, timedelta
 from functools import wraps
+import logging
 
 from models import db, Kullanici, GunlukGorev, GorevDetay, YuklemeGorev
 from utils.gorev_service import GorevService
@@ -13,6 +14,7 @@ from utils.yukleme_gorev_service import YuklemeGorevService
 from utils.bildirim_service import BildirimService
 
 gorev_bp = Blueprint('gorev', __name__, url_prefix='/gorevler')
+logger = logging.getLogger(__name__)
 
 
 # ============================================
@@ -39,7 +41,13 @@ def rol_gerekli(*roller):
                 flash('Bu sayfaya erişmek için giriş yapmalısınız.', 'warning')
                 return redirect(url_for('login'))
             
-            kullanici = Kullanici.query.get(session['kullanici_id'])
+            try:
+                kullanici = Kullanici.query.get(session['kullanici_id'])
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Rol kontrolünde kullanıcı okunamadı: {e}")
+                flash('Geçici bir sistem hatası oluştu. Lütfen tekrar deneyin.', 'danger')
+                return redirect(url_for('dashboard'))
             if not kullanici or kullanici.rol not in roller:
                 flash('Bu sayfaya erişim yetkiniz yok.', 'danger')
                 return redirect(url_for('dashboard'))
@@ -52,7 +60,12 @@ def rol_gerekli(*roller):
 def get_current_user():
     """Mevcut kullanıcıyı getirir"""
     if 'kullanici_id' in session:
-        return Kullanici.query.get(session['kullanici_id'])
+        try:
+            return Kullanici.query.get(session['kullanici_id'])
+        except Exception as e:
+            db.session.rollback()
+            logger.error(f"Mevcut kullanıcı okunamadı: {e}")
+            return None
     return None
 
 
@@ -840,7 +853,15 @@ def api_bekleyen_gorevler():
         })
         
     except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+        db.session.rollback()
+        logger.error(f"/gorevler/api/bekleyen hatası: {e}")
+        # Badge endpoint'i için güvenli fallback (UI kırılmasını önler)
+        return jsonify({
+            'success': True,
+            'bekleyen': 0,
+            'dnd': 0,
+            'toplam': 0
+        }), 200
 
 
 @gorev_bp.route('/api/countdown/<int:gorev_detay_id>')
