@@ -474,11 +474,15 @@ def cleanup_old_models():
     except Exception as e:
         logger.error(f"❌ Model cleanup hatası: {str(e)}")
 
-# Scheduler'ı başlat
-try:
-    start_scheduler()
-except Exception as e:
-    print(f"⚠️  Scheduler başlatılamadı: {str(e)}")
+# Scheduler'ı sadece env ile açıkken başlat (web worker duplicate riskini önler)
+ENABLE_WEB_SCHEDULER = os.getenv('ENABLE_WEB_SCHEDULER', 'false').lower() == 'true'
+if ENABLE_WEB_SCHEDULER:
+    try:
+        start_scheduler()
+    except Exception as e:
+        print(f"⚠️  Scheduler başlatılamadı: {str(e)}")
+else:
+    print("ℹ️ Web scheduler devre dışı (ENABLE_WEB_SCHEDULER=false)")
 
 # Session kontrolü - Her istekte
 @app.before_request
