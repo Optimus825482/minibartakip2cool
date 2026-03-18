@@ -200,6 +200,21 @@ def add_no_cache_headers(response):
         response.headers['Expires'] = '0'
     return response
 
+
+@app.teardown_request
+def cleanup_db_session(exception=None):
+    """
+    Her request sonunda SQLAlchemy session'ı güvenli şekilde temizle.
+    PendingRollbackError zincirini önlemek için rollback + remove uygular.
+    """
+    try:
+        # Exception olsa da olmasa da açık transaction kalıntılarını temizle
+        db.session.rollback()
+    except Exception as e:
+        logger.debug(f"Session rollback atlandı: {e}")
+    finally:
+        db.session.remove()
+
 # ============================================
 # PWA SUPPORT - Service Worker
 # ============================================
