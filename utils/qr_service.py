@@ -166,6 +166,11 @@ class QRKodService:
             QRKodOkutmaLog: Oluşturulan log kaydı
         """
         try:
+            # Geçersiz token gibi senaryolarda oda_id bilinmeyebilir.
+            # Log tablosunda oda_id zorunlu olduğu için burada güvenli şekilde çık.
+            if oda_id is None:
+                return None
+
             log = QRKodOkutmaLog(
                 oda_id=oda_id,
                 kullanici_id=kullanici_id,
@@ -182,7 +187,7 @@ class QRKodService:
             
         except Exception as e:
             db.session.rollback()
-            raise Exception(f"QR log kaydetme hatası: {str(e)}")
+            return None
     
     @staticmethod
     def regenerate_qr(oda):
