@@ -5,6 +5,11 @@ Otel bazlı erişim kontrolü için yardımcı fonksiyonlar
 
 from models import Kullanici, Otel, KullaniciOtel
 from flask import session
+import logging
+
+from models import db
+
+logger = logging.getLogger(__name__)
 
 
 def get_depo_sorumlusu_oteller(kullanici_id):
@@ -56,7 +61,12 @@ def get_kat_sorumlusu_otel(kullanici_id):
     Returns:
         Otel: Atandığı otel veya None
     """
-    kullanici = Kullanici.query.get(kullanici_id)
+    try:
+        kullanici = Kullanici.query.get(kullanici_id)
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Kat sorumlusu otel okunamadı (kullanici_id={kullanici_id}): {e}")
+        return None
     
     if kullanici and kullanici.otel_id:
         return kullanici.otel
@@ -99,7 +109,12 @@ def get_kullanici_otelleri(kullanici_id=None):
     if not kullanici_id:
         return []
     
-    kullanici = Kullanici.query.get(kullanici_id)
+    try:
+        kullanici = Kullanici.query.get(kullanici_id)
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Kullanıcı otelleri okunamadı (kullanici_id={kullanici_id}): {e}")
+        return []
     
     if not kullanici:
         return []
