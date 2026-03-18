@@ -25,6 +25,14 @@ logger = logging.getLogger(__name__)
 _flask_app = None
 _db = None
 
+
+def _retention_days(app, key: str, default: int) -> int:
+    """Retention gün değerini güvenli şekilde config/env'den al."""
+    try:
+        return int(app.config.get(key, os.getenv(key, str(default))))
+    except (TypeError, ValueError):
+        return default
+
 def get_flask_app():
     """Flask app'i lazy loading ile al - Celery worker'lar için"""
     global _flask_app, _db
@@ -859,13 +867,19 @@ def ml_eski_verileri_temizle_task():
             collector = DataCollector(db)
             alert_manager = AlertManager(db)
             
-            # Eski metrikleri temizle (90 gün)
-            deleted_metrics = collector.cleanup_old_metrics(days=90)
+            metrics_days = _retention_days(app, 'ML_METRICS_RETENTION_DAYS', 90)
+            alerts_days = _retention_days(app, 'ML_ALERTS_RETENTION_DAYS', 90)
+
+            # Eski metrikleri temizle
+            deleted_metrics = collector.cleanup_old_metrics(days=metrics_days)
             
-            # Eski alertleri temizle (90 gün)
-            deleted_alerts = alert_manager.cleanup_old_alerts(days=90)
+            # Eski alertleri temizle
+            deleted_alerts = alert_manager.cleanup_old_alerts(days=alerts_days)
             
-            logger.info(f"✅ ML temizlik tamamlandı: {deleted_metrics} metrik, {deleted_alerts} alert silindi")
+            logger.info(
+                f"✅ ML temizlik tamamlandı: {deleted_metrics} metrik ({metrics_days}g), "
+                f"{deleted_alerts} alert ({alerts_days}g) silindi"
+            )
             
             return {
                 'status': 'success',
@@ -1035,12 +1049,13 @@ def query_logs_temizle_task():
         with app.app_context():
             from sqlalchemy import text
             
-            logger.info("🗑️ query_logs tablosu temizleniyor (7 günden eski kayıtlar)...")
+            retention_days = _retention_days(app, 'QUERY_LOGS_RETENTION_DAYS', 30)
+            logger.info(f"🗑️ query_logs tablosu temizleniyor ({retention_days} günden eski kayıtlar)...")
             
             # Silinecek kayıt sayısını öğren
             count_result = db.session.execute(text(
-                "SELECT COUNT(*) FROM query_logs WHERE timestamp < NOW() - INTERVAL '7 days'"
-            )).scalar()
+                "SELECT COUNT(*) FROM query_logs WHERE timestamp < NOW() - make_interval(days => :days)"
+            ), {'days': retention_days}).scalar()
             
             if count_result == 0:
                 logger.info("✅ Silinecek eski query_logs kaydı yok")
@@ -1052,8 +1067,8 @@ def query_logs_temizle_task():
             
             # Kayıtları sil
             db.session.execute(text(
-                "DELETE FROM query_logs WHERE timestamp < NOW() - INTERVAL '7 days'"
-            ))
+                "DELETE FROM query_logs WHERE timestamp < NOW() - make_interval(days => :days)"
+            ), {'days': retention_days})
             db.session.commit()
             
             logger.info(f"✅ {count_result} eski query_logs kaydı silindi")
@@ -1090,7 +1105,11 @@ def query_logs_gunluk_temizle_task():
         with app.app_context():
             from sqlalchemy import text
             
-            logger.info("🗑️ [GÜNLÜK] query_logs tablosu temizleniyor (3 günden eski kayıtlar)...")
+            retention_days = _retention_days(app, 'QUERY_LOGS_DAILY_RETENTION_DAYS', 7)
+            logger.info(
+                f"🗑️ [GÜNLÜK] query_logs tablosu temizleniyor "
+                f"({retention_days} günden eski kayıtlar)..."
+            )
             
             # Önce tablo boyutunu al
             size_before = db.session.execute(text(
@@ -1099,8 +1118,8 @@ def query_logs_gunluk_temizle_task():
             
             # Silinecek kayıt sayısını öğren
             count_result = db.session.execute(text(
-                "SELECT COUNT(*) FROM query_logs WHERE timestamp < NOW() - INTERVAL '3 days'"
-            )).scalar()
+                "SELECT COUNT(*) FROM query_logs WHERE timestamp < NOW() - make_interval(days => :days)"
+            ), {'days': retention_days}).scalar()
             
             if count_result == 0:
                 logger.info("✅ Silinecek eski query_logs kaydı yok")
@@ -1120,10 +1139,10 @@ def query_logs_gunluk_temizle_task():
                     DELETE FROM query_logs 
                     WHERE id IN (
                         SELECT id FROM query_logs 
-                        WHERE timestamp < NOW() - INTERVAL '3 days' 
+                        WHERE timestamp < NOW() - make_interval(days => :days)
                         LIMIT {batch_size}
                     )
-                """))
+                """), {'days': retention_days})
                 deleted = result.rowcount
                 db.session.commit()
                 
@@ -1171,7 +1190,8 @@ def ml_metrics_temizle_task():
         with app.app_context():
             from sqlalchemy import text
             
-            logger.info("🗑️ ml_metrics tablosu temizleniyor (60 günden eski kayıtlar)...")
+            retention_days = _retention_days(app, 'ML_METRICS_RETENTION_DAYS', 90)
+            logger.info(f"🗑️ ml_metrics tablosu temizleniyor ({retention_days} günden eski kayıtlar)...")
             
             # Önce tablo boyutunu al
             size_before = db.session.execute(text(
@@ -1180,8 +1200,8 @@ def ml_metrics_temizle_task():
             
             # Silinecek kayıt sayısını öğren
             count_result = db.session.execute(text(
-                "SELECT COUNT(*) FROM ml_metrics WHERE created_at < NOW() - INTERVAL '60 days'"
-            )).scalar()
+                "SELECT COUNT(*) FROM ml_metrics WHERE timestamp < NOW() - make_interval(days => :days)"
+            ), {'days': retention_days}).scalar()
             
             if count_result == 0:
                 logger.info("✅ Silinecek eski ml_metrics kaydı yok")
@@ -1194,8 +1214,8 @@ def ml_metrics_temizle_task():
             
             # Kayıtları sil
             db.session.execute(text(
-                "DELETE FROM ml_metrics WHERE created_at < NOW() - INTERVAL '60 days'"
-            ))
+                "DELETE FROM ml_metrics WHERE timestamp < NOW() - make_interval(days => :days)"
+            ), {'days': retention_days})
             db.session.commit()
             
             # Sonra tablo boyutunu al
@@ -1234,30 +1254,44 @@ def eski_loglari_temizle_task():
             
             temizlik_sonuclari = {}
             
-            # Temizlenecek tablolar ve saklama süreleri (gün)
+            # Temizlenecek tablolar, tarih sütunları ve saklama süreleri (gün)
             tablolar = {
-                'hata_loglari': 30,
-                'audit_logs': 90,
-                'email_loglari': 30,
-                'background_jobs': 7,
+                'hata_loglari': {
+                    'days': _retention_days(app, 'HATA_LOGLARI_RETENTION_DAYS', 30),
+                    'date_column': 'tarih'
+                },
+                'audit_logs': {
+                    'days': _retention_days(app, 'AUDIT_LOGS_RETENTION_DAYS', 180),
+                    'date_column': 'islem_tarihi'
+                },
+                'email_loglari': {
+                    'days': _retention_days(app, 'EMAIL_LOGLARI_RETENTION_DAYS', 30),
+                    'date_column': 'gonderim_tarihi'
+                },
+                'background_jobs': {
+                    'days': _retention_days(app, 'BACKGROUND_JOBS_RETENTION_DAYS', 14),
+                    'date_column': 'created_at'
+                },
             }
             
-            for tablo, gun in tablolar.items():
+            for tablo, cfg in tablolar.items():
                 try:
-                    # Tarih sütununu belirle
-                    tarih_sutunu = 'created_at' if tablo != 'hata_loglari' else 'tarih'
-                    if tablo == 'email_loglari':
-                        tarih_sutunu = 'gonderim_tarihi'
-                    if tablo == 'background_jobs':
-                        tarih_sutunu = 'created_at'
+                    gun = cfg['days']
+                    tarih_sutunu = cfg['date_column']
                     
                     # Silinecek kayıt sayısı
-                    count_query = text(f"SELECT COUNT(*) FROM {tablo} WHERE {tarih_sutunu} < NOW() - INTERVAL '{gun} days'")
-                    count = db.session.execute(count_query).scalar()
+                    count_query = text(
+                        f"SELECT COUNT(*) FROM {tablo} "
+                        f"WHERE {tarih_sutunu} < NOW() - make_interval(days => :days)"
+                    )
+                    count = db.session.execute(count_query, {'days': gun}).scalar()
                     
                     if count and count > 0:
-                        delete_query = text(f"DELETE FROM {tablo} WHERE {tarih_sutunu} < NOW() - INTERVAL '{gun} days'")
-                        db.session.execute(delete_query)
+                        delete_query = text(
+                            f"DELETE FROM {tablo} "
+                            f"WHERE {tarih_sutunu} < NOW() - make_interval(days => :days)"
+                        )
+                        db.session.execute(delete_query, {'days': gun})
                         temizlik_sonuclari[tablo] = count
                         logger.info(f"  ✅ {tablo}: {count} kayıt silindi ({gun} günden eski)")
                     else:
@@ -1281,6 +1315,26 @@ def eski_loglari_temizle_task():
     except Exception as e:
         logger.error(f"Eski log temizleme task hatası: {str(e)}")
         return {'status': 'error', 'message': str(e)}
+
+
+@celery.task(name='bildirim.gorev_tamamlandi_bildirimi')
+def send_gorev_tamamlandi_bildirimi_task(otel_id, oda_no, personel_adi, gorev_id=None, oda_id=None, gonderen_id=None):
+    """Görev tamamlandı bildirimi gönder - Asenkron"""
+    try:
+        app, db = get_flask_app()
+        with app.app_context():
+            from utils.bildirim_service import gorev_tamamlandi_bildirimi
+            gorev_tamamlandi_bildirimi(
+                otel_id=otel_id,
+                oda_no=oda_no,
+                personel_adi=personel_adi,
+                gorev_id=gorev_id,
+                oda_id=oda_id,
+                gonderen_id=gonderen_id
+            )
+            logger.info(f"Async bildirim gönderildi: Oda {oda_no}")
+    except Exception as e:
+        logger.error(f"Async bildirim hatası: {e}")
 
 
 # ============================================

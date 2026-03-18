@@ -16,6 +16,12 @@ document.addEventListener("DOMContentLoaded", () => {
   initCharts();
   refreshAll();
   startAutoRefresh();
+
+  window.addEventListener('beforeunload', () => {
+    if (refreshTimer) clearInterval(refreshTimer);
+    if (trendChart) { trendChart.destroy(); trendChart = null; }
+    if (responseChart) { responseChart.destroy(); responseChart = null; }
+  });
 });
 
 // ---- Auto Refresh ----
@@ -37,7 +43,7 @@ async function refreshAll() {
   const icon = document.getElementById("refresh-icon");
   icon.classList.add("fa-spin");
   try {
-    await Promise.all([loadOverview(), loadEndpoints(), loadErrorLog()]);
+    await Promise.all([loadOverview(), loadEndpoints(), loadErrorLog(), loadDbStats()]);
   } catch (e) {
     console.error("Refresh error:", e);
   }
@@ -146,9 +152,6 @@ async function loadOverview() {
 
     // Update trend
     updateTrend(cpuPct, memPct);
-
-    // Load DB stats
-    loadDbStats();
 
     // Update response chart
     updateResponseChart(d.api);

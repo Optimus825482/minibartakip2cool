@@ -9,17 +9,24 @@ Endpoint'ler:
 - /depo - Depo sorumlusu dashboard
 - /kat-sorumlusu - Kat sorumlusu dashboard
 - /kat-sorumlusu/dashboard - Kat sorumlusu dashboard (alternatif)
-
-Roller:
-- sistem_yoneticisi
-- admin
-- depo_sorumlusu
-- kat_sorumlusu
+- /api/son-aktiviteler - Son aktiviteler API
+- /api/bekleyen-dolum-sayisi - Bekleyen dolum sayısı API
+- /api/tuketim-trendleri - Tüketim trendleri API
+- /sistem-yoneticisi/audit-trail - Audit trail sayfası
+- /sistem-yoneticisi/audit-trail/<id> - Audit trail detay API
+- /sistem-yoneticisi/audit-trail/export - Audit trail Excel export
 """
 
-from flask import render_template, redirect, url_for, flash, session
-from datetime import datetime, timedelta
+from flask import render_template, redirect, url_for, flash, session, request, jsonify, send_file
+from datetime import datetime, timedelta, timezone
+from io import BytesIO
+import json
+import logging
 import pytz
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment
+
+logger = logging.getLogger(__name__)
 
 # KKTC Timezone
 KKTC_TZ = pytz.timezone('Europe/Nicosia')
@@ -28,7 +35,7 @@ def get_kktc_now():
     """Kıbrıs saat diliminde şu anki zamanı döndürür."""
     return datetime.now(KKTC_TZ)
 
-from models import db, Kat, Oda, Kullanici, UrunGrup, Urun, StokHareket, PersonelZimmet, PersonelZimmetDetay, MinibarIslem, MinibarIslemDetay
+from models import db, Kat, Oda, Kullanici, UrunGrup, Urun, StokHareket, PersonelZimmet, PersonelZimmetDetay, MinibarIslem, MinibarIslemDetay, SistemLog, MinibarDolumTalebi, AuditLog
 from utils.decorators import login_required, role_required
 from utils.helpers import get_kritik_stok_urunler, get_tum_urunler_stok_durumlari, get_kat_sorumlusu_kritik_stoklar
 
@@ -217,24 +224,16 @@ def register_dashboard_routes(app):
                 otel_ids = [o.id for o in kullanici_otelleri] if kullanici_otelleri else []
                 
                 if otel_ids:
-                    # Bugünkü yükleme görevlerini kontrol et
-                    inhouse_gorev = YuklemeGorev.query.filter(
+                    yukleme_gorevler = YuklemeGorev.query.filter(
                         YuklemeGorev.otel_id.in_(otel_ids),
                         db.func.date(YuklemeGorev.gorev_tarihi) == bugun,
-                        YuklemeGorev.dosya_tipi == 'inhouse'
-                    ).first()
-                    
-                    arrivals_gorev = YuklemeGorev.query.filter(
-                        YuklemeGorev.otel_id.in_(otel_ids),
-                        db.func.date(YuklemeGorev.gorev_tarihi) == bugun,
-                        YuklemeGorev.dosya_tipi == 'arrivals'
-                    ).first()
-                    
-                    departures_gorev = YuklemeGorev.query.filter(
-                        YuklemeGorev.otel_id.in_(otel_ids),
-                        db.func.date(YuklemeGorev.gorev_tarihi) == bugun,
-                        YuklemeGorev.dosya_tipi == 'departures'
-                    ).first()
+                        YuklemeGorev.dosya_tipi.in_(['inhouse', 'arrivals', 'departures'])
+                    ).all()
+
+                    yukleme_gorev_map = {g.dosya_tipi: g for g in yukleme_gorevler}
+                    inhouse_gorev = yukleme_gorev_map.get('inhouse')
+                    arrivals_gorev = yukleme_gorev_map.get('arrivals')
+                    departures_gorev = yukleme_gorev_map.get('departures')
                     
                     tamamlanan = 0
                     inhouse_durum = 'pending'
@@ -949,3 +948,342 @@ def register_dashboard_routes(app):
                              islem_ilk_dolum=islem_ilk_dolum,
                              islem_yeniden_dolum=islem_yeniden_dolum,
                              islem_eksik_tamamlama=islem_eksik_tamamlama)
+
+    # ========================================================================
+    # API: DASHBOARD WIDGET'LARI
+    # ========================================================================
+
+    @app.route('/api/son-aktiviteler')
+    @login_required
+    @role_required(['sistem_yoneticisi', 'admin'])
+    def api_son_aktiviteler():
+        """Son kullanıcı aktivitelerini döndür"""
+        try:
+            limit = request.args.get('limit', 10, type=int)
+
+            aktiviteler = SistemLog.query\
+                .join(Kullanici, SistemLog.kullanici_id == Kullanici.id)\
+                .filter(
+                    SistemLog.islem_tipi.in_(['ekleme', 'guncelleme', 'silme']),
+                    Kullanici.rol != 'superadmin'
+                )\
+                .order_by(SistemLog.islem_tarihi.desc())\
+                .limit(limit)\
+                .all()
+
+            data = []
+            for log in aktiviteler:
+                try:
+                    kullanici_adi = 'Sistem'
+                    if log.kullanici:
+                        kullanici_adi = f"{log.kullanici.ad} {log.kullanici.soyad}"
+
+                    detay = {}
+                    if log.islem_detay:
+                        try:
+                            detay = json.loads(log.islem_detay) if isinstance(log.islem_detay, str) else log.islem_detay
+                        except Exception:
+                            detay = {'aciklama': str(log.islem_detay)}
+
+                    if isinstance(log.islem_tarihi, datetime):
+                        if log.islem_tarihi.tzinfo is None:
+                            islem_tarihi = log.islem_tarihi.replace(tzinfo=timezone.utc)
+                        else:
+                            islem_tarihi = log.islem_tarihi
+                    else:
+                        islem_tarihi = datetime.combine(log.islem_tarihi, datetime.min.time()).replace(tzinfo=timezone.utc)
+                    
+                    zaman_farki = get_kktc_now() - islem_tarihi
+
+                    if zaman_farki < timedelta(minutes=1):
+                        zaman_str = "Az önce"
+                    elif zaman_farki < timedelta(hours=1):
+                        dakika = int(zaman_farki.total_seconds() / 60)
+                        zaman_str = f"{dakika} dakika önce"
+                    elif zaman_farki < timedelta(days=1):
+                        saat = int(zaman_farki.total_seconds() / 3600)
+                        zaman_str = f"{saat} saat önce"
+                    else:
+                        gun = zaman_farki.days
+                        zaman_str = f"{gun} gün önce"
+
+                    data.append({
+                        'id': log.id,
+                        'kullanici': kullanici_adi,
+                        'islem_tipi': log.islem_tipi,
+                        'modul': log.modul,
+                        'detay': detay,
+                        'zaman': zaman_str,
+                        'tam_tarih': islem_tarihi.strftime('%d.%m.%Y %H:%M')
+                    })
+                except Exception as log_error:
+                    print(f"Log parse hatası (ID: {log.id}): {log_error}")
+                    continue
+
+            return jsonify({'success': True, 'aktiviteler': data})
+
+        except Exception as e:
+            print(f"Son aktiviteler hatası: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+
+    @app.route('/api/bekleyen-dolum-sayisi')
+    @login_required
+    @role_required(['sistem_yoneticisi', 'admin', 'depo_sorumlusu', 'kat_sorumlusu'])
+    def api_bekleyen_dolum_sayisi():
+        """Bekleyen dolum talepleri sayısını döndür"""
+        try:
+            count = MinibarDolumTalebi.query.filter_by(durum='beklemede').count()
+            
+            return jsonify({
+                'success': True,
+                'count': count
+            })
+        except Exception as e:
+            logger.error(f"Bekleyen dolum sayısı hatası: {e}")
+            return jsonify({
+                'success': False,
+                'count': 0,
+                'error': str(e)
+            }), 500
+
+
+    @app.route('/api/tuketim-trendleri')
+    @login_required
+    @role_required(['sistem_yoneticisi', 'admin', 'depo_sorumlusu'])
+    def api_tuketim_trendleri():
+        """Günlük/haftalık tüketim trendlerini döndür"""
+        try:
+            from sqlalchemy import func
+
+            gun_sayisi = request.args.get('gun', 7, type=int)
+            baslangic = get_kktc_now() - timedelta(days=gun_sayisi)
+
+            gunluk_tuketim = db.session.query(
+                func.date(MinibarIslem.islem_tarihi).label('tarih'),
+                func.sum(MinibarIslemDetay.tuketim).label('toplam_tuketim'),
+                func.count(MinibarIslemDetay.id).label('islem_sayisi')
+            ).join(MinibarIslemDetay, MinibarIslemDetay.islem_id == MinibarIslem.id)\
+             .filter(MinibarIslem.islem_tarihi >= baslangic)\
+             .group_by(func.date(MinibarIslem.islem_tarihi))\
+             .order_by(func.date(MinibarIslem.islem_tarihi))\
+             .all()
+
+            tum_gunler = {}
+            for i in range(gun_sayisi):
+                tarih = (get_kktc_now() - timedelta(days=gun_sayisi-i-1)).date()
+                tum_gunler[str(tarih)] = {'tuketim': 0, 'islem_sayisi': 0}
+
+            for row in gunluk_tuketim:
+                tarih_str = str(row.tarih)
+                tum_gunler[tarih_str] = {
+                    'tuketim': int(row.toplam_tuketim or 0),
+                    'islem_sayisi': int(row.islem_sayisi or 0)
+                }
+
+            labels = []
+            tuketim_data = []
+            islem_data = []
+
+            for tarih_str in sorted(tum_gunler.keys()):
+                tarih_obj = datetime.strptime(tarih_str, '%Y-%m-%d')
+                labels.append(tarih_obj.strftime('%d/%m'))
+                tuketim_data.append(tum_gunler[tarih_str]['tuketim'])
+                islem_data.append(tum_gunler[tarih_str]['islem_sayisi'])
+
+            return jsonify({
+                'success': True,
+                'labels': labels,
+                'datasets': [
+                    {
+                        'label': 'Toplam Tüketim',
+                        'data': tuketim_data,
+                        'borderColor': 'rgb(239, 68, 68)',
+                        'backgroundColor': 'rgba(239, 68, 68, 0.1)',
+                        'tension': 0.3
+                    },
+                    {
+                        'label': 'İşlem Sayısı',
+                        'data': islem_data,
+                        'borderColor': 'rgb(59, 130, 246)',
+                        'backgroundColor': 'rgba(59, 130, 246, 0.1)',
+                        'tension': 0.3
+                    }
+                ]
+            })
+
+        except Exception as e:
+            return jsonify({'success': False, 'error': str(e)}), 500
+
+    # ========================================================================
+    # AUDIT TRAIL ROUTE'LARI
+    # ========================================================================
+
+    @app.route('/sistem-yoneticisi/audit-trail')
+    @login_required
+    @role_required('sistem_yoneticisi', 'admin')
+    def audit_trail():
+        """Audit Trail - Denetim İzi Sayfası"""
+        page = request.args.get('page', 1, type=int)
+        per_page = 50
+        
+        kullanici_id = request.args.get('kullanici_id', type=int)
+        islem_tipi = request.args.get('islem_tipi')
+        tablo_adi = request.args.get('tablo_adi')
+        tarih_baslangic = request.args.get('tarih_baslangic')
+        tarih_bitis = request.args.get('tarih_bitis')
+        
+        query = AuditLog.query.filter(AuditLog.kullanici_rol != 'superadmin')
+        
+        if kullanici_id:
+            query = query.filter_by(kullanici_id=kullanici_id)
+        if islem_tipi:
+            query = query.filter_by(islem_tipi=islem_tipi)
+        if tablo_adi:
+            query = query.filter_by(tablo_adi=tablo_adi)
+        if tarih_baslangic:
+            tarih_baslangic_dt = datetime.strptime(tarih_baslangic, '%Y-%m-%d')
+            query = query.filter(AuditLog.islem_tarihi >= tarih_baslangic_dt)
+        if tarih_bitis:
+            tarih_bitis_dt = datetime.strptime(tarih_bitis, '%Y-%m-%d') + timedelta(days=1)
+            query = query.filter(AuditLog.islem_tarihi < tarih_bitis_dt)
+        
+        query = query.order_by(AuditLog.islem_tarihi.desc())
+        pagination = query.paginate(page=page, per_page=per_page, error_out=False)
+        
+        bugun = get_kktc_now().replace(hour=0, minute=0, second=0, microsecond=0)
+        bu_hafta = bugun - timedelta(days=bugun.weekday())
+        bu_ay = bugun.replace(day=1)
+        
+        stats = {
+            'today': AuditLog.query.filter(AuditLog.islem_tarihi >= bugun).count(),
+            'week': AuditLog.query.filter(AuditLog.islem_tarihi >= bu_hafta).count(),
+            'month': AuditLog.query.filter(AuditLog.islem_tarihi >= bu_ay).count()
+        }
+        
+        users = Kullanici.query.filter_by(aktif=True).order_by(Kullanici.kullanici_adi).all()
+        
+        tables = db.session.query(AuditLog.tablo_adi).distinct().order_by(AuditLog.tablo_adi).all()
+        tables = [t[0] for t in tables]
+        
+        return render_template('sistem_yoneticisi/audit_trail.html',
+                             logs=pagination.items,
+                             pagination=pagination,
+                             users=users,
+                             tables=tables,
+                             stats=stats)
+
+
+    @app.route('/sistem-yoneticisi/audit-trail/<int:log_id>')
+    @login_required
+    @role_required('sistem_yoneticisi', 'admin')
+    def audit_trail_detail(log_id):
+        """Audit Log Detay API"""
+        log = AuditLog.query.get_or_404(log_id)
+        
+        return jsonify({
+            'id': log.id,
+            'kullanici_id': log.kullanici_id,
+            'kullanici_adi': log.kullanici_adi,
+            'kullanici_rol': log.kullanici_rol,
+            'islem_tipi': log.islem_tipi,
+            'tablo_adi': log.tablo_adi,
+            'kayit_id': log.kayit_id,
+            'eski_deger': log.eski_deger,
+            'yeni_deger': log.yeni_deger,
+            'degisiklik_ozeti': log.degisiklik_ozeti,
+            'http_method': log.http_method,
+            'url': log.url,
+            'endpoint': log.endpoint,
+            'ip_adresi': log.ip_adresi,
+            'user_agent': log.user_agent,
+            'islem_tarihi': log.islem_tarihi.strftime('%d.%m.%Y %H:%M:%S'),
+            'aciklama': log.aciklama,
+            'basarili': log.basarili,
+            'hata_mesaji': log.hata_mesaji
+        })
+
+
+    @app.route('/sistem-yoneticisi/audit-trail/export')
+    @login_required
+    @role_required('sistem_yoneticisi', 'admin')
+    def audit_trail_export():
+        """Audit Trail Excel Export"""
+        kullanici_id = request.args.get('kullanici_id', type=int)
+        islem_tipi = request.args.get('islem_tipi')
+        tablo_adi = request.args.get('tablo_adi')
+        tarih_baslangic = request.args.get('tarih_baslangic')
+        tarih_bitis = request.args.get('tarih_bitis')
+        
+        query = AuditLog.query.filter(AuditLog.kullanici_rol != 'superadmin')
+        
+        if kullanici_id:
+            query = query.filter_by(kullanici_id=kullanici_id)
+        if islem_tipi:
+            query = query.filter_by(islem_tipi=islem_tipi)
+        if tablo_adi:
+            query = query.filter_by(tablo_adi=tablo_adi)
+        if tarih_baslangic:
+            tarih_baslangic_dt = datetime.strptime(tarih_baslangic, '%Y-%m-%d')
+            query = query.filter(AuditLog.islem_tarihi >= tarih_baslangic_dt)
+        if tarih_bitis:
+            tarih_bitis_dt = datetime.strptime(tarih_bitis, '%Y-%m-%d')
+            query = query.filter(AuditLog.islem_tarihi <= tarih_bitis_dt)
+        
+        logs = query.order_by(AuditLog.islem_tarihi.desc()).limit(10000).all()
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Audit Trail"
+        
+        headers = ['ID', 'Tarih', 'Kullanıcı', 'Rol', 'İşlem', 'Tablo', 'Kayıt ID', 
+                   'Değişiklik', 'IP', 'URL', 'Başarılı']
+        
+        for col, header in enumerate(headers, 1):
+            cell = ws.cell(row=1, column=col, value=header)
+            cell.font = Font(bold=True, color="FFFFFF")
+            cell.fill = PatternFill(start_color="366092", end_color="366092", fill_type="solid")
+            cell.alignment = Alignment(horizontal='center')
+        
+        for row, log in enumerate(logs, 2):
+            ws.cell(row=row, column=1, value=log.id)
+            ws.cell(row=row, column=2, value=log.islem_tarihi.strftime('%d.%m.%Y %H:%M'))
+            ws.cell(row=row, column=3, value=log.kullanici_adi)
+            ws.cell(row=row, column=4, value=log.kullanici_rol)
+            ws.cell(row=row, column=5, value=log.islem_tipi)
+            ws.cell(row=row, column=6, value=log.tablo_adi)
+            ws.cell(row=row, column=7, value=log.kayit_id)
+            ws.cell(row=row, column=8, value=log.degisiklik_ozeti or '')
+            ws.cell(row=row, column=9, value=log.ip_adresi or '')
+            ws.cell(row=row, column=10, value=log.url or '')
+            ws.cell(row=row, column=11, value='Evet' if log.basarili else 'Hayır')
+        
+        ws.column_dimensions['A'].width = 8
+        ws.column_dimensions['B'].width = 18
+        ws.column_dimensions['C'].width = 20
+        ws.column_dimensions['D'].width = 20
+        ws.column_dimensions['E'].width = 12
+        ws.column_dimensions['F'].width = 20
+        ws.column_dimensions['G'].width = 10
+        ws.column_dimensions['H'].width = 50
+        ws.column_dimensions['I'].width = 15
+        ws.column_dimensions['J'].width = 40
+        ws.column_dimensions['K'].width = 10
+        
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        filename = f"audit_trail_{get_kktc_now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        
+        from utils.audit import audit_export
+        audit_export('audit_logs', f'Excel export: {len(logs)} kayıt')
+        
+        return send_file(
+            output,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=filename
+        )

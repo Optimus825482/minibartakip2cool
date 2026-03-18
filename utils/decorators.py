@@ -205,11 +205,11 @@ def otel_erisim_gerekli(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         from flask import request, jsonify, abort
-        from utils.authorization import otel_erisim_kontrol
+        from utils.authorization import kullanici_otel_erisimi
         
         # Kullanıcı bilgilerini al
         kullanici_id = session.get('kullanici_id')
-        rol = session.get('kullanici_rol')
+        rol = session.get('rol')
         
         if not kullanici_id or not rol:
             if request.path.startswith('/api/') or request.is_json:
@@ -238,7 +238,7 @@ def otel_erisim_gerekli(f):
             return redirect(url_for('dashboard'))
         
         # Erişim kontrolü
-        if not otel_erisim_kontrol(kullanici_id, otel_id, rol):
+        if not kullanici_otel_erisimi(kullanici_id, otel_id):
             if request.path.startswith('/api/') or request.is_json:
                 return jsonify({'success': False, 'error': 'Bu otele erişim yetkiniz yok'}), 403
             flash('Bu otele erişim yetkiniz yok.', 'danger')

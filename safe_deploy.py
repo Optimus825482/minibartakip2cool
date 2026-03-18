@@ -8,8 +8,6 @@ Erkan için - Güvenli deployment
 import sys
 import time
 from app import app, db
-from models import *
-
 def check_database_connection():
     """Database bağlantısını kontrol et"""
     print("🔍 Database bağlantısı kontrol ediliyor...")
@@ -32,22 +30,6 @@ def check_database_connection():
         return False
 
 
-def check_tables():
-    """Veritabanı tablolarını kontrol et"""
-    print("🔍 Veritabanı tabloları kontrol ediliyor...")
-    
-    with app.app_context():
-        try:
-            # Tabloları oluştur (varsa atla)
-            db.create_all()
-            print('✅ Veritabanı tabloları hazır!')
-            return True
-        except Exception as e:
-            print(f'⚠️  Tablo oluşturma uyarısı: {e}')
-            print('ℹ️  Devam ediliyor...')
-            return True
-
-
 def main():
     """Ana deployment kontrol fonksiyonu"""
     print("="*60)
@@ -58,13 +40,6 @@ def main():
     # 1. Database bağlantısı
     if not check_database_connection():
         print("❌ Deployment başarısız - Database bağlantısı yok")
-        sys.exit(1)
-    
-    print("")
-    
-    # 2. Tablo kontrolü
-    if not check_tables():
-        print("❌ Deployment başarısız - Tablo kontrolü hatası")
         sys.exit(1)
     
     print("")

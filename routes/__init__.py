@@ -93,6 +93,10 @@ def register_all_routes(app):
     from routes.rapor_routes import register_rapor_routes
     register_rapor_routes(app)
     
+    # Rapor Export Routes (Depo raporları, Excel/PDF export)
+    from routes.rapor_export_routes import register_rapor_export_routes
+    register_rapor_export_routes(app)
+    
     # ML Routes
     from routes.ml_routes import register_ml_routes
     register_ml_routes(app)
@@ -104,10 +108,6 @@ def register_all_routes(app):
     # Restore V2 Routes (Gelişmiş)
     from routes.restore_routes_v2 import restore_v2_bp
     app.register_blueprint(restore_v2_bp)
-    
-    # Developer Routes
-    from routes.developer_routes import developer_bp
-    app.register_blueprint(developer_bp)
     
     # Stok Yönetimi Routes
     from routes.stok_routes import stok_bp
@@ -145,13 +145,10 @@ def register_all_routes(app):
     # Blueprint'leri register ettikten sonra CSRF exempt yap
     if hasattr(app, 'extensions') and 'csrf' in app.extensions:
         csrf_protect = app.extensions['csrf']
-        csrf_protect.exempt(restore_bp)
-        csrf_protect.exempt(restore_v2_bp)
-        csrf_protect.exempt(developer_bp)
         csrf_protect.exempt(stok_bp)
         csrf_protect.exempt(celery_bp)
         csrf_protect.exempt(db_optimization_bp)
-        print("✅ CSRF exemptions uygulandı (restore, restore_v2, developer, stok, celery, db_optimization)")
+        print("✅ CSRF exemptions uygulandı (stok, celery, db_optimization)")
     else:
         print("⚠️ CSRF extension bulunamadı")
     

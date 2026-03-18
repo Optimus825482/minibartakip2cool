@@ -59,30 +59,15 @@ class MLSystemBenchmark:
         """Veri toplama performansı"""
         logger.info("📊 Veri toplama benchmark başladı...")
         
-        # Eski sistem
         from utils.ml.data_collector import DataCollector
-        old_collector = DataCollector(self.db)
+        collector = DataCollector(self.db)
         
         result, metrics = self.measure_time_memory(
-            old_collector.collect_stok_metrics
+            collector.collect_stok_metrics_incremental
         )
         
-        self.results['data_collection_old'] = {
-            'name': 'Veri Toplama (Eski)',
-            'collected_count': result if result else 0,
-            **metrics
-        }
-        
-        # Yeni sistem
-        from utils.ml.data_collector_v2 import DataCollectorV2
-        new_collector = DataCollectorV2(self.db)
-        
-        result, metrics = self.measure_time_memory(
-            new_collector.collect_stok_metrics_incremental
-        )
-        
-        self.results['data_collection_new'] = {
-            'name': 'Veri Toplama (Yeni - Incremental)',
+        self.results['data_collection_incremental'] = {
+            'name': 'Veri Toplama (Incremental)',
             'collected_count': result if result else 0,
             **metrics
         }

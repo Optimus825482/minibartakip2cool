@@ -10,7 +10,7 @@
 
 class BildirimManager {
   constructor(options = {}) {
-    this.pollInterval = options.pollInterval || 10000; // 10 saniye
+    this.pollInterval = options.pollInterval || 60000; // 60 saniye
     this.maxToasts = options.maxToasts || 3;
     this.toastDuration = options.toastDuration || 5000;
 
@@ -32,7 +32,22 @@ class BildirimManager {
     // Event listener'ları ekle
     this.eventListenerEkle();
 
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        this.pollDurdur();
+      } else {
+        this.pollBaslat();
+      }
+    });
+
     console.log("🔔 Bildirim Manager başlatıldı");
+
+    window.addEventListener('beforeunload', () => {
+      this.pollDurdur();
+      if (this._audioContext) {
+        this._audioContext.close();
+      }
+    });
   }
 
   eventListenerEkle() {
@@ -376,16 +391,18 @@ class BildirimManager {
   }
 
   bildirimSesiCal() {
-    // Basit bir beep sesi (opsiyonel)
     try {
-      const audioContext = new (
-        window.AudioContext || window.webkitAudioContext
-      )();
-      const oscillator = audioContext.createOscillator();
-      const gainNode = audioContext.createGain();
+      if (!this._audioContext) {
+        this._audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (this._audioContext.state === 'suspended') {
+        this._audioContext.resume();
+      }
+      const oscillator = this._audioContext.createOscillator();
+      const gainNode = this._audioContext.createGain();
 
       oscillator.connect(gainNode);
-      gainNode.connect(audioContext.destination);
+      gainNode.connect(this._audioContext.destination);
 
       oscillator.frequency.value = 800;
       oscillator.type = "sine";

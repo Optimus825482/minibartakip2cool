@@ -5,6 +5,7 @@ Executive Dashboard Data Service
 
 from datetime import datetime, timedelta, date
 from sqlalchemy import func, desc, cast, Date, extract, case, and_, or_
+from sqlalchemy.orm import joinedload
 from models import (
     db, Kullanici, Otel, Oda, Urun, UrunGrup, Kat,
     MinibarIslem, MinibarIslemDetay, StokHareket,
@@ -62,6 +63,13 @@ class ExecutiveDashboardService:
     def get_kpi_summary(period='today'):
         """Ana KPI kartları için özet veriler"""
         try:
+            from utils.cache_manager import cache_manager
+            cache_key = f'exec_dash_kpi_{period}'
+            if cache_manager.enabled:
+                cached = cache_manager.get(cache_key)
+                if cached is not None:
+                    return cached
+
             start_date, end_date = get_date_range(period)
 
             # Toplam oteller
@@ -123,7 +131,7 @@ class ExecutiveDashboardService:
                 ~AuditLog.kullanici_id.in_(get_excluded_user_ids())
             ).count()
 
-            return {
+            result = {
                 'toplam_otel': toplam_otel,
                 'toplam_oda': toplam_oda,
                 'toplam_urun': toplam_urun,
@@ -136,6 +144,11 @@ class ExecutiveDashboardService:
                 'aktif_kullanici': aktif_kullanici,
                 'bugun_islem': toplam_islem
             }
+
+            if cache_manager.enabled:
+                cache_manager.set(cache_key, result, 90)
+
+            return result
         except Exception as e:
             logger.error(f"KPI summary hatası: {e}")
             return {
@@ -151,33 +164,42 @@ class ExecutiveDashboardService:
         try:
             now = get_kktc_now()
             today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            week_start = today_start - timedelta(days=7)
 
             users = Kullanici.query.filter(
                 Kullanici.aktif == True
-            ).all()
-            user_stats = []
+            ).options(joinedload(Kullanici.otel)).all()
 
-            for user in users:
-                # Bugünkü işlem sayısı
-                bugun_islem = AuditLog.query.filter(
-                    AuditLog.kullanici_id == user.id,
-                    AuditLog.islem_tarihi >= today_start
-                ).count()
-
-                # Son 7 günlük işlem sayısı
-                haftalik_islem = AuditLog.query.filter(
-                    AuditLog.kullanici_id == user.id,
-                    AuditLog.islem_tarihi >= today_start - timedelta(days=7)
-                ).count()
-
-                # Son aktivite zamanı
-                son_aktivite = db.session.query(
-                    func.max(AuditLog.islem_tarihi)
+            today_counts = dict(
+                db.session.query(
+                    AuditLog.kullanici_id,
+                    func.count(AuditLog.id)
                 ).filter(
-                    AuditLog.kullanici_id == user.id
-                ).scalar()
+                    AuditLog.islem_tarihi >= today_start
+                ).group_by(AuditLog.kullanici_id).all()
+            )
 
-                # Otel bilgisi
+            weekly_counts = dict(
+                db.session.query(
+                    AuditLog.kullanici_id,
+                    func.count(AuditLog.id)
+                ).filter(
+                    AuditLog.islem_tarihi >= week_start
+                ).group_by(AuditLog.kullanici_id).all()
+            )
+
+            last_activities = dict(
+                db.session.query(
+                    AuditLog.kullanici_id,
+                    func.max(AuditLog.islem_tarihi)
+                ).group_by(AuditLog.kullanici_id).all()
+            )
+
+            user_stats = []
+            for user in users:
+                bugun_islem = today_counts.get(user.id, 0)
+                haftalik_islem = weekly_counts.get(user.id, 0)
+                son_aktivite = last_activities.get(user.id)
                 otel_ad = user.otel.ad if user.otel else 'Genel'
 
                 user_stats.append({
@@ -191,7 +213,6 @@ class ExecutiveDashboardService:
                     'aktif_mi': bugun_islem > 0
                 })
 
-            # İşlem sayısına göre sırala
             user_stats.sort(key=lambda x: x['bugun_islem'], reverse=True)
             return user_stats
         except Exception as e:
@@ -204,49 +225,74 @@ class ExecutiveDashboardService:
         try:
             start_date, end_date = get_date_range(period)
             oteller = Otel.query.filter_by(aktif=True).order_by(Otel.id).all()
-            hotel_data = []
+            otel_ids = [o.id for o in oteller]
+            excluded = get_excluded_user_ids()
 
-            for otel in oteller:
-                oda_sayisi = Oda.query.join(Kat).filter(
-                    Kat.otel_id == otel.id, Oda.aktif == True
-                ).count()
+            oda_counts = dict(
+                db.session.query(
+                    Kat.otel_id,
+                    func.count(Oda.id)
+                ).join(Oda, Oda.kat_id == Kat.id).filter(
+                    Kat.otel_id.in_(otel_ids),
+                    Oda.aktif == True
+                ).group_by(Kat.otel_id).all()
+            )
 
-                kontrol = OdaKontrolKaydi.query.join(Oda).join(Kat).filter(
-                    Kat.otel_id == otel.id,
+            kontrol_counts = dict(
+                db.session.query(
+                    Kat.otel_id,
+                    func.count(OdaKontrolKaydi.id)
+                ).join(Oda, OdaKontrolKaydi.oda_id == Oda.id
+                ).join(Kat, Oda.kat_id == Kat.id).filter(
+                    Kat.otel_id.in_(otel_ids),
                     OdaKontrolKaydi.kontrol_tarihi >= start_date,
                     OdaKontrolKaydi.kontrol_tarihi < end_date,
-                    ~OdaKontrolKaydi.personel_id.in_(get_excluded_user_ids())
-                ).count()
+                    ~OdaKontrolKaydi.personel_id.in_(excluded)
+                ).group_by(Kat.otel_id).all()
+            )
 
-                tuketim = db.session.query(
+            tuketim_sums = dict(
+                db.session.query(
+                    Kat.otel_id,
                     func.coalesce(func.sum(MinibarIslemDetay.tuketim), 0)
-                ).join(MinibarIslem).join(Oda, MinibarIslem.oda_id == Oda.id).join(Kat, Oda.kat_id == Kat.id).filter(
-                    Kat.otel_id == otel.id,
+                ).join(MinibarIslem, MinibarIslemDetay.islem_id == MinibarIslem.id
+                ).join(Oda, MinibarIslem.oda_id == Oda.id
+                ).join(Kat, Oda.kat_id == Kat.id).filter(
+                    Kat.otel_id.in_(otel_ids),
                     MinibarIslem.islem_tarihi >= start_date,
                     MinibarIslem.islem_tarihi < end_date,
                     MinibarIslemDetay.tuketim > 0,
-                    ~MinibarIslem.personel_id.in_(get_excluded_user_ids())
-                ).scalar() or 0
+                    ~MinibarIslem.personel_id.in_(excluded)
+                ).group_by(Kat.otel_id).all()
+            )
 
-                gorevler = GunlukGorev.query.filter(
-                    GunlukGorev.otel_id == otel.id,
-                    GunlukGorev.gorev_tarihi >= start_date.date(),
-                    GunlukGorev.gorev_tarihi <= end_date.date(),
-                    GunlukGorev.id.in_(
-                        db.session.query(GorevDetay.gorev_id).filter(
-                            GorevDetay.misafir_kayit_id.isnot(None)
-                        ).distinct()
-                    )
-                ).all()
-                toplam_g = len(gorevler)
-                tamamlanan_g = sum(1 for g in gorevler if g.durum == GorevDurum.COMPLETED)
+            valid_gorev_ids = db.session.query(GorevDetay.gorev_id).filter(
+                GorevDetay.misafir_kayit_id.isnot(None)
+            ).distinct()
+
+            gorevler = GunlukGorev.query.filter(
+                GunlukGorev.otel_id.in_(otel_ids),
+                GunlukGorev.gorev_tarihi >= start_date.date(),
+                GunlukGorev.gorev_tarihi <= end_date.date(),
+                GunlukGorev.id.in_(valid_gorev_ids)
+            ).all()
+
+            gorev_by_otel = {}
+            for g in gorevler:
+                gorev_by_otel.setdefault(g.otel_id, []).append(g)
+
+            hotel_data = []
+            for otel in oteller:
+                otel_gorevler = gorev_by_otel.get(otel.id, [])
+                toplam_g = len(otel_gorevler)
+                tamamlanan_g = sum(1 for g in otel_gorevler if g.durum == GorevDurum.COMPLETED)
 
                 hotel_data.append({
                     'id': otel.id,
                     'ad': otel.ad,
-                    'oda_sayisi': oda_sayisi,
-                    'bugun_kontrol': kontrol,
-                    'bugun_tuketim': int(tuketim),
+                    'oda_sayisi': oda_counts.get(otel.id, 0),
+                    'bugun_kontrol': kontrol_counts.get(otel.id, 0),
+                    'bugun_tuketim': int(tuketim_sums.get(otel.id, 0)),
                     'gorev_toplam': toplam_g,
                     'gorev_tamamlanan': tamamlanan_g,
                     'gorev_oran': round((tamamlanan_g / toplam_g * 100) if toplam_g > 0 else 0)
@@ -261,6 +307,13 @@ class ExecutiveDashboardService:
     def get_consumption_trends(period='today', days=None):
         """Tüketim trend verileri (günlük)"""
         try:
+            from utils.cache_manager import cache_manager
+            cache_key = f'exec_dash_cons_trends_{period}_{days}'
+            if cache_manager.enabled:
+                cached = cache_manager.get(cache_key)
+                if cached is not None:
+                    return cached
+
             start_date, end_date = get_date_range(period)
             if days:
                 now = get_kktc_now()
@@ -271,27 +324,31 @@ class ExecutiveDashboardService:
             if delta < 1:
                 delta = 1
 
+            results = db.session.query(
+                cast(MinibarIslem.islem_tarihi, Date).label('gun'),
+                func.coalesce(func.sum(MinibarIslemDetay.tuketim), 0).label('toplam')
+            ).join(MinibarIslem).filter(
+                MinibarIslem.islem_tarihi >= start_date,
+                MinibarIslem.islem_tarihi < end_date,
+                MinibarIslemDetay.tuketim > 0,
+                ~MinibarIslem.personel_id.in_(get_excluded_user_ids())
+            ).group_by('gun').order_by('gun').all()
+
+            result_dict = {r.gun: int(r.toplam) for r in results}
+
             labels = []
             values = []
-
             for i in range(delta):
-                day = start_date + timedelta(days=i)
-                day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
-                day_end = day_start + timedelta(days=1)
+                day = (start_date + timedelta(days=i)).date() if isinstance(start_date, datetime) else start_date + timedelta(days=i)
+                labels.append(day.strftime('%d.%m'))
+                values.append(result_dict.get(day, 0))
 
-                total = db.session.query(
-                    func.coalesce(func.sum(MinibarIslemDetay.tuketim), 0)
-                ).join(MinibarIslem).filter(
-                    MinibarIslem.islem_tarihi >= day_start,
-                    MinibarIslem.islem_tarihi < day_end,
-                    MinibarIslemDetay.tuketim > 0,
-                    ~MinibarIslem.personel_id.in_(get_excluded_user_ids())
-                ).scalar() or 0
+            result = {'labels': labels, 'values': values}
 
-                labels.append(day_start.strftime('%d.%m'))
-                values.append(int(total))
+            if cache_manager.enabled:
+                cache_manager.set(cache_key, result, 120)
 
-            return {'labels': labels, 'values': values}
+            return result
         except Exception as e:
             logger.error(f"Consumption trends hatası: {e}")
             return {'labels': [], 'values': []}
@@ -300,6 +357,13 @@ class ExecutiveDashboardService:
     def get_top_consumed_products(limit=10, period='this_month'):
         """En çok tüketilen ürünler"""
         try:
+            from utils.cache_manager import cache_manager
+            cache_key = f'exec_dash_top_prods_{limit}_{period}'
+            if cache_manager.enabled:
+                cached = cache_manager.get(cache_key)
+                if cached is not None:
+                    return cached
+
             start_date, end_date = get_date_range(period)
 
             results = db.session.query(
@@ -316,10 +380,15 @@ class ExecutiveDashboardService:
             ).order_by(desc('toplam')
             ).limit(limit).all()
 
-            return {
+            result = {
                 'labels': [r[0] for r in results],
                 'values': [int(r[1]) for r in results]
             }
+
+            if cache_manager.enabled:
+                cache_manager.set(cache_key, result, 120)
+
+            return result
         except Exception as e:
             logger.error(f"Top consumed products hatası: {e}")
             return {'labels': [], 'values': []}
@@ -328,6 +397,13 @@ class ExecutiveDashboardService:
     def get_room_control_stats(period='today', days=None):
         """Oda kontrol istatistikleri (günlük)"""
         try:
+            from utils.cache_manager import cache_manager
+            cache_key = f'exec_dash_room_ctrl_{period}_{days}'
+            if cache_manager.enabled:
+                cached = cache_manager.get(cache_key)
+                if cached is not None:
+                    return cached
+
             start_date, end_date = get_date_range(period)
             if days:
                 now = get_kktc_now()
@@ -338,24 +414,30 @@ class ExecutiveDashboardService:
             if delta < 1:
                 delta = 1
 
+            results = db.session.query(
+                cast(OdaKontrolKaydi.kontrol_tarihi, Date).label('gun'),
+                func.count(OdaKontrolKaydi.id).label('sayi')
+            ).filter(
+                OdaKontrolKaydi.kontrol_tarihi >= start_date,
+                OdaKontrolKaydi.kontrol_tarihi < end_date,
+                ~OdaKontrolKaydi.personel_id.in_(get_excluded_user_ids())
+            ).group_by('gun').order_by('gun').all()
+
+            result_dict = {r.gun: r.sayi for r in results}
+
             labels = []
             values = []
-
             for i in range(delta):
-                day = start_date + timedelta(days=i)
-                day_start = day.replace(hour=0, minute=0, second=0, microsecond=0)
-                day_end = day_start + timedelta(days=1)
+                day = (start_date + timedelta(days=i)).date() if isinstance(start_date, datetime) else start_date + timedelta(days=i)
+                labels.append(day.strftime('%d.%m'))
+                values.append(result_dict.get(day, 0))
 
-                count = OdaKontrolKaydi.query.filter(
-                    OdaKontrolKaydi.kontrol_tarihi >= day_start,
-                    OdaKontrolKaydi.kontrol_tarihi < day_end,
-                    ~OdaKontrolKaydi.personel_id.in_(get_excluded_user_ids())
-                ).count()
+            result = {'labels': labels, 'values': values}
 
-                labels.append(day_start.strftime('%d.%m'))
-                values.append(count)
+            if cache_manager.enabled:
+                cache_manager.set(cache_key, result, 120)
 
-            return {'labels': labels, 'values': values}
+            return result
         except Exception as e:
             logger.error(f"Room control stats hatası: {e}")
             return {'labels': [], 'values': []}
@@ -368,9 +450,13 @@ class ExecutiveDashboardService:
                 desc(AuditLog.islem_tarihi)
             ).limit(limit).all()
 
+            user_ids = [a.kullanici_id for a in activities if a.kullanici_id]
+            users = Kullanici.query.filter(Kullanici.id.in_(user_ids)).all() if user_ids else []
+            user_dict = {u.id: u for u in users}
+
             result = []
             for a in activities:
-                kullanici = Kullanici.query.get(a.kullanici_id) if a.kullanici_id else None
+                kullanici = user_dict.get(a.kullanici_id) if a.kullanici_id else None
                 result.append({
                     'id': a.id,
                     'zaman': a.islem_tarihi.strftime('%H:%M:%S') if a.islem_tarihi else '',
@@ -393,22 +479,28 @@ class ExecutiveDashboardService:
         try:
             start_date, end_date = get_date_range(period)
             oteller = Otel.query.filter_by(aktif=True).order_by(Otel.id).all()
-            data = []
+            otel_ids = [o.id for o in oteller]
 
+            valid_gorev_ids = db.session.query(GorevDetay.gorev_id).filter(
+                GorevDetay.misafir_kayit_id.isnot(None)
+            ).distinct()
+
+            gorevler = GunlukGorev.query.filter(
+                GunlukGorev.otel_id.in_(otel_ids),
+                GunlukGorev.gorev_tarihi >= start_date.date(),
+                GunlukGorev.gorev_tarihi <= end_date.date(),
+                GunlukGorev.id.in_(valid_gorev_ids)
+            ).all()
+
+            gorev_by_otel = {}
+            for g in gorevler:
+                gorev_by_otel.setdefault(g.otel_id, []).append(g)
+
+            data = []
             for otel in oteller:
-                # Sadece misafir kayıtlı (doluluk bilgisi yüklendikten sonra oluşturulan) görevleri al
-                gorevler = GunlukGorev.query.filter(
-                    GunlukGorev.otel_id == otel.id,
-                    GunlukGorev.gorev_tarihi >= start_date.date(),
-                    GunlukGorev.gorev_tarihi <= end_date.date(),
-                    GunlukGorev.id.in_(
-                        db.session.query(GorevDetay.gorev_id).filter(
-                            GorevDetay.misafir_kayit_id.isnot(None)
-                        ).distinct()
-                    )
-                ).all()
-                toplam = len(gorevler)
-                tamamlanan = sum(1 for g in gorevler if g.durum == GorevDurum.COMPLETED)
+                otel_gorevler = gorev_by_otel.get(otel.id, [])
+                toplam = len(otel_gorevler)
+                tamamlanan = sum(1 for g in otel_gorevler if g.durum == GorevDurum.COMPLETED)
                 oran = round((tamamlanan / toplam * 100) if toplam > 0 else 0)
                 data.append({
                     'otel': otel.ad,
@@ -454,6 +546,13 @@ class ExecutiveDashboardService:
         - Bugünkü DND Sayısı
         """
         try:
+            from utils.cache_manager import cache_manager
+            cache_key = 'exec_dash_weekly'
+            if cache_manager.enabled:
+                cached = cache_manager.get(cache_key)
+                if cached is not None:
+                    return cached
+
             now = get_kktc_now()
             today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
             today_end = today_start + timedelta(days=1)
@@ -501,7 +600,7 @@ class ExecutiveDashboardService:
 
             toplam_dnd = bugun_dnd + gorev_dnd
 
-            return {
+            result = {
                 'gorev_tamamlanan': tamamlanan_gorev,
                 'gorev_toplam': toplam_gorev,
                 'ort_tuketim_islem': ort_tuketim_islem,
@@ -509,6 +608,11 @@ class ExecutiveDashboardService:
                 'toplam_tuketim': toplam_tuketim,
                 'bugun_dnd': toplam_dnd
             }
+
+            if cache_manager.enabled:
+                cache_manager.set(cache_key, result, 60)
+
+            return result
         except Exception as e:
             logger.error(f"Weekly summary hatası: {e}")
             return {
@@ -516,3 +620,11 @@ class ExecutiveDashboardService:
                 'ort_tuketim_islem': 0, 'tuketimli_islem': 0,
                 'toplam_tuketim': 0, 'bugun_dnd': 0
             }
+
+
+def invalidate_executive_dashboard_cache():
+    """Executive dashboard cache'ini temizle"""
+    from utils.cache_manager import cache_manager
+    if cache_manager.enabled:
+        for prefix in ['exec_dash_kpi', 'exec_dash_cons_trends', 'exec_dash_room_ctrl', 'exec_dash_top_prods', 'exec_dash_weekly']:
+            cache_manager.invalidate(prefix)

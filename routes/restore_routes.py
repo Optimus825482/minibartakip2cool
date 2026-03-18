@@ -7,6 +7,7 @@ from flask import Blueprint, render_template, request, jsonify, session
 from werkzeug.utils import secure_filename
 from sqlalchemy import create_engine, text, inspect, MetaData
 from models import db
+from utils.decorators import login_required, role_required
 import os
 import re
 import tempfile
@@ -93,11 +94,15 @@ def get_current_table_counts():
         return {}
 
 @restore_bp.route('/restore_backup')
+@login_required
+@role_required('sistem_yoneticisi')
 def restore_backup_page():
     """Backup restore sayfası"""
     return render_template('restore_backup.html')
 
 @restore_bp.route('/api/upload_backup', methods=['POST'])
+@login_required
+@role_required('sistem_yoneticisi')
 def upload_backup():
     """Backup dosyasını yükle ve analiz et"""
     
@@ -160,6 +165,8 @@ def upload_backup():
         return jsonify({'error': str(e)}), 500
 
 @restore_bp.route('/api/restore_table', methods=['POST'])
+@login_required
+@role_required('sistem_yoneticisi')
 def restore_table():
     """Belirli bir tabloyu restore et"""
     
@@ -226,6 +233,8 @@ def restore_table():
         return jsonify({'error': str(e)}), 500
 
 @restore_bp.route('/api/restore_all', methods=['POST'])
+@login_required
+@role_required('sistem_yoneticisi')
 def restore_all():
     """Tüm tabloları restore et"""
     

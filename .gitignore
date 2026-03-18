@@ -114,3 +114,5 @@ docker-compose.override.yml
 
 .kiro/settings/mcp.json
 .env.railway.example
+
+*.pkl

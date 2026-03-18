@@ -40,21 +40,8 @@ class BaseForm(FlaskForm):
     """Base form with common validators"""
     
     def validate_email(self, field):
-        """Custom email validation with Turkish domain support"""
-        email = field.data
-        if email and '@' in email:
-            # Allow common Turkish email domains
-            turkish_domains = ['hotmail.com', 'gmail.com', 'yahoo.com', 'yandex.com', 
-                              'outlook.com', 'msn.com', 'windowslive.com',
-                              'edu.tr', '.gov.tr', '.org.tr', '.net.tr',
-                              'turkcell.com.tr', 'ttk.gov.tr']
-            
-            if not any(domain in email.lower() for domain in turkish_domains):
-                # Basic email pattern validation
-                email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-                if not re.match(email_pattern, email):
-                    raise ValidationError('Geçerli bir e-posta adresi giriniz.')
-
+        """Email validation relies on WTForms Email() validator"""
+        pass
 class LoginForm(BaseForm):
     """Enhanced login form with advanced validation"""
     kullanici_adi = StringField(
@@ -249,8 +236,6 @@ class PersonelForm(BaseForm):
         ]
     )
 
-# İkinci PersonelForm tanımı kaldırıldı - duplicate temizliği (29.12.2025)
-# Yukarıdaki "Enhanced personnel form" versiyonu kullanılıyor
 
 class PersonelDuzenleForm(BaseForm):
     """Personel düzenleme formu (şifre opsiyonel)"""
@@ -411,32 +396,26 @@ class MinibarKontrolForm(BaseForm):
             Length(max=500, message='Açıklama 500 karakterden uzun olamaz.')
         ]
     )
-    
-    # Dynamic fields will be added based on selected products
-    @classmethod
-    def create_dynamic_fields(cls, urun_ids):
-        """Create dynamic fields for product quantities"""
-        for urun_id in urun_ids:
-            # Quantity field
-            field_name = f'miktar_{urun_id}'
-            setattr(cls, field_name, IntegerField(
-                f'Miktar_{urun_id}',
-                validators=[Optional()]
-            ))
-            
-            # Starting stock field
-            field_name = f'baslangic_{urun_id}'
-            setattr(cls, field_name, IntegerField(
-                f'Başlangıç Stok_{urun_id}',
-                validators=[Optional()]
-            ))
-            
-            # Ending stock field
-            field_name = f'bitis_{urun_id}'
-            setattr(cls, field_name, IntegerField(
-                f'Bitiş Stok_{urun_id}',
-                validators=[Optional()]
-            ))
+
+
+def get_minibar_kontrol_form(urun_ids):
+    """Factory function to build MinibarKontrolForm with dynamic fields"""
+    class DynamicMinibarKontrolForm(MinibarKontrolForm):
+        pass
+        
+    for urun_id in urun_ids:
+        setattr(DynamicMinibarKontrolForm, f'miktar_{urun_id}', IntegerField(
+            f'Miktar_{urun_id}', validators=[Optional()]
+        ))
+        setattr(DynamicMinibarKontrolForm, f'baslangic_{urun_id}', IntegerField(
+            f'Başlangıç Stok_{urun_id}', validators=[Optional()]
+        ))
+        setattr(DynamicMinibarKontrolForm, f'bitis_{urun_id}', IntegerField(
+            f'Bitiş Stok_{urun_id}', validators=[Optional()]
+        ))
+        
+    return DynamicMinibarKontrolForm
+
 
 class OtelForm(BaseForm):
     """Otel tanımlama/düzenleme formu"""

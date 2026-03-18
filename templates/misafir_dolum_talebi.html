@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="csrf-token" content="{{ csrf_token() }}" />
-    <title>Royalbar Kişiselleştirme - Oda {{ oda.oda_no }}</title>
+    <title id="pageTitleTag">Royalbar Kişiselleştirme - Oda {{ oda.oda_no }}</title>
     <link
       rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css"
@@ -292,19 +292,21 @@
               </h4>
               {% endif %}
 
-              <h3 class="page-title text-center">Royalbar Kişiselleştirme</h3>
+              <h3 class="page-title text-center" id="pageTitleMain">
+                Royal My Bar Kişiselleştirme
+              </h3>
 
               <div class="text-center mb-4">
                 <div class="room-badge">
                   <i class="fas fa-door-open"></i>
-                  <span>Oda {{ oda.oda_no }}</span>
+                  <span id="roomBadgeText">Oda {{ oda.oda_no }}</span>
                 </div>
               </div>
 
               <div class="alert alert-info">
                 <i class="fas fa-info-circle"></i>
-                <strong
-                  >{{ oda.misafir_mesaji or 'Royalbar kişiselleştirme talebiniz
+                <strong id="infoMessage" data-has-custom-message="{{ 1 if oda.misafir_mesaji else 0 }}"
+                  >{{ oda.misafir_mesaji or 'Royal My Bar kişiselleştirme talebiniz
                   en kısa sürede yerine getirilecektir.' }}</strong
                 >
               </div>
@@ -317,7 +319,7 @@
                 />
 
                 <div class="form-group">
-                  <label
+                  <label id="noteLabel"
                     ><i class="fas fa-comment-dots"></i> Ek Not
                     (Opsiyonel)</label
                   >
@@ -331,16 +333,18 @@
                   ></textarea>
                   <small class="form-text text-muted">
                     <i class="fas fa-keyboard"></i>
-                    <span id="karakterSayaci">0/500</span> karakter
+                    <span id="karakterSayaci">0/500</span>
+                    <span id="characterWord">karakter</span>
                   </small>
                 </div>
 
                 <button
                   type="submit"
                   class="btn btn-primary btn-block btn-lg mt-4"
+                  id="submitBtn"
                 >
-                  <i class="fas fa-paper-plane"></i> Royalbar Kişiselleştirme
-                  Talebi Gönder
+                  <i class="fas fa-paper-plane"></i>
+                  <span id="submitBtnText">Royal My Bar Kişiselleştirme Talebi Gönder</span>
                 </button>
               </form>
 
@@ -351,10 +355,10 @@
               >
                 <div class="text-center">
                   <i class="fas fa-check-circle"></i>
-                  <strong class="d-block mb-2"
+                  <strong class="d-block mb-2" id="successTitle"
                     >Talebiniz Başarıyla Gönderildi!</strong
                   >
-                  <p class="mb-0">
+                  <p class="mb-0" id="successDescription">
                     En kısa sürede minibarınız kişiselleştirilecektir. Teşekkür
                     ederiz.
                   </p>
@@ -369,6 +373,197 @@
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+      const I18N = {
+        tr: {
+          pageTitleTag: "Royalbar Kişiselleştirme - Oda {room}",
+          pageTitleMain: "Royal My Bar Kişiselleştirme",
+          roomLabel: "Oda {room}",
+          defaultInfo:
+            "Royal My Bar kişiselleştirme talebiniz en kısa sürede yerine getirilecektir.",
+          noteLabel: "Ek Not (Opsiyonel)",
+          notePlaceholder:
+            "Özel bir talebiniz varsa buraya yazabilirsiniz (örn: Ekstra su, diet içecekler, vs.)...",
+          characterWord: "karakter",
+          submitBtnText: "Royal My Bar Kişiselleştirme Talebi Gönder",
+          sending: "Gönderiliyor...",
+          successTitle: "Talebiniz Başarıyla Gönderildi!",
+          successDescription:
+            "En kısa sürede minibarınız kişiselleştirilecektir. Teşekkür ederiz.",
+          genericError: "Bir hata oluştu. Lütfen tekrar deneyin.",
+          tooManyRequests: "⚠️ Çok fazla deneme yaptınız. Lütfen 1 dakika bekleyin.",
+          invalidQr: "❌ Geçersiz QR kod. Lütfen yeni bir QR kod okutun.",
+          serverError: "⚠️ Sunucu hatası. Lütfen daha sonra tekrar deneyin.",
+        },
+        en: {
+          pageTitleTag: "Royalbar Personalization - Room {room}",
+          pageTitleMain: "Royal My Bar Personalization",
+          roomLabel: "Room {room}",
+          defaultInfo:
+            "Your Royal My Bar personalization request will be fulfilled as soon as possible.",
+          noteLabel: "Additional Note (Optional)",
+          notePlaceholder:
+            "If you have a special request, you can write it here (e.g. extra water, diet drinks, etc.)...",
+          characterWord: "characters",
+          submitBtnText: "Send Royal My Bar Personalization Request",
+          sending: "Sending...",
+          successTitle: "Your Request Has Been Sent Successfully!",
+          successDescription:
+            "Your minibar will be personalized as soon as possible. Thank you.",
+          genericError: "An error occurred. Please try again.",
+          tooManyRequests: "⚠️ Too many attempts. Please wait 1 minute.",
+          invalidQr: "❌ Invalid QR code. Please scan a new QR code.",
+          serverError: "⚠️ Server error. Please try again later.",
+        },
+        fr: {
+          pageTitleTag: "Personnalisation Royalbar - Chambre {room}",
+          pageTitleMain: "Personnalisation Royal My Bar",
+          roomLabel: "Chambre {room}",
+          defaultInfo:
+            "Votre demande de personnalisation Royal My Bar sera traitée dans les plus brefs délais.",
+          noteLabel: "Note supplémentaire (Optionnel)",
+          notePlaceholder:
+            "Si vous avez une demande spéciale, vous pouvez l'écrire ici (ex: eau supplémentaire, boissons diététiques, etc.)...",
+          characterWord: "caractères",
+          submitBtnText: "Envoyer la demande de personnalisation Royal My Bar",
+          sending: "Envoi en cours...",
+          successTitle: "Votre demande a été envoyée avec succès !",
+          successDescription:
+            "Votre minibar sera personnalisé dans les plus brefs délais. Merci.",
+          genericError: "Une erreur est survenue. Veuillez réessayer.",
+          tooManyRequests:
+            "⚠️ Trop de tentatives. Veuillez attendre 1 minute.",
+          invalidQr:
+            "❌ Code QR invalide. Veuillez scanner un nouveau code QR.",
+          serverError:
+            "⚠️ Erreur serveur. Veuillez réessayer plus tard.",
+        },
+        it: {
+          pageTitleTag: "Personalizzazione Royalbar - Camera {room}",
+          pageTitleMain: "Personalizzazione Royal My Bar",
+          roomLabel: "Camera {room}",
+          defaultInfo:
+            "La tua richiesta di personalizzazione Royal My Bar sarà soddisfatta al più presto.",
+          noteLabel: "Nota aggiuntiva (Opzionale)",
+          notePlaceholder:
+            "Se hai una richiesta speciale, puoi scriverla qui (es: acqua extra, bevande dietetiche, ecc.)...",
+          characterWord: "caratteri",
+          submitBtnText: "Invia richiesta di personalizzazione Royal My Bar",
+          sending: "Invio in corso...",
+          successTitle: "La tua richiesta è stata inviata con successo!",
+          successDescription:
+            "Il tuo minibar sarà personalizzato al più presto. Grazie.",
+          genericError: "Si è verificato un errore. Riprova.",
+          tooManyRequests:
+            "⚠️ Troppi tentativi. Attendi 1 minuto.",
+          invalidQr:
+            "❌ Codice QR non valido. Scansiona un nuovo codice QR.",
+          serverError:
+            "⚠️ Errore del server. Riprova più tardi.",
+        },
+        es: {
+          pageTitleTag: "Personalización Royalbar - Habitación {room}",
+          pageTitleMain: "Personalización Royal My Bar",
+          roomLabel: "Habitación {room}",
+          defaultInfo:
+            "Su solicitud de personalización de Royal My Bar se atenderá lo antes posible.",
+          noteLabel: "Nota adicional (Opcional)",
+          notePlaceholder:
+            "Si tiene una solicitud especial, puede escribirla aquí (p. ej., agua extra, bebidas dietéticas, etc.)...",
+          characterWord: "caracteres",
+          submitBtnText: "Enviar solicitud de personalización Royal My Bar",
+          sending: "Enviando...",
+          successTitle: "¡Su solicitud ha sido enviada con éxito!",
+          successDescription:
+            "Su minibar será personalizado lo antes posible. Gracias.",
+          genericError: "Ocurrió un error. Por favor, inténtelo de nuevo.",
+          tooManyRequests:
+            "⚠️ Demasiados intentos. Por favor, espere 1 minuto.",
+          invalidQr:
+            "❌ Código QR inválido. Por favor, escanee un nuevo código QR.",
+          serverError:
+            "⚠️ Error del servidor. Por favor, inténtelo más tarde.",
+        },
+        ru: {
+          pageTitleTag: "Персонализация Royalbar - Номер {room}",
+          pageTitleMain: "Персонализация Royal My Bar",
+          roomLabel: "Номер {room}",
+          defaultInfo:
+            "Ваш запрос на персонализацию Royal My Bar будет выполнен в ближайшее время.",
+          noteLabel: "Дополнительная заметка (Необязательно)",
+          notePlaceholder:
+            "Если у вас есть особый запрос, вы можете написать его здесь (например: дополнительная вода, диетические напитки и т. д.)...",
+          characterWord: "символов",
+          submitBtnText: "Отправить запрос на персонализацию Royal My Bar",
+          sending: "Отправка...",
+          successTitle: "Ваш запрос успешно отправлен!",
+          successDescription:
+            "Ваш мини-бар будет персонализирован в ближайшее время. Спасибо.",
+          genericError: "Произошла ошибка. Пожалуйста, попробуйте снова.",
+          tooManyRequests:
+            "⚠️ Слишком много попыток. Пожалуйста, подождите 1 минуту.",
+          invalidQr:
+            "❌ Неверный QR-код. Пожалуйста, отсканируйте новый QR-код.",
+          serverError:
+            "⚠️ Ошибка сервера. Пожалуйста, попробуйте позже.",
+        },
+        ar: {
+          pageTitleTag: "تخصيص رويال بار - الغرفة {room}",
+          pageTitleMain: "تخصيص Royal My Bar",
+          roomLabel: "الغرفة {room}",
+          defaultInfo:
+            "سيتم تنفيذ طلب تخصيص Royal My Bar الخاص بك في أقرب وقت ممكن.",
+          noteLabel: "ملاحظة إضافية (اختياري)",
+          notePlaceholder:
+            "إذا كان لديك طلب خاص، يمكنك كتابته هنا (مثل: مياه إضافية، مشروبات دايت، إلخ)...",
+          characterWord: "حرف",
+          submitBtnText: "إرسال طلب تخصيص Royal My Bar",
+          sending: "جارٍ الإرسال...",
+          successTitle: "تم إرسال طلبك بنجاح!",
+          successDescription:
+            "سيتم تخصيص الميني بار الخاص بك في أقرب وقت ممكن. شكرًا لك.",
+          genericError: "حدث خطأ. يرجى المحاولة مرة أخرى.",
+          tooManyRequests:
+            "⚠️ عدد المحاولات كبير جدًا. يرجى الانتظار دقيقة واحدة.",
+          invalidQr:
+            "❌ رمز QR غير صالح. يرجى مسح رمز QR جديد.",
+          serverError:
+            "⚠️ خطأ في الخادم. يرجى المحاولة مرة أخرى لاحقًا.",
+        },
+      };
+
+      function detectLanguage() {
+        const browserLang = (navigator.language || "en").toLowerCase();
+        const shortLang = browserLang.split("-")[0];
+        return I18N[shortLang] ? shortLang : "en";
+      }
+
+      function applyTranslations(lang) {
+        const t = I18N[lang] || I18N.en;
+        const roomNo = "{{ oda.oda_no }}";
+
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
+
+        document.getElementById("pageTitleTag").textContent = t.pageTitleTag.replace("{room}", roomNo);
+        document.getElementById("pageTitleMain").textContent = t.pageTitleMain;
+        document.getElementById("roomBadgeText").textContent = t.roomLabel.replace("{room}", roomNo);
+        document.getElementById("noteLabel").innerHTML = '<i class="fas fa-comment-dots"></i> ' + t.noteLabel;
+        document.getElementById("notlar").setAttribute("placeholder", t.notePlaceholder);
+        document.getElementById("characterWord").textContent = t.characterWord;
+        document.getElementById("submitBtnText").textContent = t.submitBtnText;
+        document.getElementById("successTitle").textContent = t.successTitle;
+        document.getElementById("successDescription").textContent = t.successDescription;
+
+        const infoEl = document.getElementById("infoMessage");
+        const hasCustomMessage = infoEl.getAttribute("data-has-custom-message") === "1";
+        if (!hasCustomMessage) {
+          infoEl.textContent = t.defaultInfo;
+        }
+      }
+
+      const selectedLang = detectLanguage();
+      applyTranslations(selectedLang);
+
       // Karakter sayacı - daha smooth animasyon
       $("#notlar").on("input", function () {
         const len = $(this).val().length;
@@ -396,9 +591,11 @@
         console.log("📝 Form gönderiliyor...", { notlar: notlar });
 
         // Button disable ve loading
+        const currentLang = document.documentElement.lang || "tr";
+        const i18n = I18N[currentLang] || I18N.en;
         submitBtn
           .prop("disabled", true)
-          .html('<i class="fas fa-spinner fa-spin"></i> Gönderiliyor...');
+          .html('<i class="fas fa-spinner fa-spin"></i> ' + i18n.sending);
 
         $.ajax({
           url: "/misafir/dolum-talebi/{{ token }}",
@@ -418,22 +615,21 @@
             } else {
               console.error("❌ Başarısız:", response.message);
               alert(
-                response.message || "Bir hata oluştu. Lütfen tekrar deneyin.",
+                response.message || i18n.genericError,
               );
               submitBtn.prop("disabled", false).html(originalText);
             }
           },
           error: function (xhr) {
             console.error("❌ AJAX hatası:", xhr);
-            let errorMsg = "Bir hata oluştu. Lütfen tekrar deneyin.";
+            let errorMsg = i18n.genericError;
 
             if (xhr.status === 429) {
-              errorMsg =
-                "⚠️ Çok fazla deneme yaptınız. Lütfen 1 dakika bekleyin.";
+              errorMsg = i18n.tooManyRequests;
             } else if (xhr.status === 404) {
-              errorMsg = "❌ Geçersiz QR kod. Lütfen yeni bir QR kod okutun.";
+              errorMsg = i18n.invalidQr;
             } else if (xhr.status === 500) {
-              errorMsg = "⚠️ Sunucu hatası. Lütfen daha sonra tekrar deneyin.";
+              errorMsg = i18n.serverError;
             }
 
             alert(errorMsg);

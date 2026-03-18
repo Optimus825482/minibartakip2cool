@@ -1,23 +1,24 @@
 """
-Admin Zimmet Route'ları
+Zimmet Route'ları
 
-Bu modül admin zimmet yönetimi ile ilgili endpoint'leri içerir.
+Bu modül admin ve depo sorumlusu zimmet yönetimi ile ilgili endpoint'leri içerir.
 
-Endpoint'ler:
+Admin Endpoint'ler (sistem_yoneticisi, admin):
 - /admin/personel-zimmetleri - Otel bazlı personel zimmet raporu
 - /admin/zimmet-detay/<int:zimmet_id> - Zimmet detaylarını görüntüleme
 - /admin/zimmet-iade/<int:zimmet_id> - Zimmet iade işlemi
 - /admin/zimmet-iptal/<int:zimmet_id> - Zimmet iptal işlemi
 
-Roller:
-- sistem_yoneticisi
-- admin
+Depo Sorumlusu Endpoint'ler (depo_sorumlusu):
+- /zimmet-detay/<int:zimmet_id> - Zimmet detaylarını görüntüleme
+- /zimmet-iptal/<int:zimmet_id> - Zimmet iptal işlemi
+- /zimmet-iade/<int:detay_id> - Ürün iade işlemi
 """
 
 from flask import render_template, request, redirect, url_for, flash, session, jsonify, send_file
 from models import db, PersonelZimmet, PersonelZimmetDetay, Kullanici, StokHareket, Otel, OtelZimmetStok, PersonelZimmetKullanim, Urun
 from utils.decorators import login_required, role_required
-from utils.helpers import log_islem, log_hata, get_kktc_now
+from utils.helpers import log_islem, log_hata, get_kktc_now, get_current_user
 from utils.audit import serialize_model, audit_update
 from sqlalchemy import func
 import io
@@ -395,3 +396,109 @@ def register_admin_zimmet_routes(app):
             db.session.rollback()
             log_hata(e, modul='admin_zimmet_iptal')
             return jsonify({'success': False, 'message': 'İptal işlemi başarısız'}), 500
+
+    # ============================================
+    # ZİMMET ENDPOINT'LERİ (Depo Sorumlusu)
+    # ============================================
+
+    @app.route('/zimmet-detay/<int:zimmet_id>')
+    @login_required
+    @role_required('depo_sorumlusu')
+    def zimmet_detay(zimmet_id):
+        zimmet = PersonelZimmet.query.get_or_404(zimmet_id)
+        return render_template('depo_sorumlusu/zimmet_detay.html', zimmet=zimmet)
+
+    @app.route('/zimmet-iptal/<int:zimmet_id>', methods=['POST'])
+    @login_required
+    @role_required('depo_sorumlusu')
+    def zimmet_iptal(zimmet_id):
+        """Zimmeti tamamen iptal et ve kullanılmayan ürünleri depoya iade et"""
+        try:
+            zimmet = PersonelZimmet.query.get_or_404(zimmet_id)
+            islem_yapan = get_current_user()
+            if not islem_yapan:
+                flash('Kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.', 'danger')
+                return redirect(url_for('logout'))
+            
+            if zimmet.durum != 'aktif':
+                flash('Sadece aktif zimmetler iptal edilebilir.', 'warning')
+                return redirect(url_for('personel_zimmet'))
+            
+            for detay in zimmet.detaylar:
+                kalan = detay.kalan_miktar or (detay.miktar - detay.kullanilan_miktar)
+                
+                if kalan > 0:
+                    stok_hareket = StokHareket(
+                        urun_id=detay.urun_id,
+                        hareket_tipi='giris',
+                        miktar=kalan,
+                        aciklama=f'Zimmet iptali - {zimmet.personel.ad} {zimmet.personel.soyad} - Zimmet #{zimmet.id}',
+                        islem_yapan_id=islem_yapan.id
+                    )
+                    db.session.add(stok_hareket)
+                    
+                    detay.iade_edilen_miktar = (detay.iade_edilen_miktar or 0) + kalan
+                    detay.kalan_miktar = 0
+            
+            zimmet.durum = 'iptal'
+            zimmet.iade_tarihi = get_kktc_now()
+            
+            db.session.commit()
+            flash(f'{zimmet.personel.ad} {zimmet.personel.soyad} adlı personelin zimmeti iptal edildi ve kullanılmayan ürünler depoya iade edildi.', 'success')
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Zimmet iptal edilirken hata oluştu: {str(e)}', 'danger')
+        
+        return redirect(url_for('personel_zimmet'))
+
+    @app.route('/zimmet-iade/<int:detay_id>', methods=['POST'])
+    @login_required
+    @role_required('depo_sorumlusu')
+    def zimmet_iade(detay_id):
+        """Belirli bir ürünü kısmen veya tamamen iade al"""
+        try:
+            detay = PersonelZimmetDetay.query.get_or_404(detay_id)
+            zimmet = detay.zimmet
+            islem_yapan = get_current_user()
+            if not islem_yapan:
+                flash('Kullanıcı oturumu bulunamadı. Lütfen tekrar giriş yapın.', 'danger')
+                return redirect(url_for('logout'))
+            
+            if zimmet.durum != 'aktif':
+                flash('Sadece aktif zimmetlerden ürün iadesi alınabilir.', 'warning')
+                return redirect(url_for('zimmet_detay', zimmet_id=zimmet.id))
+            
+            iade_miktar = int(request.form.get('iade_miktar', 0))
+            aciklama = request.form.get('aciklama', '')
+            
+            if iade_miktar <= 0:
+                flash('İade miktarı 0\'dan büyük olmalıdır.', 'warning')
+                return redirect(url_for('zimmet_detay', zimmet_id=zimmet.id))
+            
+            kalan = detay.kalan_miktar or (detay.miktar - detay.kullanilan_miktar)
+            
+            if iade_miktar > kalan:
+                flash(f'İade miktarı kalan miktardan fazla olamaz. Kalan: {kalan}', 'danger')
+                return redirect(url_for('zimmet_detay', zimmet_id=zimmet.id))
+            
+            stok_hareket = StokHareket(
+                urun_id=detay.urun_id,
+                hareket_tipi='giris',
+                miktar=iade_miktar,
+                aciklama=f'Zimmet iadesi - {zimmet.personel.ad} {zimmet.personel.soyad} - {aciklama}',
+                islem_yapan_id=islem_yapan.id
+            )
+            db.session.add(stok_hareket)
+            
+            detay.iade_edilen_miktar = (detay.iade_edilen_miktar or 0) + iade_miktar
+            detay.kalan_miktar = kalan - iade_miktar
+            
+            db.session.commit()
+            flash(f'{detay.urun.urun_adi} ürününden {iade_miktar} adet iade alındı.', 'success')
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'İade işlemi sırasında hata oluştu: {str(e)}', 'danger')
+        
+        return redirect(url_for('zimmet_detay', zimmet_id=zimmet.id))

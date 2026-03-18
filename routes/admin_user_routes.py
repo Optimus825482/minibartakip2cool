@@ -28,7 +28,7 @@ def role_required(*roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             from flask import session
-            if 'kullanici_rol' not in session or session['kullanici_rol'] not in roles:
+            if 'rol' not in session or session['rol'] not in roles:
                 flash('Bu sayfaya erişim yetkiniz yok!', 'error')
                 return redirect(url_for('dashboard'))
             return f(*args, **kwargs)
@@ -87,7 +87,7 @@ def register_admin_user_routes(app):
                 audit = AuditLog(
                     kullanici_id=session.get('kullanici_id'),
                     kullanici_adi=session.get('kullanici_adi'),
-                    kullanici_rol=session.get('kullanici_rol'),
+                    kullanici_rol=session.get('rol'),
                     islem_tipi='create',
                     tablo_adi='kullanicilar',
                     kayit_id=yeni_admin.id,
@@ -186,7 +186,7 @@ def register_admin_user_routes(app):
                     audit = AuditLog(
                         kullanici_id=session.get('kullanici_id'),
                         kullanici_adi=session.get('kullanici_adi'),
-                        kullanici_rol=session.get('kullanici_rol'),
+                        kullanici_rol=session.get('rol'),
                         islem_tipi='update',
                         tablo_adi='kullanicilar',
                         kayit_id=admin.id,
@@ -238,7 +238,7 @@ def register_admin_user_routes(app):
             audit = AuditLog(
                 kullanici_id=session.get('kullanici_id'),
                 kullanici_adi=session.get('kullanici_adi'),
-                kullanici_rol=session.get('kullanici_rol'),
+                kullanici_rol=session.get('rol'),
                 islem_tipi='delete',
                 tablo_adi='kullanicilar',
                 kayit_id=admin.id,
@@ -339,7 +339,7 @@ def register_admin_user_routes(app):
                     audit = AuditLog(
                         kullanici_id=session.get('kullanici_id'),
                         kullanici_adi=session.get('kullanici_adi'),
-                        kullanici_rol=session.get('kullanici_rol'),
+                        kullanici_rol=session.get('rol'),
                         islem_tipi='update',
                         tablo_adi='kullanicilar',
                         kayit_id=kullanici.id,

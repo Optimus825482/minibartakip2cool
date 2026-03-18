@@ -8,7 +8,7 @@ Erkan için - Database Performance Management
 from flask import Blueprint, jsonify, render_template, request
 from utils.decorators import login_required, role_required
 from utils.db_optimization import DatabaseOptimizer
-from utils.audit_logger import AuditLogger
+from utils.audit import log_audit
 import logging
 
 logger = logging.getLogger(__name__)
@@ -29,10 +29,10 @@ def check_health():
     try:
         result = DatabaseOptimizer.check_database_health()
         
-        AuditLogger.log_event(
-            event_type='QUERY_EXECUTE',
-            description='Database health check yapıldı',
-            severity='INFO'
+        log_audit(
+            islem_tipi='execute',
+            tablo_adi='db_health',
+            aciklama='Database health check yapıldı'
         )
         
         return jsonify(result), 200
@@ -58,10 +58,10 @@ def check_indexes():
     try:
         result = DatabaseOptimizer.check_missing_indexes()
         
-        AuditLogger.log_event(
-            event_type='QUERY_EXECUTE',
-            description=f'{result.get("missing_count", 0)} eksik index tespit edildi',
-            severity='INFO'
+        log_audit(
+            islem_tipi='execute',
+            tablo_adi='db_index',
+            aciklama=f'{result.get("missing_count", 0)} eksik index tespit edildi'
         )
         
         return jsonify(result), 200
@@ -87,10 +87,10 @@ def create_indexes():
     try:
         result = DatabaseOptimizer.create_missing_indexes()
         
-        AuditLogger.log_event(
-            event_type='CONFIG_CHANGE',
-            description=f'{result.get("created_count", 0)} index oluşturuldu',
-            severity='INFO'
+        log_audit(
+            islem_tipi='update',
+            tablo_adi='db_index',
+            aciklama=f'{result.get("created_count", 0)} index oluşturuldu'
         )
         
         return jsonify(result), 200
@@ -116,10 +116,10 @@ def analyze_performance():
     try:
         result = DatabaseOptimizer.analyze_query_performance()
         
-        AuditLogger.log_event(
-            event_type='QUERY_EXECUTE',
-            description='Query performans analizi yapıldı',
-            severity='INFO'
+        log_audit(
+            islem_tipi='execute',
+            tablo_adi='db_performance',
+            aciklama='Query performans analizi yapıldı'
         )
         
         return jsonify(result), 200
@@ -145,10 +145,10 @@ def optimize_tables():
     try:
         result = DatabaseOptimizer.optimize_tables()
         
-        AuditLogger.log_event(
-            event_type='CONFIG_CHANGE',
-            description=f'{result.get("optimized_count", 0)} tablo optimize edildi',
-            severity='INFO'
+        log_audit(
+            islem_tipi='update',
+            tablo_adi='db_tables',
+            aciklama=f'{result.get("optimized_count", 0)} tablo optimize edildi'
         )
         
         return jsonify(result), 200
@@ -197,10 +197,10 @@ def full_optimization():
     try:
         result = DatabaseOptimizer.run_full_optimization()
         
-        AuditLogger.log_event(
-            event_type='CONFIG_CHANGE',
-            description='Full database optimization yapıldı',
-            severity='INFO'
+        log_audit(
+            islem_tipi='update',
+            tablo_adi='database',
+            aciklama='Full database optimization yapıldı'
         )
         
         return jsonify(result), 200

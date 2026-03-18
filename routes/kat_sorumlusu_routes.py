@@ -24,7 +24,7 @@ Roller:
 - kat_sorumlusu
 """
 
-from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response
+from flask import render_template, request, redirect, url_for, flash, session, jsonify, make_response, send_file
 from flask_wtf.csrf import CSRFProtect
 from datetime import datetime, timedelta, timezone
 import io
@@ -38,7 +38,7 @@ from models import (
 )
 from sqlalchemy.orm import joinedload, selectinload
 from utils.decorators import login_required, role_required
-from utils.helpers import log_islem, log_hata
+from utils.helpers import log_islem, log_hata, get_current_user
 from utils.audit import audit_create
 from utils.query_helpers_optimized import get_minibar_islemler_optimized
 
@@ -54,6 +54,38 @@ def register_kat_sorumlusu_routes(app):
     
     # CSRF protection instance'ını al
     csrf = app.extensions.get('csrf')
+
+    def _validate_room_access(oda_id, kullanici_id):
+        """Kat sorumlusunun oda erişim yetkisini doğrula."""
+        from utils.authorization import get_kat_sorumlusu_otel
+
+        kullanici_oteli = get_kat_sorumlusu_otel(kullanici_id)
+        if not kullanici_oteli:
+            return None, None, jsonify({
+                'success': False,
+                'error': 'Otel atamanız bulunamadı'
+            }), 400
+
+        oda = Oda.query.get(oda_id)
+        if not oda:
+            return None, None, jsonify({
+                'success': False,
+                'error': 'Oda bulunamadı'
+            }), 404
+
+        if not oda.kat:
+            return None, None, jsonify({
+                'success': False,
+                'error': 'Oda kat bilgisi bulunamadı'
+            }), 404
+
+        if oda.kat.otel_id != kullanici_oteli.id:
+            return None, None, jsonify({
+                'success': False,
+                'error': 'Bu odaya erişim yetkiniz yok'
+            }), 403
+
+        return oda, kullanici_oteli, None, None
     
     @app.route('/kat-sorumlusu/minibar-islemlerim')
     @login_required
@@ -587,28 +619,29 @@ def register_kat_sorumlusu_routes(app):
             )
             from models import OtelZimmetStok, GorevDetay, GunlukGorev
             from datetime import date
+
+            kullanici_id = session.get('kullanici_id')
+            oda, kullanici_oteli, hata_response, hata_status = _validate_room_access(oda_id, kullanici_id)
+            if hata_response:
+                return hata_response, hata_status
             
             # Oda setup durumunu getir
             sonuc = oda_setup_durumu_getir(oda_id)
             
             # Kat sorumlusunun OTEL BAZLI zimmet stoklarını getir
-            kullanici_id = session.get('kullanici_id')
-            kullanici = Kullanici.query.get(kullanici_id)
-            
             zimmet_stoklar = {}
             
-            if kullanici and kullanici.otel_id:
-                # Otel bazlı ortak zimmet deposundan stokları çek
-                otel_stoklar = OtelZimmetStok.query.filter_by(
-                    otel_id=kullanici.otel_id
-                ).filter(OtelZimmetStok.kalan_miktar > 0).all()
-                
-                for stok in otel_stoklar:
-                    urun_key = str(stok.urun_id)
-                    zimmet_stoklar[urun_key] = {
-                        'miktar': stok.kalan_miktar,
-                        'otel_zimmet_stok_id': stok.id
-                    }
+            # Otel bazlı ortak zimmet deposundan stokları çek
+            otel_stoklar = OtelZimmetStok.query.filter_by(
+                otel_id=kullanici_oteli.id
+            ).filter(OtelZimmetStok.kalan_miktar > 0).all()
+            
+            for stok in otel_stoklar:
+                urun_key = str(stok.urun_id)
+                zimmet_stoklar[urun_key] = {
+                    'miktar': stok.kalan_miktar,
+                    'otel_zimmet_stok_id': stok.id
+                }
             
             sonuc['kat_sorumlusu_stok'] = zimmet_stoklar
             
@@ -646,21 +679,20 @@ def register_kat_sorumlusu_routes(app):
             
             # Görev durumunu getir (OTEL BAZLI)
             gorev_durumu = None
-            if kullanici and kullanici.otel_id:
-                gorev_detay = GorevDetay.query.join(GunlukGorev).filter(
-                    GunlukGorev.otel_id == kullanici.otel_id,
-                    GunlukGorev.gorev_tarihi == bugun,
-                    GorevDetay.oda_id == oda_id
-                ).first()
-                
-                if gorev_detay:
-                    gorev_durumu = {
-                        'detay_id': gorev_detay.id,
-                        'durum': gorev_detay.durum,
-                        'gorev_tipi': gorev_detay.gorev.gorev_tipi if gorev_detay.gorev else None,
-                        'dnd_sayisi': gorev_detay.dnd_sayisi,
-                        'kontrol_zamani': gorev_detay.kontrol_zamani.strftime('%H:%M') if gorev_detay.kontrol_zamani else None
-                    }
+            gorev_detay = GorevDetay.query.join(GunlukGorev).filter(
+                GunlukGorev.otel_id == kullanici_oteli.id,
+                GunlukGorev.gorev_tarihi == bugun,
+                GorevDetay.oda_id == oda_id
+            ).first()
+            
+            if gorev_detay:
+                gorev_durumu = {
+                    'detay_id': gorev_detay.id,
+                    'durum': gorev_detay.durum,
+                    'gorev_tipi': gorev_detay.gorev.gorev_tipi if gorev_detay.gorev else None,
+                    'dnd_sayisi': gorev_detay.dnd_sayisi,
+                    'kontrol_zamani': gorev_detay.kontrol_zamani.strftime('%H:%M') if gorev_detay.kontrol_zamani else None
+                }
             
             sonuc['gorev_durumu'] = gorev_durumu
             
@@ -822,6 +854,9 @@ def register_kat_sorumlusu_routes(app):
                 }), 400
             
             kullanici_id = session.get('kullanici_id')
+            oda, _, hata_response, hata_status = _validate_room_access(oda_id, kullanici_id)
+            if hata_response:
+                return hata_response, hata_status
             
             # Transaction başlat
             try:
@@ -867,7 +902,6 @@ def register_kat_sorumlusu_routes(app):
                 )
                 
                 # Oda ve ürün bilgilerini getir
-                oda = Oda.query.get(oda_id)
                 urun = Urun.query.get(urun_id)
                 
                 # Görev tamamlama durumunu al
@@ -976,6 +1010,9 @@ def register_kat_sorumlusu_routes(app):
                 }), 400
             
             kullanici_id = session.get('kullanici_id')
+            oda, _, hata_response, hata_status = _validate_room_access(oda_id, kullanici_id)
+            if hata_response:
+                return hata_response, hata_status
             
             # Transaction başlat
             try:
@@ -1010,7 +1047,6 @@ def register_kat_sorumlusu_routes(app):
                 )
                 
                 # Oda ve ürün bilgilerini getir
-                oda = Oda.query.get(oda_id)
                 urun = Urun.query.get(urun_id)
                 
                 # Audit log
@@ -1105,6 +1141,9 @@ def register_kat_sorumlusu_routes(app):
                 }), 400
             
             kullanici_id = session.get('kullanici_id')
+            oda, _, hata_response, hata_status = _validate_room_access(oda_id, kullanici_id)
+            if hata_response:
+                return hata_response, hata_status
             
             # Transaction başlat
             try:
@@ -1138,7 +1177,6 @@ def register_kat_sorumlusu_routes(app):
                 )
                 
                 # Oda ve ürün bilgilerini getir
-                oda = Oda.query.get(oda_id)
                 urun = Urun.query.get(urun_id)
                 
                 # Audit log
@@ -1818,13 +1856,10 @@ def register_kat_sorumlusu_routes(app):
             
             kullanici_id = session.get('kullanici_id')
             
-            # Oda bilgilerini al
-            oda = Oda.query.get(oda_id)
-            if not oda:
-                return jsonify({
-                    'success': False,
-                    'error': 'Oda bulunamadı'
-                }), 404
+            # Oda erişim yetkisini doğrula
+            oda, kullanici_oteli, hata_response, hata_status = _validate_room_access(oda_id, kullanici_id)
+            if hata_response:
+                return hata_response, hata_status
             
             # Minibar kontrol kaydı oluştur (sarfiyat yok)
             islem = MinibarIslem(
@@ -1843,7 +1878,16 @@ def register_kat_sorumlusu_routes(app):
                 try:
                     from models import GorevDetay, GorevDurumLog, GunlukGorev
                     
-                    detay = GorevDetay.query.get(gorev_detay_id)
+                    detay = GorevDetay.query.join(GunlukGorev).filter(
+                        GorevDetay.id == gorev_detay_id,
+                        GorevDetay.oda_id == oda_id,
+                        GunlukGorev.otel_id == kullanici_oteli.id
+                    ).first()
+                    if not detay:
+                        return jsonify({
+                            'success': False,
+                            'error': 'Geçersiz görev detayı veya bu odaya ait değil'
+                        }), 403
                     if detay and detay.durum != 'completed':
                         onceki_durum = detay.durum
                         detay.durum = 'completed'
@@ -1877,58 +1921,52 @@ def register_kat_sorumlusu_routes(app):
                 # Görev detay ID verilmemişse, bugünkü OTEL BAZLI görevi bul ve tamamla
                 try:
                     from models import GorevDetay, GorevDurumLog, GunlukGorev
-                    from utils.authorization import get_kat_sorumlusu_otel
                     
                     bugun = date.today()
+                    # Debug log
+                    print(f"🔍 Sarfiyat Yok - Görev Arama: Otel={kullanici_oteli.id}, Tarih={bugun}, Oda={oda_id}")
                     
-                    # Kullanıcının otelini al (OTEL BAZLI görevler için)
-                    kullanici_oteli = get_kat_sorumlusu_otel(kullanici_id)
+                    # OTEL BAZLI görevlerde personel_id NULL olabilir, otel_id ile sorgula
+                    detay = GorevDetay.query.join(GunlukGorev).filter(
+                        GunlukGorev.otel_id == kullanici_oteli.id,
+                        GunlukGorev.gorev_tarihi == bugun,
+                        GorevDetay.oda_id == oda_id,
+                        GorevDetay.durum.in_(['pending', 'in_progress', 'dnd_pending'])
+                    ).first()
                     
-                    if kullanici_oteli:
-                        # Debug log
-                        print(f"🔍 Sarfiyat Yok - Görev Arama: Otel={kullanici_oteli.id}, Tarih={bugun}, Oda={oda_id}")
+                    if detay:
+                        print(f"✅ Görev detay bulundu: ID={detay.id}, Durum={detay.durum}")
+                        onceki_durum = detay.durum
+                        detay.durum = 'completed'
+                        detay.kontrol_zamani = get_kktc_now()
+                        detay.notlar = 'Sarfiyat yok - Oda kontrol ile tamamlandı'
                         
-                        # OTEL BAZLI görevlerde personel_id NULL olabilir, otel_id ile sorgula
-                        detay = GorevDetay.query.join(GunlukGorev).filter(
+                        log = GorevDurumLog(
+                            gorev_detay_id=detay.id,
+                            onceki_durum=onceki_durum,
+                            yeni_durum='completed',
+                            degistiren_id=kullanici_id,
+                            aciklama='Sarfiyat yok - Oda kontrol ile tamamlandı'
+                        )
+                        db.session.add(log)
+                        
+                        gorev = detay.gorev
+                        if gorev:
+                            tamamlanan = sum(1 for d in gorev.detaylar if d.durum == 'completed')
+                            if tamamlanan == len(gorev.detaylar):
+                                gorev.durum = 'completed'
+                                gorev.tamamlanma_tarihi = get_kktc_now()
+                            elif tamamlanan > 0:
+                                gorev.durum = 'in_progress'
+                        
+                        gorev_tamamlandi = True
+                    else:
+                        # Görev var mı kontrol et
+                        gorev_sayisi = GunlukGorev.query.filter(
                             GunlukGorev.otel_id == kullanici_oteli.id,
-                            GunlukGorev.gorev_tarihi == bugun,
-                            GorevDetay.oda_id == oda_id,
-                            GorevDetay.durum.in_(['pending', 'in_progress', 'dnd_pending'])
-                        ).first()
-                        
-                        if detay:
-                            print(f"✅ Görev detay bulundu: ID={detay.id}, Durum={detay.durum}")
-                            onceki_durum = detay.durum
-                            detay.durum = 'completed'
-                            detay.kontrol_zamani = get_kktc_now()
-                            detay.notlar = 'Sarfiyat yok - Oda kontrol ile tamamlandı'
-                            
-                            log = GorevDurumLog(
-                                gorev_detay_id=detay.id,
-                                onceki_durum=onceki_durum,
-                                yeni_durum='completed',
-                                degistiren_id=kullanici_id,
-                                aciklama='Sarfiyat yok - Oda kontrol ile tamamlandı'
-                            )
-                            db.session.add(log)
-                            
-                            gorev = detay.gorev
-                            if gorev:
-                                tamamlanan = sum(1 for d in gorev.detaylar if d.durum == 'completed')
-                                if tamamlanan == len(gorev.detaylar):
-                                    gorev.durum = 'completed'
-                                    gorev.tamamlanma_tarihi = get_kktc_now()
-                                elif tamamlanan > 0:
-                                    gorev.durum = 'in_progress'
-                            
-                            gorev_tamamlandi = True
-                        else:
-                            # Görev var mı kontrol et
-                            gorev_sayisi = GunlukGorev.query.filter(
-                                GunlukGorev.otel_id == kullanici_oteli.id,
-                                GunlukGorev.gorev_tarihi == bugun
-                            ).count()
-                            print(f"⚠️ Görev detay bulunamadı! Otel {kullanici_oteli.id} için bugün {gorev_sayisi} görev var.")
+                            GunlukGorev.gorev_tarihi == bugun
+                        ).count()
+                        print(f"⚠️ Görev detay bulunamadı! Otel {kullanici_oteli.id} için bugün {gorev_sayisi} görev var.")
                 except Exception as e:
                     print(f"Otomatik görev tamamlama hatası: {str(e)}")
             
@@ -2003,6 +2041,9 @@ def register_kat_sorumlusu_routes(app):
                 return jsonify({'success': False, 'error': 'Oda ID gerekli'}), 400
             
             kullanici_id = session.get('kullanici_id')
+            _, _, hata_response, hata_status = _validate_room_access(oda_id, kullanici_id)
+            if hata_response:
+                return hata_response, hata_status
             bugun = date.today()
             simdi = get_kktc_now()
             
@@ -2060,6 +2101,9 @@ def register_kat_sorumlusu_routes(app):
                 return jsonify({'success': False, 'error': 'Oda ID gerekli'}), 400
             
             kullanici_id = session.get('kullanici_id')
+            _, _, hata_response, hata_status = _validate_room_access(oda_id, kullanici_id)
+            if hata_response:
+                return hata_response, hata_status
             bugun = date.today()
             simdi = get_kktc_now()
             
@@ -2152,7 +2196,6 @@ def register_kat_sorumlusu_routes(app):
         """
         try:
             from utils.dnd_service import DNDService, OdaNotFoundError, DNDServiceError
-            from utils.authorization import get_kat_sorumlusu_otel
             from models import GorevDetay, GunlukGorev
             from datetime import date
             
@@ -2170,10 +2213,10 @@ def register_kat_sorumlusu_routes(app):
             kullanici_id = session.get('kullanici_id')
             bugun = date.today()
             
-            # Kullanıcının otelini al (OTEL BAZLI görevler için)
-            kullanici_oteli = get_kat_sorumlusu_otel(kullanici_id)
-            if not kullanici_oteli:
-                return jsonify({'success': False, 'error': 'Otel atamanız bulunamadı'}), 400
+            # Oda erişim yetkisini doğrula
+            _, kullanici_oteli, hata_response, hata_status = _validate_room_access(oda_id, kullanici_id)
+            if hata_response:
+                return hata_response, hata_status
             
             # Görev detay ID verilmediyse, bugünkü OTEL BAZLI görevi bulmaya çalış
             if not gorev_detay_id:
@@ -2197,6 +2240,18 @@ def register_kat_sorumlusu_routes(app):
                         GunlukGorev.gorev_tarihi == bugun
                     ).count()
                     print(f"⚠️ Görev detay bulunamadı! Otel {kullanici_oteli.id} için bugün {gorev_sayisi} görev var.")
+            else:
+                # Görev detayı gönderildiyse oda + otel eşleşmesini doğrula
+                detay = GorevDetay.query.join(GunlukGorev).filter(
+                    GorevDetay.id == gorev_detay_id,
+                    GorevDetay.oda_id == oda_id,
+                    GunlukGorev.otel_id == kullanici_oteli.id
+                ).first()
+                if not detay:
+                    return jsonify({
+                        'success': False,
+                        'error': 'Geçersiz görev detayı veya bu odaya ait değil'
+                    }), 403
             
             # Bağımsız DND servisini kullan
             result = DNDService.kaydet(
@@ -2687,3 +2742,480 @@ def register_kat_sorumlusu_routes(app):
         except Exception as e:
             log_hata(e, modul='api_setup_disi_urun_ekle')
             return jsonify({'success': False, 'error': 'Setup dışı ürün eklenirken hata oluştu'}), 500
+    
+    # ============================================
+    # KAT SORUMLUSU STOK YÖNETİMİ ROTALARI
+    # ============================================
+    
+    @app.route('/kat-sorumlusu/zimmet-stoklarim')
+    @login_required
+    @role_required('kat_sorumlusu')
+    def kat_sorumlusu_zimmet_stoklarim():
+        """Zimmet stok listesi sayfası"""
+        from utils.helpers import get_kat_sorumlusu_zimmet_stoklari
+        
+        try:
+            kullanici_id = session['kullanici_id']
+            
+            zimmet_stoklari = get_kat_sorumlusu_zimmet_stoklari(kullanici_id)
+            
+            log_islem('goruntuleme', 'zimmet_stoklari', {
+                'kullanici_id': kullanici_id,
+                'zimmet_sayisi': len(zimmet_stoklari)
+            })
+            
+            return render_template('kat_sorumlusu/zimmet_stoklarim.html',
+                                 zimmet_stoklari=zimmet_stoklari)
+            
+        except Exception as e:
+            log_hata(e, modul='kat_sorumlusu_stok')
+            flash('Zimmet stokları yüklenirken hata oluştu.', 'danger')
+            return redirect(url_for('kat_sorumlusu_dashboard'))
+    
+    @app.route('/kat-sorumlusu/kritik-stoklar')
+    @login_required
+    @role_required('kat_sorumlusu')
+    def kat_sorumlusu_kritik_stoklar():
+        """Kritik stoklar sayfası"""
+        from utils.helpers import get_kat_sorumlusu_kritik_stoklar
+        
+        try:
+            kullanici_id = session['kullanici_id']
+            
+            kritik_stoklar = get_kat_sorumlusu_kritik_stoklar(kullanici_id)
+            
+            log_islem('goruntuleme', 'kritik_stoklar', {
+                'kullanici_id': kullanici_id,
+                'stokout_sayisi': kritik_stoklar['istatistik']['stokout_sayisi'],
+                'kritik_sayisi': kritik_stoklar['istatistik']['kritik_sayisi']
+            })
+            
+            return render_template('kat_sorumlusu/kritik_stoklar.html',
+                                 kritik_stoklar=kritik_stoklar)
+            
+        except Exception as e:
+            log_hata(e, modul='kat_sorumlusu_stok')
+            flash('Kritik stoklar yüklenirken hata oluştu.', 'danger')
+            return redirect(url_for('kat_sorumlusu_dashboard'))
+    
+    @app.route('/kat-sorumlusu/siparis-hazirla', methods=['GET', 'POST'])
+    @login_required
+    @role_required('kat_sorumlusu')
+    def kat_sorumlusu_siparis_hazirla():
+        """Sipariş hazırlama sayfası"""
+        from utils.helpers import olustur_otomatik_siparis, kaydet_siparis_talebi
+        
+        try:
+            kullanici_id = session['kullanici_id']
+            
+            if request.method == 'POST':
+                siparis_data = request.get_json()
+                siparis_listesi = siparis_data.get('siparis_listesi', [])
+                aciklama = siparis_data.get('aciklama', '')
+                
+                sonuc = kaydet_siparis_talebi(kullanici_id, siparis_listesi, aciklama)
+                
+                return jsonify(sonuc)
+            
+            siparis_bilgileri = olustur_otomatik_siparis(kullanici_id)
+            
+            log_islem('goruntuleme', 'siparis_hazirla', {
+                'kullanici_id': kullanici_id,
+                'urun_sayisi': siparis_bilgileri['toplam_urun_sayisi']
+            })
+            
+            return render_template('kat_sorumlusu/siparis_hazirla.html',
+                                 siparis_bilgileri=siparis_bilgileri)
+            
+        except Exception as e:
+            log_hata(e, modul='kat_sorumlusu_stok')
+            if request.method == 'POST':
+                return jsonify({'success': False, 'message': 'Bir hata oluştu'}), 500
+            flash('Sipariş hazırlama sayfası yüklenirken hata oluştu.', 'danger')
+            return redirect(url_for('kat_sorumlusu_dashboard'))
+    
+    @app.route('/kat-sorumlusu/urun-gecmisi/<int:urun_id>')
+    @login_required
+    @role_required('kat_sorumlusu')
+    def kat_sorumlusu_urun_gecmisi(urun_id):
+        """Ürün kullanım geçmişi sayfası"""
+        from utils.helpers import get_zimmet_urun_gecmisi
+        
+        try:
+            kullanici_id = session['kullanici_id']
+            
+            gun_sayisi = request.args.get('gun_sayisi', 30, type=int)
+            
+            gecmis = get_zimmet_urun_gecmisi(kullanici_id, urun_id, gun_sayisi)
+            
+            if not gecmis:
+                flash('Ürün bulunamadı.', 'danger')
+                return redirect(url_for('kat_sorumlusu_zimmet_stoklarim'))
+            
+            log_islem('goruntuleme', 'urun_gecmisi', {
+                'kullanici_id': kullanici_id,
+                'urun_id': urun_id,
+                'gun_sayisi': gun_sayisi
+            })
+            
+            return render_template('kat_sorumlusu/urun_gecmisi.html',
+                                 gecmis=gecmis,
+                                 gun_sayisi=gun_sayisi)
+            
+        except Exception as e:
+            log_hata(e, modul='kat_sorumlusu_stok', extra_info={'urun_id': urun_id})
+            flash('Ürün geçmişi yüklenirken hata oluştu.', 'danger')
+            return redirect(url_for('kat_sorumlusu_zimmet_stoklarim'))
+    
+    @app.route('/kat-sorumlusu/zimmet-export')
+    @login_required
+    @role_required('kat_sorumlusu')
+    def kat_sorumlusu_zimmet_export():
+        """Zimmet stoklarını Excel'e export et"""
+        from utils.helpers import export_zimmet_stok_excel
+        
+        try:
+            kullanici_id = session['kullanici_id']
+            
+            excel_buffer = export_zimmet_stok_excel(kullanici_id)
+            
+            if not excel_buffer:
+                flash('Excel dosyası oluşturulamadı.', 'danger')
+                return redirect(url_for('kat_sorumlusu_zimmet_stoklarim'))
+            
+            log_islem('export', 'zimmet_stoklari', {
+                'kullanici_id': kullanici_id,
+                'format': 'excel'
+            })
+            
+            filename = f'zimmet_stoklari_{get_kktc_now().strftime("%Y%m%d_%H%M%S")}.xlsx'
+            
+            return send_file(
+                excel_buffer,
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            )
+            
+        except Exception as e:
+            log_hata(e, modul='kat_sorumlusu_stok')
+            flash('Excel export işlemi başarısız oldu.', 'danger')
+            return redirect(url_for('kat_sorumlusu_zimmet_stoklarim'))
+    
+    @app.route('/api/kat-sorumlusu/kritik-seviye-guncelle', methods=['POST'])
+    @login_required
+    @role_required('kat_sorumlusu')
+    def api_kat_sorumlusu_kritik_seviye_guncelle():
+        """AJAX - Kritik seviye güncelleme"""
+        from utils.helpers import guncelle_kritik_seviye
+        
+        try:
+            data = request.get_json()
+            zimmet_detay_id = data.get('zimmet_detay_id')
+            kritik_seviye = data.get('kritik_seviye')
+            
+            if not zimmet_detay_id or not kritik_seviye:
+                return jsonify({
+                    'success': False,
+                    'message': 'Eksik parametreler'
+                }), 400
+            
+            sonuc = guncelle_kritik_seviye(zimmet_detay_id, int(kritik_seviye))
+            
+            if sonuc['success']:
+                return jsonify(sonuc)
+            else:
+                return jsonify(sonuc), 400
+            
+        except Exception as e:
+            log_hata(e, modul='kat_sorumlusu_stok')
+            return jsonify({
+                'success': False,
+                'message': 'Bir hata oluştu'
+            }), 500
+    
+    @app.route('/api/kat-sorumlusu/siparis-kaydet', methods=['POST'])
+    @login_required
+    @role_required('kat_sorumlusu')
+    def api_kat_sorumlusu_siparis_kaydet():
+        """AJAX - Sipariş talebini kaydet"""
+        from utils.helpers import kaydet_siparis_talebi
+        
+        try:
+            data = request.get_json()
+            siparis_listesi = data.get('siparis_listesi', [])
+            aciklama = data.get('aciklama', '')
+            
+            if not siparis_listesi or len(siparis_listesi) == 0:
+                return jsonify({
+                    'success': False,
+                    'message': 'Sipariş listesi boş olamaz'
+                }), 400
+            
+            personel_id = session.get('kullanici_id')
+            sonuc = kaydet_siparis_talebi(personel_id, siparis_listesi, aciklama)
+            
+            if sonuc['success']:
+                log_islem('ekleme', 'siparis_talebi', {
+                    'personel_id': personel_id,
+                    'urun_sayisi': len(siparis_listesi),
+                    'aciklama': aciklama
+                })
+                return jsonify(sonuc)
+            else:
+                return jsonify(sonuc), 400
+            
+        except Exception as e:
+            log_hata(e, modul='kat_sorumlusu_stok', extra_info={
+                'function': 'api_kat_sorumlusu_siparis_kaydet',
+                'personel_id': session.get('kullanici_id')
+            })
+            return jsonify({
+                'success': False,
+                'message': 'Sipariş kaydedilirken bir hata oluştu'
+            }), 500
+    
+    # ============================================
+    # ODA KONTROL VE YENİDEN DOLUM ROTALARI
+    # ============================================
+    
+    @app.route('/api/kat-sorumlusu/minibar-urunler', methods=['POST'])
+    @login_required
+    @role_required('kat_sorumlusu')
+    def api_minibar_urunler():
+        """Odanın minibar ürünlerini getir - son işlemdeki stok durumu"""
+        try:
+            data = request.get_json()
+            if not data:
+                return jsonify({'success': False, 'message': 'Geçersiz istek'}), 400
+            oda_id = data.get('oda_id')
+            
+            if not oda_id:
+                return jsonify({'success': False, 'message': 'Oda ID gerekli'}), 400
+            
+            kullanici_id = session.get('kullanici_id')
+            oda, _, hata_response, hata_status = _validate_room_access(oda_id, kullanici_id)
+            if hata_response:
+                # Bu endpoint "message" alanı ile yanıtlıyor
+                payload = hata_response.get_json(silent=True) or {'error': 'Erişim hatası'}
+                return jsonify({'success': False, 'message': payload.get('error', 'Erişim hatası')}), hata_status
+            
+            son_islem = MinibarIslem.query.filter_by(
+                oda_id=oda_id
+            ).order_by(MinibarIslem.islem_tarihi.desc()).first()
+            
+            urunler = []
+            
+            if son_islem:
+                detaylar = MinibarIslemDetay.query.filter_by(
+                    islem_id=son_islem.id
+                ).join(Urun).all()
+                
+                for detay in detaylar:
+                    urunler.append({
+                        'id': detay.id,
+                        'urun_id': detay.urun_id,
+                        'urun_adi': detay.urun.urun_adi,
+                        'mevcut_miktar': detay.bitis_stok,
+                        'birim': detay.urun.birim,
+                        'grup_adi': detay.urun.grup.grup_adi if detay.urun.grup else '-'
+                    })
+            
+            return jsonify({
+                'success': True,
+                'data': {
+                    'oda_no': oda.oda_no,
+                    'kat_adi': oda.kat.kat_adi,
+                    'urunler': urunler
+                }
+            })
+            
+        except Exception as e:
+            log_hata(e, modul='api_minibar_urunler')
+            return jsonify({'success': False, 'message': 'Ürünler yüklenirken hata oluştu'}), 500
+    
+    @app.route('/api/kat-sorumlusu/yeniden-dolum', methods=['POST'])
+    @login_required
+    @role_required('kat_sorumlusu')
+    def api_yeniden_dolum():
+        """Yeniden dolum işlemi"""
+        try:
+            data = request.get_json() or {}
+            oda_id = data.get('oda_id')
+            urun_id = data.get('urun_id')
+            eklenecek_miktar = data.get('eklenecek_miktar')
+            
+            if not all([oda_id, urun_id, eklenecek_miktar]):
+                return jsonify({
+                    'success': False,
+                    'message': 'Eksik parametre'
+                }), 400
+            
+            try:
+                eklenecek_miktar = float(eklenecek_miktar)
+                if eklenecek_miktar <= 0:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Lütfen geçerli bir miktar giriniz'
+                    }), 400
+            except (ValueError, TypeError):
+                return jsonify({
+                    'success': False,
+                    'message': 'Geçersiz miktar formatı'
+                }), 400
+            
+            oda = db.session.get(Oda, oda_id)
+            urun = db.session.get(Urun, urun_id)
+            
+            if not oda:
+                return jsonify({
+                    'success': False,
+                    'message': 'Oda bulunamadı'
+                }), 404
+            
+            kullanici = get_current_user()
+            if not kullanici or not kullanici.otel_id:
+                return jsonify({
+                    'success': False,
+                    'message': 'Henüz bir otele atanmadınız'
+                }), 403
+            
+            if not oda.kat:
+                return jsonify({
+                    'success': False,
+                    'message': 'Oda kat bilgisi bulunamadı'
+                }), 404
+
+            if oda.kat.otel_id != kullanici.otel_id:
+                return jsonify({
+                    'success': False,
+                    'message': 'Bu oda sizin atandığınız otele ait değil'
+                }), 403
+            
+            if not urun:
+                return jsonify({
+                    'success': False,
+                    'message': 'Ürün bulunamadı'
+                }), 404
+            
+            kullanici_id = session['kullanici_id']
+            
+            zimmet_detaylar = db.session.query(PersonelZimmetDetay).join(
+                PersonelZimmet, PersonelZimmetDetay.zimmet_id == PersonelZimmet.id
+            ).filter(
+                PersonelZimmet.personel_id == kullanici_id,
+                PersonelZimmet.durum == 'aktif',
+                PersonelZimmetDetay.urun_id == urun_id
+            ).all()
+            
+            if not zimmet_detaylar:
+                return jsonify({
+                    'success': False,
+                    'message': f'Stoğunuzda {urun.urun_adi} bulunmamaktadır'
+                }), 422
+            
+            toplam_kalan = sum(detay.kalan_miktar or 0 for detay in zimmet_detaylar)
+            
+            if toplam_kalan < eklenecek_miktar:
+                return jsonify({
+                    'success': False,
+                    'message': f'Stoğunuzda yeterli {urun.urun_adi} bulunmamaktadır. Mevcut: {toplam_kalan}, İstenen: {eklenecek_miktar}'
+                }), 422
+            
+            son_islem = MinibarIslem.query.filter_by(
+                oda_id=oda_id
+            ).order_by(MinibarIslem.id.desc()).first()
+            
+            mevcut_stok = 0
+            baslangic_stok_ilk_dolum = 0
+            if son_islem:
+                for detay in son_islem.detaylar:
+                    if detay.urun_id == urun_id:
+                        mevcut_stok = detay.bitis_stok if detay.bitis_stok is not None else 0
+                        if son_islem.islem_tipi == 'ilk_dolum':
+                            baslangic_stok_ilk_dolum = detay.bitis_stok
+                        break
+            
+            try:
+                kalan_miktar = eklenecek_miktar
+                for zimmet_detay in zimmet_detaylar:
+                    if kalan_miktar <= 0:
+                        break
+                    
+                    detay_kalan = zimmet_detay.kalan_miktar or 0
+                    if detay_kalan > 0:
+                        kullanilacak = min(detay_kalan, kalan_miktar)
+                        zimmet_detay.kullanilan_miktar = (zimmet_detay.kullanilan_miktar or 0) + kullanilacak
+                        zimmet_detay.kalan_miktar = (zimmet_detay.miktar or 0) - zimmet_detay.kullanilan_miktar
+                        kalan_miktar -= kullanilacak
+                
+                yeni_islem = MinibarIslem(
+                    oda_id=oda_id,
+                    personel_id=kullanici_id,
+                    islem_tipi='yeniden_dolum',
+                    aciklama=f'Yeniden dolum: {urun.urun_adi}'
+                )
+                db.session.add(yeni_islem)
+                db.session.flush()
+                
+                # Mevcut stok (DB'de kayıtlı) = 3 şişe
+                # Eklenecek miktar (kat sorumlusu giriyor) = 1 şişe
+                # Şu anki gerçek miktar = Mevcut - Eklenecek = 3 - 1 = 2 şişe (misafir 1 içmiş)
+                # Yeni stok = Mevcut (değişmez, tekrar başlangıca dönüyor) = 3 şişe
+                # Tüketim = Eklenecek miktar = 1 şişe
+                su_anki_gercek_miktar = mevcut_stok - eklenecek_miktar
+                yeni_stok = mevcut_stok
+                tuketim_miktari = eklenecek_miktar
+                
+                islem_detay = MinibarIslemDetay(
+                    islem_id=yeni_islem.id,
+                    urun_id=urun_id,
+                    baslangic_stok=su_anki_gercek_miktar,
+                    bitis_stok=yeni_stok,
+                    eklenen_miktar=eklenecek_miktar,
+                    tuketim=tuketim_miktari,
+                    zimmet_detay_id=zimmet_detaylar[0].id if zimmet_detaylar else None
+                )
+                db.session.add(islem_detay)
+                
+                db.session.commit()
+                
+                audit_create('minibar_islem', yeni_islem.id, yeni_islem)
+                
+                log_islem('ekleme', 'yeniden_dolum', {
+                    'oda_id': oda_id,
+                    'oda_no': oda.oda_no,
+                    'urun_id': urun_id,
+                    'urun_adi': urun.urun_adi,
+                    'eklenecek_miktar': eklenecek_miktar,
+                    'yeni_stok': yeni_stok
+                })
+                
+                kalan_zimmet = sum(detay.kalan_miktar or 0 for detay in zimmet_detaylar)
+                
+                return jsonify({
+                    'success': True,
+                    'message': 'Dolum işlemi başarıyla tamamlandı',
+                    'data': {
+                        'yeni_miktar': yeni_stok,
+                        'kalan_zimmet': kalan_zimmet
+                    }
+                })
+                
+            except Exception as e:
+                db.session.rollback()
+                raise
+            
+        except ValueError as e:
+            log_hata(e, modul='yeniden_dolum', extra_info={'oda_id': oda_id, 'urun_id': urun_id})
+            return jsonify({
+                'success': False,
+                'message': str(e)
+            }), 400
+        except Exception as e:
+            log_hata(e, modul='yeniden_dolum')
+            db.session.rollback()
+            return jsonify({
+                'success': False,
+                'message': 'İşlem sırasında bir hata oluştu. Lütfen tekrar deneyiniz'
+            }), 500

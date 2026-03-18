@@ -64,8 +64,7 @@ class DashboardBildirimServisi:
             if otel_id:
                 query = query.filter(UrunStok.otel_id == otel_id)
 
-            kritik_stoklar = query.all()
-            sayi = len(kritik_stoklar)
+            sayi = query.count()
 
             if sayi > 0:
                 return [{

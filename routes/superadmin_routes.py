@@ -2,17 +2,18 @@
 Superadmin Routes
 
 Superadmin rolüne özel endpoint'ler.
-Tüm kullanıcıları görüntüleme, şifre hash'leri, roller ve yetkiler.
+Tüm kullanıcıları görüntüleme, roller ve yetkiler.
 
 Endpoint'ler:
 - /superadmin/users - Tüm kullanıcıları listeleme
 - /api/superadmin/users - Kullanıcı verileri API
 """
 
-from flask import render_template, jsonify, request, session
-from utils.decorators import login_required, role_required
-from models import db, Kullanici, Otel, KullaniciOtel
 import logging
+
+from flask import render_template, jsonify
+from utils.decorators import login_required, role_required
+from models import Kullanici, Otel
 
 logger = logging.getLogger(__name__)
 

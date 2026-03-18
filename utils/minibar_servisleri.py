@@ -119,6 +119,27 @@ def oda_setup_durumu_getir(oda_id):
         dolap_ici_setuplar = []
         dolap_disi_setuplar = []
         
+        from sqlalchemy import func as sql_func
+
+        latest_subq = db.session.query(
+            MinibarIslemDetay.urun_id,
+            sql_func.max(MinibarIslem.islem_tarihi).label('max_tarih')
+        ).join(MinibarIslem).filter(
+            MinibarIslem.oda_id == oda_id
+        ).group_by(MinibarIslemDetay.urun_id).subquery()
+
+        latest_detaylar = db.session.query(MinibarIslemDetay).join(
+            MinibarIslem
+        ).join(
+            latest_subq,
+            db.and_(
+                MinibarIslemDetay.urun_id == latest_subq.c.urun_id,
+                MinibarIslem.islem_tarihi == latest_subq.c.max_tarih
+            )
+        ).filter(MinibarIslem.oda_id == oda_id).all()
+
+        detay_by_urun = {d.urun_id: d for d in latest_detaylar}
+
         for setup in setuplar:
             if not setup.aktif:
                 continue
@@ -131,13 +152,7 @@ def oda_setup_durumu_getir(oda_id):
             urun_listesi = []
             
             for icerik in icerikler:
-                # Son minibar işleminden mevcut miktarı bul
-                son_islem_detay = MinibarIslemDetay.query.join(
-                    MinibarIslem
-                ).filter(
-                    MinibarIslem.oda_id == oda_id,
-                    MinibarIslemDetay.urun_id == icerik.urun_id
-                ).order_by(desc(MinibarIslem.islem_tarihi)).first()
+                son_islem_detay = detay_by_urun.get(icerik.urun_id)
                 
                 mevcut_miktar = 0
                 ekstra_miktar = 0
@@ -463,6 +478,7 @@ def tuketim_kaydet(oda_id, urun_id, miktar, personel_id, islem_tipi='setup_kontr
         
         # GÖREV TAMAMLAMA ENTEGRASYONu - Minibar işlemi yapıldığında ilgili görevi tamamla
         gorev_tamamlandi = False
+        _bildirim_data = None
         try:
             from models import GorevDetay, GorevDurumLog, GunlukGorev, Kullanici, Urun
             from datetime import date
@@ -518,23 +534,17 @@ def tuketim_kaydet(oda_id, urun_id, miktar, personel_id, islem_tipi='setup_kontr
                     gorev_tamamlandi = True
                     logger.info(f"Görev tamamlandı: oda_id={oda_id}, gorev_detay_id={gorev_detay.id}")
                     
-                    # Bildirim gönder
-                    try:
-                        from utils.bildirim_service import gorev_tamamlandi_bildirimi
-                        oda = Oda.query.get(oda_id)
-                        if oda and kullanici:
-                            personel_adi = f"{kullanici.ad} {kullanici.soyad}"
-                            gorev_tamamlandi_bildirimi(
-                                otel_id=kullanici.otel_id,
-                                oda_no=oda.oda_no,
-                                personel_adi=personel_adi,
-                                gorev_id=gorev_detay.gorev_id,
-                                oda_id=oda_id,
-                                gonderen_id=personel_id
-                            )
-                            logger.info(f"✅ Görev tamamlandı bildirimi gönderildi: Oda {oda.oda_no}")
-                    except Exception as bildirim_err:
-                        logger.warning(f"Bildirim gönderme hatası: {bildirim_err}")
+                    # Bildirim verilerini hazırla (commit sonrası async gönderilecek)
+                    oda_obj = Oda.query.get(oda_id)
+                    if oda_obj and kullanici:
+                        _bildirim_data = {
+                            'otel_id': kullanici.otel_id,
+                            'oda_no': oda_obj.oda_no,
+                            'personel_adi': f"{kullanici.ad} {kullanici.soyad}",
+                            'gorev_id': gorev_detay.gorev_id,
+                            'oda_id': oda_id,
+                            'gonderen_id': personel_id
+                        }
         except Exception as gorev_err:
             # Görev tamamlama hatası ana işlemi etkilemesin
             logger.warning(f"Görev tamamlama hatası (işlem devam ediyor): {str(gorev_err)}")
@@ -557,6 +567,20 @@ def tuketim_kaydet(oda_id, urun_id, miktar, personel_id, islem_tipi='setup_kontr
             # Hata olsa bile ana işlemi etkilemesin
         
         db.session.commit()
+
+        try:
+            from utils.executive_dashboard_service import invalidate_executive_dashboard_cache
+            invalidate_executive_dashboard_cache()
+        except Exception:
+            pass
+        
+        # Async bildirim gönder (commit sonrası)
+        if gorev_tamamlandi and _bildirim_data is not None:
+            try:
+                from celery_app import send_gorev_tamamlandi_bildirimi_task
+                send_gorev_tamamlandi_bildirimi_task.delay(**_bildirim_data)
+            except Exception as async_err:
+                logger.warning(f"Async bildirim dispatch hatası: {async_err}")
         
         # İşlem objesine görev bilgisini ekle
         islem.gorev_tamamlandi = gorev_tamamlandi

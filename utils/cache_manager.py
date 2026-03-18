@@ -161,7 +161,7 @@ class CacheManager:
             else:
                 # Pattern ile tüm ilgili key'leri sil
                 pattern = f"{self.PREFIX}{key}:*"
-                keys = self.redis.keys(pattern)
+                keys = list(self.redis.scan_iter(match=pattern, count=100))
                 if keys:
                     self.redis.delete(*keys)
                     logger.info(f"🗑️ Cache invalidated: {len(keys)} keys matching '{pattern}'")
@@ -181,7 +181,7 @@ class CacheManager:
             
         try:
             pattern = f"{self.PREFIX}*"
-            keys = self.redis.keys(pattern)
+            keys = list(self.redis.scan_iter(match=pattern, count=100))
             if keys:
                 self.redis.delete(*keys)
                 logger.info(f"🗑️ Tüm cache temizlendi: {len(keys)} keys")
@@ -197,7 +197,7 @@ class CacheManager:
             
         try:
             pattern = f"{self.PREFIX}*"
-            keys = self.redis.keys(pattern)
+            keys = list(self.redis.scan_iter(match=pattern, count=100))
             
             # Key'leri kategorize et
             stats = {

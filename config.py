@@ -12,7 +12,7 @@ class Config:
     
     # Template Caching - Production'da bile template değişikliklerini algıla
     TEMPLATES_AUTO_RELOAD = True
-    SEND_FILE_MAX_AGE_DEFAULT = 0  # Static dosyalar için cache'i devre dışı bırak
+    SEND_FILE_MAX_AGE_DEFAULT = timedelta(hours=1)  # Cache busting CACHE_VERSION ile yönetiliyor
 
     # Database Configuration - PostgreSQL Only (MySQL support removed)
     DATABASE_URL = os.getenv('DATABASE_URL')
@@ -107,18 +107,17 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB - Optimized (was 100MB)
     UPLOAD_FOLDER = 'uploads'
     ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'xlsm', 'pdf', 'sql'}  # xlsm ve SQL backup için eklendi
-    
+
     # GÜVENLİK HEADERS - Production için önerilen
     SECURITY_HEADERS = {
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
         'X-XSS-Protection': '1; mode=block',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
-        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' cdn.jsdelivr.net; img-src 'self' data: https:; connect-src 'self'",
+        'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdn.datatables.net cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdn.datatables.net fonts.googleapis.com; font-src 'self' fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self'",
         'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'  # HTTPS için
     }
     
-    # Celery Configuration (Redis sadece broker olarak kullanılıyor, cache yok)
     # Celery Configuration (Redis sadece broker olarak kullanılıyor, cache yok)
     # Easypanel/Docker: REDIS_URL env var'ından authenticated URL alınır
     # Örnek: redis://default:password@minibar_redis:6379/0
@@ -154,3 +153,15 @@ class Config:
     RATE_LIMIT_LOGIN = os.getenv('RATE_LIMIT_LOGIN', '10 per minute')
     RATE_LIMIT_API = os.getenv('RATE_LIMIT_API', '300 per minute')
     RATE_LIMIT_POLLING = os.getenv('RATE_LIMIT_POLLING', '600 per minute')
+
+    # ============================================
+    # DB RETENTION CONFIGURATION (GÜN)
+    # ============================================
+    QUERY_LOGS_RETENTION_DAYS = int(os.getenv('QUERY_LOGS_RETENTION_DAYS', '30'))
+    QUERY_LOGS_DAILY_RETENTION_DAYS = int(os.getenv('QUERY_LOGS_DAILY_RETENTION_DAYS', '7'))
+    ML_METRICS_RETENTION_DAYS = int(os.getenv('ML_METRICS_RETENTION_DAYS', '90'))
+    ML_ALERTS_RETENTION_DAYS = int(os.getenv('ML_ALERTS_RETENTION_DAYS', '90'))
+    AUDIT_LOGS_RETENTION_DAYS = int(os.getenv('AUDIT_LOGS_RETENTION_DAYS', '180'))
+    HATA_LOGLARI_RETENTION_DAYS = int(os.getenv('HATA_LOGLARI_RETENTION_DAYS', '30'))
+    EMAIL_LOGLARI_RETENTION_DAYS = int(os.getenv('EMAIL_LOGLARI_RETENTION_DAYS', '30'))
+    BACKGROUND_JOBS_RETENTION_DAYS = int(os.getenv('BACKGROUND_JOBS_RETENTION_DAYS', '14'))

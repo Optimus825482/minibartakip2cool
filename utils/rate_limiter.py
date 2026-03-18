@@ -110,7 +110,8 @@ def init_rate_limiter(app):
                 "socket_timeout": 2
             } if not use_memory else {},
             strategy="fixed-window",
-            default_limits=["20000 per day", "3000 per hour", "120 per minute"],
+            # Login harici endpoint'lerde global limit uygulanmayacak.
+            default_limits=[],
             headers_enabled=True,  # X-RateLimit headers
             swallow_errors=True,  # Hata durumunda app çalışmaya devam etsin
         )
@@ -143,7 +144,8 @@ def init_rate_limiter(app):
             app=app,
             storage_uri="memory://",
             strategy="fixed-window",
-            default_limits=["20000 per day", "3000 per hour", "120 per minute"],
+            # Login harici endpoint'lerde global limit uygulanmayacak.
+            default_limits=[],
             swallow_errors=True,
         )
         logger.warning("⚠️ Rate Limiter memory modunda çalışıyor (fallback)")
@@ -218,6 +220,8 @@ class QRRateLimiter:
     # In-memory cache (Redis yoksa)
     _scan_cache = {}
     _generate_cache = {}
+    # Sadece login rate limit aktif olacağı için QR limitleri kapatıldı.
+    ENABLED = False
     
     @classmethod
     def _get_redis(cls):
@@ -250,6 +254,9 @@ class QRRateLimiter:
         Returns:
             bool: True = izin ver, False = limit aşıldı
         """
+        if not cls.ENABLED:
+            return True
+
         import time
         
         redis = cls._get_redis()
@@ -290,6 +297,9 @@ class QRRateLimiter:
         Returns:
             bool: True = izin ver, False = limit aşıldı
         """
+        if not cls.ENABLED:
+            return True
+
         import time
         
         redis = cls._get_redis()

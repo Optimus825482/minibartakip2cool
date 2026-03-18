@@ -15,8 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && mkdir -p /var/log/supervisor
 
 # Python bağımlılıkları
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements-prod.txt .
+RUN pip install --no-cache-dir -r requirements-prod.txt
 
 # Cache busting - her deploy'da template'leri yenile
 ARG CACHEBUST=2
