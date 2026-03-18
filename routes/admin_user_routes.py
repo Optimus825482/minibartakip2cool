@@ -28,7 +28,11 @@ def role_required(*roles):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             from flask import session
-            if 'rol' not in session or session['rol'] not in roles:
+            user_role = session.get('rol')
+            # superadmin tüm yönetim ekranlarına erişebilsin
+            if user_role == 'superadmin':
+                return f(*args, **kwargs)
+            if not user_role or user_role not in roles:
                 flash('Bu sayfaya erişim yetkiniz yok!', 'error')
                 return redirect(url_for('dashboard'))
             return f(*args, **kwargs)

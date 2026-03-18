@@ -81,8 +81,6 @@ def register_superadmin_routes(app):
                     'telefon': k.telefon or '-',
                     'rol': k.rol,
                     'aktif': k.aktif,
-                    'sifre_hash': k.sifre_hash[:20] + '...' if k.sifre_hash else '-',
-                    'sifre_hash_full': k.sifre_hash or '-',
                     'otel_bilgisi': _get_otel_bilgisi(k),
                     'son_giris': k.son_giris.strftime('%d.%m.%Y %H:%M') if k.son_giris else 'Hiç giriş yapmadı',
                     'olusturma_tarihi': k.olusturma_tarihi.strftime('%d.%m.%Y %H:%M') if k.olusturma_tarihi else '-'

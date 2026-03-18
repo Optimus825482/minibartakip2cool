@@ -49,11 +49,14 @@ def register_dolum_talebi_routes(app):
             })
             
         except Exception as e:
+            db.session.rollback()
             log_hata(e, modul='dolum_talepleri_api')
+            # Dashboard polling endpoint'i: UI kırılmasın diye güvenli fallback dön
             return jsonify({
-                'success': False,
-                'message': 'Talepler yüklenirken hata oluştu'
-            }), 500
+                'success': True,
+                'talepler': [],
+                'count': 0
+            }), 200
     
     
     @app.route('/api/dolum-talebi-tamamla/<int:talep_id>', methods=['POST'])
@@ -199,11 +202,12 @@ def register_dolum_talebi_routes(app):
             })
             
         except Exception as e:
+            db.session.rollback()
             log_hata(e, modul='dolum_talepleri_admin_api')
             return jsonify({
-                'success': False,
-                'message': 'Talepler yüklenirken hata oluştu'
-            }), 500
+                'success': True,
+                'talepler': []
+            }), 200
     
     
     @app.route('/api/dolum-talepleri-tamamlanan')
@@ -260,11 +264,13 @@ def register_dolum_talebi_routes(app):
             })
             
         except Exception as e:
+            db.session.rollback()
             log_hata(e, modul='dolum_talepleri_tamamlanan_api')
             return jsonify({
-                'success': False,
-                'message': 'Tamamlanan talepler yüklenirken hata oluştu'
-            }), 500
+                'success': True,
+                'talepler': [],
+                'count': 0
+            }), 200
     
     
     @app.route('/api/dolum-talepleri-istatistik')

@@ -55,8 +55,20 @@ def pre_fork(server, worker):
     pass
 
 def post_fork(server, worker):
-    """Called just after a worker has been forked."""
+    """
+    Called just after a worker has been forked.
+    preload_app=True kullanırken master'dan devralınan DB bağlantılarını
+    worker tarafında temizlemezsek rastgele libpq/psycopg2 hataları görülebilir.
+    """
     server.log.info(f"Worker spawned (pid: {worker.pid})")
+    try:
+        from app import app, db
+        with app.app_context():
+            db.session.remove()
+            db.engine.dispose()
+        server.log.info("Worker DB pool reset tamamlandı")
+    except Exception as e:
+        server.log.warning(f"Worker DB pool reset atlandı: {e}")
 
 def pre_exec(server):
     """Called just before a new master process is forked."""
