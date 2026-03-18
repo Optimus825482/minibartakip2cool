@@ -27,8 +27,10 @@ endblock %} {% block content %}
       <i class="fas fa-clock mr-2 text-purple-500"></i>Bekleyen ({{
       bekleyen|length }})
     </h4>
-    {% set bekleyen_sirali = bekleyen|sort(attribute='varis_saati') %} {% if
-    bekleyen_sirali %}
+    {% set bekleyen_with_time = bekleyen|rejectattr('varis_saati', 'none')|list|sort(attribute='varis_saati') %}
+    {% set bekleyen_without_time = bekleyen|selectattr('varis_saati', 'none')|list %}
+    {% set bekleyen_sirali = bekleyen_with_time + bekleyen_without_time %}
+    {% if bekleyen_sirali %}
     <div class="grid gap-3 mb-6">
       {% for gorev in bekleyen_sirali %}
       <div

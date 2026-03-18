@@ -369,13 +369,16 @@ Tab Navigasyonu -->
           <i class="fas fa-print mr-1"></i>Yazdır
         </button>
       </div>
-      {% set arrivals = bekleyen|selectattr('gorev_tipi', 'equalto',
-      'arrival_kontrol')|list|sort(attribute='varis_saati') %} {% if arrivals %}
+      {% set arrivals_raw = bekleyen|selectattr('gorev_tipi', 'equalto', 'arrival_kontrol')|list %}
+      {% set arrivals_with_time = arrivals_raw|rejectattr('varis_saati', 'none')|list|sort(attribute='varis_saati') %}
+      {% set arrivals_without_time = arrivals_raw|selectattr('varis_saati', 'none')|list %}
+      {% set arrivals = arrivals_with_time + arrivals_without_time %}
+      {% if arrivals %}
       <div class="space-y-6" id="print-arrivals">
         {% set arrivals_katlar = arrivals|map(attribute='kat_adi')|unique|list
         %} {% for kat_adi in arrivals_katlar %} {% set kat_gorevleri =
         arrivals|selectattr('kat_adi', 'equalto',
-        kat_adi)|list|sort(attribute='varis_saati') %} {% if kat_gorevleri %}
+        kat_adi)|list %} {% if kat_gorevleri %}
         <div class="kat-grup">
           <div
             class="flex items-center gap-2 mb-3 pb-2 border-b border-purple-200 dark:border-purple-800"
@@ -474,15 +477,17 @@ Tab Navigasyonu -->
           <i class="fas fa-print mr-1"></i>Yazdır
         </button>
       </div>
-      {% set departures = bekleyen|selectattr('gorev_tipi', 'equalto',
-      'departure_kontrol')|list|sort(attribute='cikis_saati') %} {% if
-      departures %}
+      {% set departures_raw = bekleyen|selectattr('gorev_tipi', 'equalto', 'departure_kontrol')|list %}
+      {% set departures_with_time = departures_raw|rejectattr('cikis_saati', 'none')|list|sort(attribute='cikis_saati') %}
+      {% set departures_without_time = departures_raw|selectattr('cikis_saati', 'none')|list %}
+      {% set departures = departures_with_time + departures_without_time %}
+      {% if departures %}
       <div class="space-y-6" id="print-departures">
         {% set departures_katlar =
         departures|map(attribute='kat_adi')|unique|list %} {% for kat_adi in
         departures_katlar %} {% set kat_gorevleri =
         departures|selectattr('kat_adi', 'equalto',
-        kat_adi)|list|sort(attribute='cikis_saati') %} {% if kat_gorevleri %}
+        kat_adi)|list %} {% if kat_gorevleri %}
         <div class="kat-grup">
           <div
             class="flex items-center gap-2 mb-3 pb-2 border-b border-teal-200 dark:border-teal-800"
@@ -583,9 +588,12 @@ Tab Navigasyonu -->
       {% if dnd_gorevler %}
       <div class="space-y-6" id="print-dnd">
         {% set dnd_katlar = dnd_gorevler|map(attribute='kat_adi')|unique|list %}
-        {% for kat_adi in dnd_katlar %} {% set kat_gorevleri =
-        dnd_gorevler|selectattr('kat_adi', 'equalto',
-        kat_adi)|list|sort(attribute='dnd_sayisi', reverse=true) %} {% if
+        {% for kat_adi in dnd_katlar %} {% set kat_gorevleri_raw =
+        dnd_gorevler|selectattr('kat_adi', 'equalto', kat_adi)|list %}
+        {% set kat_gorevleri_with_dnd = kat_gorevleri_raw|rejectattr('dnd_sayisi', 'none')|list|sort(attribute='dnd_sayisi', reverse=true) %}
+        {% set kat_gorevleri_without_dnd = kat_gorevleri_raw|selectattr('dnd_sayisi', 'none')|list %}
+        {% set kat_gorevleri = kat_gorevleri_with_dnd + kat_gorevleri_without_dnd %}
+        {% if
         kat_gorevleri %}
         <div class="kat-grup">
           <div

@@ -29,8 +29,10 @@ endblock %} {% block content %}
         >(Öncelik sırasına göre)</span
       >
     </h4>
-    {% set bekleyen_sirali = bekleyen|sort(attribute='oncelik_sirasi') %} {% if
-    bekleyen_sirali %}
+    {% set bekleyen_with_priority = bekleyen|rejectattr('oncelik_sirasi', 'none')|list|sort(attribute='oncelik_sirasi') %}
+    {% set bekleyen_without_priority = bekleyen|selectattr('oncelik_sirasi', 'none')|list %}
+    {% set bekleyen_sirali = bekleyen_with_priority + bekleyen_without_priority %}
+    {% if bekleyen_sirali %}
     <div class="grid gap-3 mb-6">
       {% for gorev in bekleyen_sirali %}
       <div
