@@ -185,7 +185,7 @@ class Kullanici(db.Model):
     teslim_ettigi_zimmetler = db.relationship('PersonelZimmet',
                                               foreign_keys='PersonelZimmet.teslim_eden_id',
                                               lazy=True)
-    minibar_islemleri = db.relationship('MinibarIslem', backref='personel', lazy=True)
+    # minibar_islemleri = db.relationship('MinibarIslem', backref='personel', lazy=True)
     
     # YENİ: Otel ilişkileri
     otel = db.relationship('Otel', foreign_keys=[otel_id], backref='kat_sorumlu_kullanicilar')
@@ -319,7 +319,7 @@ class Oda(db.Model):
     
     # İlişkiler
     oda_tipi_rel = db.relationship('OdaTipi', foreign_keys=[oda_tipi_id], backref='odalar')
-    minibar_islemleri = db.relationship('MinibarIslem', backref='oda', lazy=True)
+    # minibar_islemleri = db.relationship('MinibarIslem', backref='oda', lazy=True)
     dolum_talepleri = db.relationship('MinibarDolumTalebi', backref='oda', lazy=True)
     qr_okutma_loglari = db.relationship('QRKodOkutmaLog', backref='oda', lazy=True)
     
@@ -374,7 +374,7 @@ class Urun(db.Model):
     # İlişkiler
     stok_hareketleri = db.relationship('StokHareket', backref='urun', lazy=True)
     zimmet_detaylari = db.relationship('PersonelZimmetDetay', backref='urun', lazy=True)
-    minibar_detaylari = db.relationship('MinibarIslemDetay', backref='urun', lazy=True)
+    # minibar_detaylari = db.relationship('MinibarIslemDetay', backref='urun', lazy=True)
     
     def __repr__(self):
         return f'<Urun {self.urun_adi}>'
