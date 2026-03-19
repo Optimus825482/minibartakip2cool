@@ -4,7 +4,7 @@ Executive Dashboard Data Service
 """
 
 from datetime import datetime, timedelta, date
-from sqlalchemy import func, desc, cast, Date, extract, case, and_, or_
+from sqlalchemy import func, desc, cast, Date, extract, case, and_, or_, text
 from sqlalchemy.orm import joinedload
 from models import (
     db, Kullanici, Otel, Oda, Urun, UrunGrup, Kat,

@@ -82,71 +82,31 @@ def register_dashboard_routes(app):
     @login_required
     @role_required('sistem_yoneticisi', 'admin')
     def sistem_yoneticisi_dashboard():
-        """Sistem yöneticisi dashboard"""
+        """Sistem yöneticisi dashboard - Optimized lazy loading"""
         try:
-            from utils.occupancy_service import OccupancyService
-            from utils.authorization import get_kullanici_otelleri
-            from datetime import date
+            # Sadece kritik verileri yükle, geri kalanı AJAX ile
+            # Genel istatistikler (cached, hızlı)
+            genel_stats = DashboardDataService.get_genel_istatistikler()
             
-            # ML Alertleri (DB tabanlı toggle ile kontrol)
-            ml_alerts = []
+            # ML alerts - sadece sayı
             ml_alert_count = 0
             try:
                 from utils.ml_toggle import is_ml_enabled
                 ml_enabled = is_ml_enabled()
+                if ml_enabled:
+                    from models import MLAlert
+                    ml_alert_count = MLAlert.query.filter_by(aktif=True).count()
             except Exception:
                 ml_enabled = False
             
-            if ml_enabled:
-                try:
-                    from models import MLAlert
-                    from utils.ml.alert_manager import AlertManager
-                
-                    alert_manager = AlertManager(db)
-                    # Son 5 kritik/yüksek alert
-                    ml_alerts = alert_manager.get_active_alerts(limit=5)
-                    ml_alert_count = len(alert_manager.get_active_alerts())
-                except Exception as e:
-                    print(f"ML alert hatası: {str(e)}")
-        
-            # Tüm oteller için doluluk raporları
+            # Doluluk raporları AJAX'a taşındı - burada sadece placeholder
             otel_doluluk_raporlari = []
-            try:
-                kullanici_otelleri = get_kullanici_otelleri()
-                for otel in kullanici_otelleri:
-                    doluluk = OccupancyService.get_gunluk_doluluk_raporu(date.today(), otel.id)
-                    # Doluluk oranı hesapla
-                    if doluluk['toplam_oda'] > 0:
-                        doluluk['doluluk_orani'] = round((doluluk['dolu_oda'] / doluluk['toplam_oda']) * 100)
-                    else:
-                        doluluk['doluluk_orani'] = 0
-                
-                    # Otel bilgilerini ekle
-                    doluluk['otel'] = otel
-                    otel_doluluk_raporlari.append(doluluk)
-            except Exception as e:
-                print(f"Doluluk raporları hatası: {str(e)}")
-        
-            # İstatistikler - Cache + Eager Loading ile optimize edildi (1.1.2026)
-            # Genel istatistikler (cached)
-            genel_stats = DashboardDataService.get_genel_istatistikler()
-            toplam_kat = genel_stats['toplam_kat']
-            toplam_oda = genel_stats['toplam_oda']
-            toplam_kullanici = genel_stats['toplam_kullanici']
-            toplam_personel = genel_stats['toplam_personel']
-            admin_count = genel_stats['admin_count']
-            depo_count = genel_stats['depo_count']
-            kat_count = genel_stats['kat_count']
-            toplam_urun_grup = genel_stats['toplam_urun_grup']
-            toplam_urun = genel_stats['toplam_urun']
             
             # Kat-oda dağılımı (cached)
             kat_oda = DashboardDataService.get_kat_oda_dagilimi()
-            kat_labels = kat_oda['kat_labels']
-            kat_oda_sayilari = kat_oda['kat_oda_sayilari']
             
-            # Son eklenenler (eager loading)
-            son_eklenenler = DashboardDataService.get_son_eklenenler(5)
+            # Son eklenenler - limit 3'e düşürüldü
+            son_eklenenler = DashboardDataService.get_son_eklenenler(3)
             son_katlar = son_eklenenler['son_katlar']
             son_odalar = son_eklenenler['son_odalar']
             son_personeller = son_eklenenler['son_personeller']

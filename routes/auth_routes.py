@@ -20,6 +20,7 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 import pytz
 
 from models import db, Otel, Kullanici, SistemAyar
+from utils.cache_manager import cache_manager
 
 # KKTC Timezone (Kıbrıs - Europe/Nicosia)
 KKTC_TZ = pytz.timezone('Europe/Nicosia')
@@ -31,6 +32,17 @@ from utils.decorators import setup_not_completed, setup_required
 from utils.helpers import log_islem, log_hata
 from utils.audit import audit_login, audit_logout
 
+# Setup kontrolü için cache
+_setup_cache = {'checked': False, 'completed': False}
+
+def is_setup_completed():
+    """Setup tamamlanmış mı kontrol et (cached)"""
+    if not _setup_cache['checked']:
+        setup_ayar = SistemAyar.query.filter_by(anahtar='setup_tamamlandi').first()
+        _setup_cache['completed'] = setup_ayar and setup_ayar.deger == '1'
+        _setup_cache['checked'] = True
+    return _setup_cache['completed']
+
 
 def register_auth_routes(app):
     """Auth route'larını kaydet"""
@@ -38,10 +50,8 @@ def register_auth_routes(app):
     @app.route('/')
     def index():
         """Ana sayfa yönlendirmesi"""
-        # Setup kontrolü
-        setup_tamamlandi = SistemAyar.query.filter_by(anahtar='setup_tamamlandi').first()
-        
-        if not setup_tamamlandi or setup_tamamlandi.deger != '1':
+        # Setup kontrolü (cached)
+        if not is_setup_completed():
             return redirect(url_for('setup'))
         
         # Giriş yapmış kullanıcı varsa panele yönlendir
