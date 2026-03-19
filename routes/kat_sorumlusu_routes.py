@@ -41,6 +41,7 @@ from utils.decorators import login_required, role_required
 from utils.helpers import log_islem, log_hata, get_current_user
 from utils.audit import audit_create
 from utils.query_helpers_optimized import get_minibar_islemler_optimized
+from utils.kat_sorumlusu_cache_service import KatSorumlusuCacheService
 
 # KKTC Timezone (Kıbrıs - Europe/Nicosia)
 KKTC_TZ = pytz.timezone('Europe/Nicosia')
@@ -375,13 +376,24 @@ def register_kat_sorumlusu_routes(app):
     @login_required
     @role_required('kat_sorumlusu')
     def minibar_urunler():
-        """Minibar ürünlerini JSON olarak döndür"""
+        """Minibar ürünlerini JSON olarak döndür - CACHE'Lİ + N+1 FIX"""
         try:
-            urunler = Urun.query.filter_by(aktif=True).order_by(Urun.grup_id, Urun.urun_adi).all()
-            
-            # Kullanıcının zimmet bilgilerini getir
             kullanici_id = session.get('kullanici_id')
-            aktif_zimmetler = PersonelZimmet.query.filter_by(
+            
+            # ✅ Cache kontrolü
+            cached_data = KatSorumlusuCacheService.get_minibar_urunler(kullanici_id)
+            if cached_data:
+                return jsonify({'success': True, 'urunler': cached_data, 'cached': True})
+            
+            # ✅ Eager loading ile N+1 query çözümü
+            urunler = Urun.query.options(
+                joinedload(Urun.grup)
+            ).filter_by(aktif=True).order_by(Urun.grup_id, Urun.urun_adi).all()
+            
+            # ✅ Zimmet bilgilerini eager loading ile getir
+            aktif_zimmetler = PersonelZimmet.query.options(
+                selectinload(PersonelZimmet.detaylar).joinedload(PersonelZimmetDetay.urun)
+            ).filter_by(
                 personel_id=kullanici_id,
                 durum='aktif'
             ).all()
@@ -405,7 +417,10 @@ def register_kat_sorumlusu_routes(app):
                     'zimmet_miktari': zimmet_dict.get(urun.id, 0)
                 })
             
-            return jsonify({'success': True, 'urunler': urun_listesi})
+            # ✅ Cache'e kaydet (60 saniye TTL)
+            KatSorumlusuCacheService.set_minibar_urunler(urun_listesi, kullanici_id)
+            
+            return jsonify({'success': True, 'urunler': urun_listesi, 'cached': False})
         except Exception as e:
             log_hata(e, modul='minibar_urunler')
             return jsonify({'success': False, 'error': str(e)})
@@ -503,10 +518,18 @@ def register_kat_sorumlusu_routes(app):
     @login_required
     @role_required('kat_sorumlusu')
     def zimmetim():
-        """Zimmet görüntüleme"""
+        """Zimmet görüntüleme - CACHE'Lİ + N+1 FIX"""
         kullanici_id = session['kullanici_id']
         
-        aktif_zimmetler = PersonelZimmet.query.filter_by(
+        # ✅ Cache kontrolü
+        cached_data = KatSorumlusuCacheService.get_zimmet_ozet(kullanici_id)
+        if cached_data:
+            return render_template('kat_sorumlusu/zimmetim.html', **cached_data)
+        
+        # ✅ Eager loading ile N+1 query çözümü
+        aktif_zimmetler = PersonelZimmet.query.options(
+            selectinload(PersonelZimmet.detaylar).joinedload(PersonelZimmetDetay.urun)
+        ).filter_by(
             personel_id=kullanici_id, 
             durum='aktif'
         ).order_by(PersonelZimmet.zimmet_tarihi.desc()).all()
@@ -522,11 +545,16 @@ def register_kat_sorumlusu_routes(app):
                 kalan = detay.kalan_miktar or (detay.miktar - detay.kullanilan_miktar)
                 kalan_zimmet += kalan
         
-        return render_template('kat_sorumlusu/zimmetim.html',
-                             aktif_zimmetler=aktif_zimmetler,
-                             toplam_zimmet=toplam_zimmet,
-                             kalan_zimmet=kalan_zimmet,
-                             kullanilan_zimmet=kullanilan_zimmet)
+        # ✅ Cache'e kaydet (120 saniye TTL)
+        data = {
+            'aktif_zimmetler': aktif_zimmetler,
+            'toplam_zimmet': toplam_zimmet,
+            'kalan_zimmet': kalan_zimmet,
+            'kullanilan_zimmet': kullanilan_zimmet
+        }
+        KatSorumlusuCacheService.set_zimmet_ozet(data, kullanici_id)
+        
+        return render_template('kat_sorumlusu/zimmetim.html', **data)
     
     @app.route('/kat-raporlar')
     @login_required
@@ -550,10 +578,13 @@ def register_kat_sorumlusu_routes(app):
                 selectinload(MinibarIslem.detaylar).joinedload(MinibarIslemDetay.urun)
             ).filter_by(personel_id=kullanici_id)
             
-            if baslangic_tarihi:
-                query = query.filter(MinibarIslem.islem_tarihi >= datetime.strptime(baslangic_tarihi, '%Y-%m-%d'))
-            if bitis_tarihi:
-                query = query.filter(MinibarIslem.islem_tarihi <= datetime.strptime(bitis_tarihi, '%Y-%m-%d') + timedelta(days=1))
+            try:
+                if baslangic_tarihi:
+                    query = query.filter(MinibarIslem.islem_tarihi >= datetime.strptime(baslangic_tarihi, '%Y-%m-%d'))
+                if bitis_tarihi:
+                    query = query.filter(MinibarIslem.islem_tarihi <= datetime.strptime(bitis_tarihi, '%Y-%m-%d') + timedelta(days=1))
+            except (ValueError, TypeError):
+                flash('Geçersiz tarih formatı. Lütfen YYYY-MM-DD formatında girin.', 'warning')
             
             rapor_verisi = query.order_by(MinibarIslem.islem_tarihi.desc()).all()
         
@@ -617,10 +648,17 @@ def register_kat_sorumlusu_routes(app):
                 OdaTipiNotFoundError,
                 SetupNotFoundError
             )
+            from utils.kat_sorumlusu_cache_service import KatSorumlusuCacheService
             from models import OtelZimmetStok, GorevDetay, GunlukGorev
             from datetime import date
 
             kullanici_id = session.get('kullanici_id')
+            
+            # Cache kontrolü
+            cached_data = KatSorumlusuCacheService.get_oda_setup(oda_id=oda_id)
+            if cached_data:
+                return jsonify(cached_data)
+            
             oda, kullanici_oteli, hata_response, hata_status = _validate_room_access(oda_id, kullanici_id)
             if hata_response:
                 return hata_response, hata_status
@@ -772,10 +810,15 @@ def register_kat_sorumlusu_routes(app):
                 aciklama=f"Oda {sonuc['oda']['oda_no']} setup durumu görüntülendi"
             )
             
-            return jsonify({
+            response_data = {
                 'success': True,
                 **sonuc
-            })
+            }
+            
+            # Cache'e kaydet
+            KatSorumlusuCacheService.set_oda_setup(data=response_data, oda_id=oda_id)
+            
+            return jsonify(response_data)
             
         except OdaTipiNotFoundError as e:
             return jsonify({
@@ -901,6 +944,11 @@ def register_kat_sorumlusu_routes(app):
                     zimmet_detay_id=None
                 )
                 
+                # Cache invalidation after successful save
+                KatSorumlusuCacheService.invalidate_minibar(kullanici_id)
+                KatSorumlusuCacheService.invalidate_kullanici(kullanici_id)
+                KatSorumlusuCacheService.invalidate_oda_setup(oda_id)
+                
                 # Oda ve ürün bilgilerini getir
                 urun = Urun.query.get(urun_id)
                 
@@ -982,7 +1030,7 @@ def register_kat_sorumlusu_routes(app):
             from models import SetupIcerik
             
             # Request validasyonu
-            data = request.get_json()
+            data = request.get_json(silent=True)
             
             if not data:
                 return jsonify({
@@ -1046,6 +1094,11 @@ def register_kat_sorumlusu_routes(app):
                     zimmet_detay_id=None
                 )
                 
+                # Cache invalidation after successful save
+                KatSorumlusuCacheService.invalidate_minibar(kullanici_id)
+                KatSorumlusuCacheService.invalidate_kullanici(kullanici_id)
+                KatSorumlusuCacheService.invalidate_oda_setup(oda_id)
+                
                 # Oda ve ürün bilgilerini getir
                 urun = Urun.query.get(urun_id)
                 
@@ -1088,9 +1141,9 @@ def register_kat_sorumlusu_routes(app):
                 e,
                 modul='api_ekstra_ekle',
                 extra_info={
-                    'oda_id': data.get('oda_id'),
-                    'urun_id': data.get('urun_id'),
-                    'ekstra_miktar': data.get('ekstra_miktar')
+                    'oda_id': data.get('oda_id') if 'data' in dir() and data else None,
+                    'urun_id': data.get('urun_id') if 'data' in dir() and data else None,
+                    'ekstra_miktar': data.get('ekstra_miktar') if 'data' in dir() and data else None
                 }
             )
             return jsonify({
@@ -1121,7 +1174,7 @@ def register_kat_sorumlusu_routes(app):
             from sqlalchemy import desc
             
             # Request validasyonu
-            data = request.get_json()
+            data = request.get_json(silent=True)
             
             if not data:
                 return jsonify({
@@ -1206,8 +1259,8 @@ def register_kat_sorumlusu_routes(app):
                 e,
                 modul='api_ekstra_sifirla',
                 extra_info={
-                    'oda_id': data.get('oda_id'),
-                    'urun_id': data.get('urun_id')
+                    'oda_id': data.get('oda_id') if 'data' in dir() and data else None,
+                    'urun_id': data.get('urun_id') if 'data' in dir() and data else None
                 }
             )
             return jsonify({
@@ -1228,6 +1281,7 @@ def register_kat_sorumlusu_routes(app):
         try:
             from datetime import date, datetime
             from models import OdaDNDKayit, OdaDNDKontrol
+            from utils.kat_sorumlusu_cache_service import KatSorumlusuCacheService
             
             kullanici_id = session.get('kullanici_id')
             kullanici = Kullanici.query.get(kullanici_id)
@@ -1236,6 +1290,16 @@ def register_kat_sorumlusu_routes(app):
             tarih_str = request.args.get('tarih')
             oda_no = request.args.get('oda')
             islem_tipi = request.args.get('islem_tipi')
+            
+            # Cache kontrolü
+            cached = KatSorumlusuCacheService.get_minibar_islemler(
+                kullanici_id, tarih_str, oda_no, islem_tipi
+            )
+            if cached:
+                return jsonify({
+                    'success': True,
+                    'islemler': cached
+                })
             
             # Bugünün tarihi
             bugun = date.today()
@@ -1360,6 +1424,11 @@ def register_kat_sorumlusu_routes(app):
             # Tarihe göre sırala (en yeni en üstte)
             sonuc.sort(key=lambda x: x['islem_tarihi'], reverse=True)
             
+            # Cache'e kaydet
+            KatSorumlusuCacheService.set_minibar_islemler(
+                sonuc, kullanici_id, tarih_str, oda_no, islem_tipi
+            )
+            
             return jsonify({
                 'success': True,
                 'islemler': sonuc
@@ -1436,6 +1505,11 @@ def register_kat_sorumlusu_routes(app):
                 # İşlemi sil
                 db.session.delete(islem)
                 db.session.commit()
+                
+                # Cache invalidation after successful delete
+                KatSorumlusuCacheService.invalidate_minibar(kullanici_id)
+                KatSorumlusuCacheService.invalidate_kullanici(kullanici_id)
+                KatSorumlusuCacheService.invalidate_oda_setup(islem.oda_id)
                 
                 # Audit log
                 audit_create(
@@ -1640,6 +1714,11 @@ def register_kat_sorumlusu_routes(app):
                 db.session.add(detay)
                 db.session.commit()
                 
+                # Cache invalidation after successful save
+                KatSorumlusuCacheService.invalidate_minibar(kullanici_id)
+                KatSorumlusuCacheService.invalidate_kullanici(kullanici_id)
+                KatSorumlusuCacheService.invalidate_oda_setup(oda_id)
+                
                 # Audit log
                 audit_create(
                     tablo_adi='minibar_islem',
@@ -1786,6 +1865,11 @@ def register_kat_sorumlusu_routes(app):
                 )
                 db.session.add(detay)
                 db.session.commit()
+                
+                # Cache invalidation after successful save
+                KatSorumlusuCacheService.invalidate_minibar(kullanici_id)
+                KatSorumlusuCacheService.invalidate_kullanici(kullanici_id)
+                KatSorumlusuCacheService.invalidate_oda_setup(oda_id)
                 
                 # Audit log
                 audit_create(
@@ -1989,6 +2073,11 @@ def register_kat_sorumlusu_routes(app):
             
             db.session.commit()
             
+            # Cache invalidation
+            from utils.kat_sorumlusu_cache_service import KatSorumlusuCacheService
+            KatSorumlusuCacheService.invalidate_dnd(kullanici_oteli.id)
+            KatSorumlusuCacheService.invalidate_kullanici(kullanici_id)
+            
             # Audit log
             audit_create(
                 tablo_adi='minibar_islem',
@@ -2132,6 +2221,14 @@ def register_kat_sorumlusu_routes(app):
             
             db.session.commit()
             
+            # Cache invalidation
+            from utils.kat_sorumlusu_cache_service import KatSorumlusuCacheService
+            from utils.authorization import get_kat_sorumlusu_otel
+            kullanici_oteli = get_kat_sorumlusu_otel(kullanici_id)
+            if kullanici_oteli:
+                KatSorumlusuCacheService.invalidate_dnd(kullanici_oteli.id)
+                KatSorumlusuCacheService.invalidate_kullanici(kullanici_id)
+            
             # Bildirim gönder - Sarfiyat yok ise depo sorumlusuna
             if kontrol_tipi == 'sarfiyat_yok':
                 try:
@@ -2261,6 +2358,11 @@ def register_kat_sorumlusu_routes(app):
                 gorev_detay_id=gorev_detay_id
             )
             
+            # Cache invalidation (after successful commit in DNDService.kaydet)
+            from utils.kat_sorumlusu_cache_service import KatSorumlusuCacheService
+            KatSorumlusuCacheService.invalidate_dnd(kullanici_oteli.id)
+            KatSorumlusuCacheService.invalidate_kullanici(kullanici_id)
+            
             # Audit log
             audit_create(
                 tablo_adi='oda_dnd_kayitlari',
@@ -2362,6 +2464,7 @@ def register_kat_sorumlusu_routes(app):
         try:
             from utils.dnd_service import DNDService
             from utils.authorization import get_kat_sorumlusu_otel
+            from utils.kat_sorumlusu_cache_service import KatSorumlusuCacheService
             from datetime import datetime
             
             kullanici_id = session.get('kullanici_id')
@@ -2380,17 +2483,37 @@ def register_kat_sorumlusu_routes(app):
             # Sadece aktif filtresi
             sadece_aktif = request.args.get('sadece_aktif', 'false').lower() == 'true'
             
+            # Cache kontrolü
+            tarih_key = tarih.strftime('%Y-%m-%d') if tarih else None
+            cached_data = KatSorumlusuCacheService.get_dnd_liste(
+                otel_id=kullanici_oteli.id,
+                tarih=tarih_key,
+                sadece_aktif=sadece_aktif
+            )
+            if cached_data:
+                return jsonify(cached_data)
+            
             liste = DNDService.gunluk_liste(
                 otel_id=kullanici_oteli.id,
                 tarih=tarih,
                 sadece_aktif=sadece_aktif
             )
             
-            return jsonify({
+            response_data = {
                 'success': True,
                 'dnd_kayitlari': liste,
                 'toplam': len(liste)
-            })
+            }
+            
+            # Cache'e kaydet
+            KatSorumlusuCacheService.set_dnd_liste(
+                data=response_data,
+                otel_id=kullanici_oteli.id,
+                tarih=tarih_key,
+                sadece_aktif=sadece_aktif
+            )
+            
+            return jsonify(response_data)
             
         except Exception as e:
             log_hata(e, modul='api_dnd_liste')
@@ -2537,12 +2660,18 @@ def register_kat_sorumlusu_routes(app):
         """
         try:
             from models import OtelZimmetStok, Kullanici, Urun, UrunGrup
+            from utils.kat_sorumlusu_cache_service import KatSorumlusuCacheService
             
             kullanici_id = session.get('kullanici_id')
             kullanici = Kullanici.query.get(kullanici_id)
             
             if not kullanici or not kullanici.otel_id:
                 return jsonify({'success': False, 'error': 'Otel atamanız bulunamadı'}), 400
+            
+            # Cache kontrolü
+            cached_data = KatSorumlusuCacheService.get_zimmet_urunler(kullanici_id=kullanici_id)
+            if cached_data:
+                return jsonify(cached_data)
             
             oda_id = request.args.get('oda_id', type=int)
             
@@ -2599,11 +2728,16 @@ def register_kat_sorumlusu_routes(app):
             for grup_adi in gruplar:
                 gruplar[grup_adi].sort(key=lambda x: x['urun_adi'])
             
-            return jsonify({
+            response_data = {
                 'success': True,
                 'gruplar': gruplar,
                 'toplam_urun': sum(len(v) for v in gruplar.values())
-            })
+            }
+            
+            # Cache'e kaydet
+            KatSorumlusuCacheService.set_zimmet_urunler(data=response_data, kullanici_id=kullanici_id)
+            
+            return jsonify(response_data)
             
         except Exception as e:
             log_hata(e, modul='api_zimmet_urunler')
@@ -2696,6 +2830,11 @@ def register_kat_sorumlusu_routes(app):
                 db.session.add(detay)
                 
                 db.session.commit()
+                
+                # Cache invalidation - zimmet değişti
+                from utils.kat_sorumlusu_cache_service import KatSorumlusuCacheService
+                KatSorumlusuCacheService.invalidate_kullanici(kullanici_id)
+                KatSorumlusuCacheService.invalidate_zimmet(kullanici_id)
                 
                 # Audit log
                 audit_create(
@@ -3179,6 +3318,11 @@ def register_kat_sorumlusu_routes(app):
                 db.session.add(islem_detay)
                 
                 db.session.commit()
+                
+                # Cache invalidation after successful save
+                KatSorumlusuCacheService.invalidate_minibar(kullanici_id)
+                KatSorumlusuCacheService.invalidate_kullanici(kullanici_id)
+                KatSorumlusuCacheService.invalidate_oda_setup(oda_id)
                 
                 audit_create('minibar_islem', yeni_islem.id, yeni_islem)
                 

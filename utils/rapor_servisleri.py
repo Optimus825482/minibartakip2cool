@@ -138,26 +138,26 @@ class KatSorumlusuGunSonuRaporServisi:
     ) -> dict:
         """
         Kat sorumlusu gün sonu raporu - Tarih aralığı destekli
-        
-        Args:
-            otel_id: Otel ID (zorunlu)
-            personel_ids: Kat sorumlusu ID listesi (çoklu seçim)
-            tarih: Tek tarih için (geriye uyumluluk)
-            baslangic_tarihi: Tarih aralığı başlangıcı
-            bitis_tarihi: Tarih aralığı bitişi
-            
-        Returns:
-            dict: Gün sonu rapor verisi
+        Optimized: N+1 queries eliminated — single query with eager loading
+        Cached: 5 dakika TTL via RaporCacheService
         """
         try:
+            from sqlalchemy.orm import joinedload, subqueryload
+            from utils.rapor_cache_service import RaporCacheService
+            
+            # Cache kontrolü
+            cached = RaporCacheService.get_gun_sonu_raporu(
+                otel_id, personel_ids, baslangic_tarihi, bitis_tarihi
+            )
+            if cached is not None:
+                return cached
+            
             # Tarih aralığı belirleme
             if baslangic_tarihi and bitis_tarihi:
-                # Tarih aralığı modu
                 tarih_baslangic = datetime.combine(baslangic_tarihi, datetime.min.time())
                 tarih_bitis = datetime.combine(bitis_tarihi, datetime.max.time())
                 rapor_tarihi_str = f"{baslangic_tarihi.strftime('%d.%m.%Y')} - {bitis_tarihi.strftime('%d.%m.%Y')}"
             else:
-                # Tek tarih modu (geriye uyumluluk)
                 if not tarih:
                     tarih = date.today()
                 tarih_baslangic = datetime.combine(tarih, datetime.min.time())
@@ -191,31 +191,41 @@ class KatSorumlusuGunSonuRaporServisi:
                     'genel_toplam': []
                 }
             
+            personel_id_list = [p.id for p in kat_sorumlulari]
+            personel_map = {p.id: p for p in kat_sorumlulari}
+            
+            # TEK SORGU: Tüm personellerin işlemlerini eager loading ile al
+            islemler = MinibarIslem.query.options(
+                joinedload(MinibarIslem.oda),
+                subqueryload(MinibarIslem.detaylar).joinedload(MinibarIslemDetay.urun)
+            ).filter(
+                MinibarIslem.personel_id.in_(personel_id_list),
+                MinibarIslem.islem_tarihi >= tarih_baslangic,
+                MinibarIslem.islem_tarihi <= tarih_bitis
+            ).order_by(MinibarIslem.islem_tarihi).all()
+            
+            # Python'da personel bazlı gruplama
             personel_raporlari = []
-            # Genel toplam için tüm ürünleri takip et
             genel_urun_toplam = {}
             
-            for personel in kat_sorumlulari:
-                # Bu personelin o günkü minibar işlemlerini çek
-                islemler = MinibarIslem.query.filter(
-                    MinibarIslem.personel_id == personel.id,
-                    MinibarIslem.islem_tarihi >= tarih_baslangic,
-                    MinibarIslem.islem_tarihi <= tarih_bitis
-                ).order_by(MinibarIslem.islem_tarihi).all()
+            # İşlemleri personel_id'ye göre grupla
+            islem_by_personel = {}
+            for islem in islemler:
+                islem_by_personel.setdefault(islem.personel_id, []).append(islem)
+            
+            for personel_id in personel_id_list:
+                personel = personel_map[personel_id]
+                personel_islemler = islem_by_personel.get(personel_id, [])
                 
-                # Ürün bazlı özet - oda detayları ile
                 urun_ozeti = {}
                 
-                for islem in islemler:
-                    oda = Oda.query.get(islem.oda_id)
-                    oda_no = oda.oda_no if oda else 'Bilinmiyor'
+                for islem in personel_islemler:
+                    oda_no = islem.oda.oda_no if islem.oda else 'Bilinmiyor'
                     saat = islem.islem_tarihi.strftime('%H:%M')
                     
                     for detay in islem.detaylar:
-                        # Sadece eklenen (minibara tamamlanan) ürünleri al
                         if detay.eklenen_miktar and detay.eklenen_miktar > 0:
-                            urun = Urun.query.get(detay.urun_id)
-                            urun_adi = urun.urun_adi if urun else 'Bilinmiyor'
+                            urun_adi = detay.urun.urun_adi if detay.urun else 'Bilinmiyor'
                             urun_id = detay.urun_id
                             
                             if urun_id not in urun_ozeti:
@@ -232,7 +242,6 @@ class KatSorumlusuGunSonuRaporServisi:
                                 'saat': saat
                             })
                             
-                            # Genel toplama ekle
                             if urun_id not in genel_urun_toplam:
                                 genel_urun_toplam[urun_id] = {
                                     'urun_adi': urun_adi,
@@ -240,13 +249,12 @@ class KatSorumlusuGunSonuRaporServisi:
                                 }
                             genel_urun_toplam[urun_id]['toplam_eklenen'] += detay.eklenen_miktar
                 
-                # Ürün özetini listeye çevir ve sırala
                 urun_listesi = list(urun_ozeti.values())
                 urun_listesi.sort(key=lambda x: x['toplam_eklenen'], reverse=True)
                 
                 personel_toplam = sum(u['toplam_eklenen'] for u in urun_listesi)
                 
-                if urun_listesi:  # Sadece işlem yapan personelleri ekle
+                if urun_listesi:
                     personel_raporlari.append({
                         'personel_id': personel.id,
                         'personel_adi': f"{personel.ad} {personel.soyad}",
@@ -255,11 +263,10 @@ class KatSorumlusuGunSonuRaporServisi:
                         'urunler': urun_listesi
                     })
             
-            # Genel toplamı listeye çevir ve sırala
             genel_toplam_listesi = list(genel_urun_toplam.values())
             genel_toplam_listesi.sort(key=lambda x: x['toplam_eklenen'], reverse=True)
             
-            return {
+            result = {
                 'success': True,
                 'otel_id': otel_id,
                 'otel_adi': otel.ad,
@@ -271,10 +278,16 @@ class KatSorumlusuGunSonuRaporServisi:
                 'genel_toplam_adet': sum(u['toplam_eklenen'] for u in genel_toplam_listesi)
             }
             
+            # Cache'e kaydet (5 dakika TTL)
+            RaporCacheService.set_gun_sonu_raporu(
+                otel_id, result, personel_ids, baslangic_tarihi, bitis_tarihi
+            )
+            
+            return result
+            
         except Exception as e:
             logger.error(f"Gün sonu raporu hatası: {e}")
             return {'success': False, 'message': str(e)}
-
 
 class KatSorumlusuKullanimRaporServisi:
     """Kat sorumlusu zimmet kullanım raporları"""

@@ -22,6 +22,7 @@ from datetime import datetime, timedelta, timezone
 from io import BytesIO
 import json
 import logging
+import time as _time
 import pytz
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment
@@ -48,6 +49,12 @@ except ImportError:
 # Cache + Eager Loading servisleri (1.1.2026)
 from utils.dashboard_data_service import DashboardDataService
 from utils.master_data_service import MasterDataService
+
+# ── In-process TTL cache for expensive stok queries ──────────────────
+# SQLAlchemy model nesneleri Redis'e serialize edilemez; bu yüzden
+# process-içi basit bir dict cache kullanıyoruz.  TTL = 120 saniye.
+_stok_cache: dict = {'data': None, 'ts': 0.0}
+_STOK_CACHE_TTL = 120  # saniye
 
 
 def register_dashboard_routes(app):
@@ -118,24 +125,39 @@ def register_dashboard_routes(app):
             urun_labels = tuketim['urun_labels']
             urun_tuketim_miktarlari = tuketim['urun_tuketim_miktarlari']
         
-            kritik_urunler = get_kritik_stok_urunler()
-        
-            # Gelişmiş stok durumları
-            try:
-                stok_durumlari = get_tum_urunler_stok_durumlari()
-            except Exception as e:
-                print(f"Stok durumları hatası: {str(e)}")
-                stok_durumlari = {
-                    'kritik': [],
-                    'dikkat': [],
-                    'normal': [],
-                    'istatistik': {
-                        'toplam': 0,
-                        'kritik_sayi': 0,
-                        'dikkat_sayi': 0,
-                        'normal_sayi': 0
+            # ── Stok verileri (in-process TTL cache, 120s) ──────────────
+            now = _time.monotonic()
+            if _stok_cache['data'] is not None and (now - _stok_cache['ts']) < _STOK_CACHE_TTL:
+                kritik_urunler = _stok_cache['data']['kritik_urunler']
+                stok_durumlari = _stok_cache['data']['stok_durumlari']
+            else:
+                try:
+                    kritik_urunler = get_kritik_stok_urunler()
+                except Exception as e:
+                    logger.warning(f"Kritik stok hatası: {e}")
+                    kritik_urunler = []
+
+                try:
+                    stok_durumlari = get_tum_urunler_stok_durumlari()
+                except Exception as e:
+                    print(f"Stok durumları hatası: {str(e)}")
+                    stok_durumlari = {
+                        'kritik': [],
+                        'dikkat': [],
+                        'normal': [],
+                        'istatistik': {
+                            'toplam': 0,
+                            'kritik_sayi': 0,
+                            'dikkat_sayi': 0,
+                            'normal_sayi': 0
+                        }
                     }
+
+                _stok_cache['data'] = {
+                    'kritik_urunler': kritik_urunler,
+                    'stok_durumlari': stok_durumlari,
                 }
+                _stok_cache['ts'] = now
         
             # Dashboard bildirimleri
             dashboard_bildirimleri = []
@@ -233,9 +255,29 @@ def register_dashboard_routes(app):
     @login_required
     @role_required('depo_sorumlusu')
     def depo_dashboard():
-        """Depo sorumlusu dashboard"""
+        """Depo sorumlusu dashboard — cached (60s TTL)"""
         from utils.occupancy_service import OccupancyService
         from utils.authorization import get_kullanici_otelleri
+        from utils.depo_cache_service import DepoCacheService
+        
+        # Cache kontrolü — SQLAlchemy objeleri cache'e konmaz (serialize edilemez)
+        kullanici_id = session.get('kullanici_id')
+        cached = DepoCacheService.get_stok_bilgileri(f"dashboard:{kullanici_id}")
+        if cached:
+            # SQLAlchemy objeleri gerektiren alanları yeniden sorgula
+            try:
+                kritik_urunler = get_kritik_stok_urunler()
+            except Exception:
+                kritik_urunler = []
+            try:
+                stok_durumlari = get_tum_urunler_stok_durumlari()
+            except Exception:
+                stok_durumlari = {'kritik': [], 'dikkat': [], 'normal': [], 'istatistik': {'toplam': 0, 'kritik_sayi': 0, 'dikkat_sayi': 0, 'normal_sayi': 0}}
+            son_hareketler = StokHareket.query.order_by(StokHareket.islem_tarihi.desc()).limit(10).all()
+            cached['kritik_urunler'] = kritik_urunler
+            cached['stok_durumlari'] = stok_durumlari
+            cached['son_hareketler'] = son_hareketler
+            return render_template('depo_sorumlusu/dashboard.html', **cached)
         
         # Depo sorumlusunun atandığı otelleri al
         atanan_oteller = get_kullanici_otelleri()
@@ -562,28 +604,38 @@ def register_dashboard_routes(app):
         except Exception as e:
             print(f"Oda kontrol özeti hatası: {str(e)}")
         
-        return render_template('depo_sorumlusu/dashboard.html',
-                             otel_doluluk_bilgileri=otel_doluluk_bilgileri,
-                             toplam_urun=toplam_urun,
-                             kritik_urunler=kritik_urunler,
-                             stok_durumlari=stok_durumlari,
-                             aktif_zimmetler=aktif_zimmetler,
-                             toplam_iade_edilen=toplam_iade_edilen,
-                             bu_ay_iadeler=bu_ay_iadeler,
-                             iptal_zimmetler=iptal_zimmetler,
-                             son_hareketler=son_hareketler,
-                             grup_labels=grup_labels,
-                             grup_stok_miktarlari=grup_stok_miktarlari,
-                             gun_labels=gun_labels,
-                             giris_verileri=giris_verileri,
-                             cikis_verileri=cikis_verileri,
-                             urun_labels=urun_labels,
-                             urun_tuketim_miktarlari=urun_tuketim_miktarlari,
-                             dashboard_bildirimleri=dashboard_bildirimleri,
-                             bildirim_sayilari=bildirim_sayilari,
-                             yukleme_gorev_ozeti=yukleme_gorev_ozeti,
-                             oda_kontrol_ozeti=oda_kontrol_ozeti,
-                             oda_kontrol_ozeti_otel_bazli=oda_kontrol_ozeti_otel_bazli)
+        # Template verilerini topla ve cache'le
+        # NOT: SQLAlchemy objeleri (son_hareketler, kritik_urunler, stok_durumlari)
+        # Redis'e serialize edilemez — cache'e sadece serializable verileri koy
+        depo_data = {
+            'otel_doluluk_bilgileri': otel_doluluk_bilgileri,
+            'toplam_urun': toplam_urun,
+            'kritik_urunler': kritik_urunler,
+            'stok_durumlari': stok_durumlari,
+            'aktif_zimmetler': aktif_zimmetler,
+            'toplam_iade_edilen': toplam_iade_edilen,
+            'bu_ay_iadeler': bu_ay_iadeler,
+            'iptal_zimmetler': iptal_zimmetler,
+            'son_hareketler': son_hareketler,
+            'grup_labels': grup_labels,
+            'grup_stok_miktarlari': grup_stok_miktarlari,
+            'gun_labels': gun_labels,
+            'giris_verileri': giris_verileri,
+            'cikis_verileri': cikis_verileri,
+            'urun_labels': urun_labels,
+            'urun_tuketim_miktarlari': urun_tuketim_miktarlari,
+            'dashboard_bildirimleri': dashboard_bildirimleri,
+            'bildirim_sayilari': bildirim_sayilari,
+            'yukleme_gorev_ozeti': yukleme_gorev_ozeti,
+            'oda_kontrol_ozeti': oda_kontrol_ozeti,
+            'oda_kontrol_ozeti_otel_bazli': oda_kontrol_ozeti_otel_bazli
+        }
+        # Cache'e SQLAlchemy objeleri hariç kaydet
+        cache_safe_data = {k: v for k, v in depo_data.items()
+                          if k not in ('son_hareketler', 'kritik_urunler', 'stok_durumlari')}
+        DepoCacheService.set_stok_bilgileri(f"dashboard:{kullanici_id}", cache_safe_data)
+        
+        return render_template('depo_sorumlusu/dashboard.html', **depo_data)
 
     
     @app.route('/kat-sorumlusu')
@@ -595,8 +647,14 @@ def register_dashboard_routes(app):
         from utils.occupancy_service import OccupancyService
         from utils.authorization import get_kullanici_otelleri
         from datetime import date
+        from utils.kat_sorumlusu_cache_service import KatSorumlusuCacheService
         
         kullanici_id = session['kullanici_id']
+        
+        # Cache kontrolü
+        cached = KatSorumlusuCacheService.get_dashboard(kullanici_id)
+        if cached:
+            return render_template('kat_sorumlusu/dashboard.html', **cached)
         
         # Kullanıcının otelini al
         kullanici_otelleri = get_kullanici_otelleri()
@@ -730,25 +788,32 @@ def register_dashboard_routes(app):
         islem_yeniden_dolum = islem_tipi_counts.get('yeniden_dolum', 0)
         islem_eksik_tamamlama = islem_tipi_counts.get('eksik_tamamlama', 0)
         
-        return render_template('kat_sorumlusu/dashboard.html',
-                             gorev_ozeti=gorev_ozeti,
-                             doluluk_raporu=doluluk_raporu,
-                             aktif_zimmetler=aktif_zimmetler,
-                             zimmet_toplam=zimmet_detaylari,
-                             kritik_stok_sayisi=kritik_stok_sayisi,
-                             stokout_sayisi=stokout_sayisi,
-                             bugunun_kullanimi=int(bugunun_kullanimi),
-                             son_islemler=son_islemler,
-                             en_cok_urun_labels=en_cok_urun_labels,
-                             en_cok_urun_miktarlar=en_cok_urun_miktarlar,
-                             zimmet_urun_labels=zimmet_urun_labels,
-                             zimmet_kullanilan=zimmet_kullanilan,
-                             zimmet_kalan=zimmet_kalan,
-                             gunluk_tuketim=gunluk_tuketim,
-                             gunluk_labels=gunluk_labels,
-                             islem_ilk_dolum=islem_ilk_dolum,
-                             islem_yeniden_dolum=islem_yeniden_dolum,
-                             islem_eksik_tamamlama=islem_eksik_tamamlama)
+        # Template verilerini topla
+        data = {
+            'gorev_ozeti': gorev_ozeti,
+            'doluluk_raporu': doluluk_raporu,
+            'aktif_zimmetler': aktif_zimmetler,
+            'zimmet_toplam': zimmet_detaylari,
+            'kritik_stok_sayisi': kritik_stok_sayisi,
+            'stokout_sayisi': stokout_sayisi,
+            'bugunun_kullanimi': int(bugunun_kullanimi),
+            'son_islemler': son_islemler,
+            'en_cok_urun_labels': en_cok_urun_labels,
+            'en_cok_urun_miktarlar': en_cok_urun_miktarlar,
+            'zimmet_urun_labels': zimmet_urun_labels,
+            'zimmet_kullanilan': zimmet_kullanilan,
+            'zimmet_kalan': zimmet_kalan,
+            'gunluk_tuketim': gunluk_tuketim,
+            'gunluk_labels': gunluk_labels,
+            'islem_ilk_dolum': islem_ilk_dolum,
+            'islem_yeniden_dolum': islem_yeniden_dolum,
+            'islem_eksik_tamamlama': islem_eksik_tamamlama
+        }
+        
+        # Cache'e kaydet
+        KatSorumlusuCacheService.set_dashboard(data, kullanici_id)
+        
+        return render_template('kat_sorumlusu/dashboard.html', **data)
 
     # ========================================================================
     # API: DASHBOARD WIDGET'LARI

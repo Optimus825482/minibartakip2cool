@@ -67,10 +67,10 @@ def register_system_monitor_routes(app):
     @login_required
     @role_required('superadmin')
     def api_system_overview():
-        """Genel sistem durumu — gauge'lar için"""
+        """Genel sistem durumu — gauge'lar için (optimized: non-blocking CPU)"""
         try:
-            # CPU & Memory (container-aware)
-            cpu_percent = psutil.cpu_percent(interval=0.5)
+            # CPU & Memory (container-aware) — interval=0 non-blocking
+            cpu_percent = psutil.cpu_percent(interval=0)
             mem = psutil.virtual_memory()
 
             # Disk
@@ -145,8 +145,14 @@ def register_system_monitor_routes(app):
     @login_required
     @role_required('superadmin')
     def api_system_db_stats():
-        """Database detaylı istatistikleri"""
+        """Database detaylı istatistikleri — cached (60s TTL)"""
         try:
+            from utils.cache_helper import cache_get, cache_set
+            
+            cached = cache_get('system_monitor:db_stats')
+            if cached:
+                return jsonify({'success': True, 'data': cached})
+            
             stats = {
                 'connections': _get_db_connection_stats(),
                 'cache_hit': _get_cache_hit_ratio(),
@@ -154,6 +160,8 @@ def register_system_monitor_routes(app):
                 'table_sizes': _get_top_tables(),
                 'active_queries': _get_active_queries()
             }
+            
+            cache_set('system_monitor:db_stats', stats, 60)
             return jsonify({'success': True, 'data': stats})
         except Exception as e:
             db.session.rollback()

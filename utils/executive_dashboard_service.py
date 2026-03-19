@@ -6,6 +6,7 @@ Executive Dashboard Data Service
 from datetime import datetime, timedelta, date
 from sqlalchemy import func, desc, cast, Date, extract, case, and_, or_, text
 from sqlalchemy.orm import joinedload
+from sqlalchemy.sql import text as sql_text
 from models import (
     db, Kullanici, Otel, Oda, Urun, UrunGrup, Kat,
     MinibarIslem, MinibarIslemDetay, StokHareket,
@@ -60,7 +61,7 @@ class ExecutiveDashboardService:
     """Executive Dashboard veri servisi"""
 
     @staticmethod
-    def get_kpi_summary(period='today'):
+    def get_kpi_summary(period='today', use_cache=True):
         """Ana KPI kartları için özet veriler - OPTIMIZED: 7 query → 3 query"""
         try:
             from utils.cache_manager import cache_manager
@@ -139,8 +140,10 @@ class ExecutiveDashboardService:
                 'bugun_islem': toplam_islem
             }
 
-            if cache_manager.enabled:
-                cache_manager.set(cache_key, result, 90)
+            # Cache'e kaydet
+            if use_cache:
+                from utils.executive_cache_service import ExecutiveCacheService
+                ExecutiveCacheService.set_kpi_summary(result, period)
 
             return result
         except Exception as e:
@@ -214,14 +217,22 @@ class ExecutiveDashboardService:
             return []
 
     @staticmethod
-    def get_hotel_comparison(period='today'):
+    def get_hotel_comparison(period='today', use_cache=True):
         """
         Otel bazlı karşılaştırma verileri
         
         Optimizasyon:
         - 4 ayrı query yerine tek query ile tüm metrikler alınır
         - Görev query'si optimize edildi (distinct yerine subquery)
+        - Redis cache ile 60 saniye TTL
         """
+        # Cache kontrolü
+        if use_cache:
+            from utils.executive_cache_service import ExecutiveCacheService
+            cached = ExecutiveCacheService.get_hotel_comparison(period)
+            if cached:
+                return cached
+        
         try:
             start_date, end_date = get_date_range(period)
             oteller = Otel.query.filter_by(aktif=True).order_by(Otel.id).all()
@@ -229,7 +240,7 @@ class ExecutiveDashboardService:
             excluded = get_excluded_user_ids()
 
             # Tek query ile tüm metrikleri al
-            metrics = db.session.execute(text("""
+            metrics = db.session.execute(sql_text("""
                 WITH otel_metrics AS (
                     SELECT 
                         k.otel_id,
@@ -298,6 +309,11 @@ class ExecutiveDashboardService:
                     'gorev_tamamlanan': tamamlanan_g,
                     'gorev_oran': round((tamamlanan_g / toplam_g * 100) if toplam_g > 0 else 0)
                 })
+
+            # Cache'e kaydet
+            if use_cache:
+                from utils.executive_cache_service import ExecutiveCacheService
+                ExecutiveCacheService.set_hotel_comparison(hotel_data, period)
 
             return hotel_data
         except Exception as e:
@@ -444,7 +460,6 @@ class ExecutiveDashboardService:
             return {'labels': [], 'values': []}
 
     @staticmethod
-    @staticmethod
     def get_recent_activity(limit=50):
         """
         Son aktiviteler (real-time feed - executive dashboard, superadmin dahil)
@@ -455,6 +470,10 @@ class ExecutiveDashboardService:
         """
         try:
             from sqlalchemy.orm import joinedload
+            from utils.executive_cache_service import ExecutiveCacheService
+            cached = ExecutiveCacheService.get_activity_feed(limit)
+            if cached is not None:
+                return cached
             
             # AuditLog'dan son N kayıt + kullanıcı bilgisi (tek query)
             activities = AuditLog.query.options(
@@ -477,12 +496,12 @@ class ExecutiveDashboardService:
                     'tablo': a.tablo_adi or ''
                 })
 
+            ExecutiveCacheService.set_activity_feed(result, limit)
             return result
         except Exception as e:
             logger.error(f"Recent activity hatası: {e}")
             return []
 
-    @staticmethod
     @staticmethod
     def get_task_completion_by_hotel(period='today'):
         """
@@ -493,18 +512,23 @@ class ExecutiveDashboardService:
         - Tek query ile tüm otel görev istatistikleri alınır
         """
         try:
+            from utils.executive_cache_service import ExecutiveCacheService
+            cached = ExecutiveCacheService.get_task_completion(period)
+            if cached is not None:
+                return cached
+
             start_date, end_date = get_date_range(period)
             oteller = Otel.query.filter_by(aktif=True).order_by(Otel.id).all()
             otel_ids = [o.id for o in oteller]
 
             # Tek query ile tüm otel görev istatistiklerini al
-            stats = db.session.execute(text("""
+            stats = db.session.execute(sql_text("""
                 SELECT 
                     gg.otel_id,
                     COUNT(DISTINCT gg.id) as toplam,
                     COUNT(DISTINCT CASE WHEN gg.durum = 'COMPLETED' THEN gg.id END) as tamamlanan
                 FROM gunluk_gorevler gg
-                INNER JOIN gorev_detay gd ON gd.gorev_id = gg.id
+                INNER JOIN gorev_detaylari gd ON gd.gorev_id = gg.id
                 WHERE gg.otel_id = ANY(:otel_ids)
                   AND gg.gorev_tarihi >= :start_date
                   AND gg.gorev_tarihi <= :end_date
@@ -532,6 +556,7 @@ class ExecutiveDashboardService:
                     'oran': oran
                 })
 
+            ExecutiveCacheService.set_task_completion(data, period)
             return data
         except Exception as e:
             logger.error(f"Task completion by hotel hatası: {e}")

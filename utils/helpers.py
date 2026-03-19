@@ -1596,6 +1596,11 @@ def kaydet_siparis_talebi(personel_id, siparis_listesi, aciklama=None):
         
         db.session.commit()
         
+        # Cache invalidation - zimmet değişti
+        from utils.kat_sorumlusu_cache_service import KatSorumlusuCacheService
+        KatSorumlusuCacheService.invalidate_kullanici(personel_id)
+        KatSorumlusuCacheService.invalidate_zimmet(personel_id)
+        
         # Audit log
         audit_create(
             tablo_adi='kat_sorumlusu_siparis_talepleri',

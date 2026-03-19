@@ -13,7 +13,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def get_zimmetler_optimized(durum=None, personel_id=None, limit=None):
+def get_zimmetler_optimized(durum=None, personel_id=None, limit=None, offset=None):
     """
     Zimmet kayıtlarını N+1 problemi olmadan getir
     
@@ -21,6 +21,7 @@ def get_zimmetler_optimized(durum=None, personel_id=None, limit=None):
         durum: Zimmet durumu ('aktif', 'iade_edildi', 'iptal')
         personel_id: Personel ID filtresi
         limit: Kayıt limiti
+        offset: Pagination offset
     
     Returns:
         List[PersonelZimmet]: Optimize edilmiş zimmet listesi
@@ -31,8 +32,8 @@ def get_zimmetler_optimized(durum=None, personel_id=None, limit=None):
             joinedload(PersonelZimmet.personel),
             # Teslim eden bilgisini eager load et
             joinedload(PersonelZimmet.teslim_eden),
-            # Detayları ve ürünleri eager load et
-            selectinload(PersonelZimmet.detaylar).joinedload(PersonelZimmetDetay.urun).joinedload(Urun.grup)
+            # Detayları ve ürünleri eager load et - subqueryload büyük result set'lerde daha performanslı
+            subqueryload(PersonelZimmet.detaylar).joinedload(PersonelZimmetDetay.urun).joinedload(Urun.grup)
         )
         
         if durum:
@@ -46,6 +47,9 @@ def get_zimmetler_optimized(durum=None, personel_id=None, limit=None):
         if limit:
             query = query.limit(limit)
         
+        if offset:
+            query = query.offset(offset)
+        
         return query.all()
         
     except Exception as e:
@@ -53,7 +57,7 @@ def get_zimmetler_optimized(durum=None, personel_id=None, limit=None):
         return []
 
 
-def get_minibar_islemler_optimized(oda_id=None, personel_id=None, islem_tipi=None, limit=None):
+def get_minibar_islemler_optimized(oda_id=None, personel_id=None, islem_tipi=None, limit=None, offset=None):
     """
     Minibar işlemlerini N+1 problemi olmadan getir
     
@@ -62,6 +66,7 @@ def get_minibar_islemler_optimized(oda_id=None, personel_id=None, islem_tipi=Non
         personel_id: Personel ID filtresi
         islem_tipi: İşlem tipi filtresi
         limit: Kayıt limiti
+        offset: Pagination offset
     
     Returns:
         List[MinibarIslem]: Optimize edilmiş minibar işlem listesi
@@ -72,8 +77,8 @@ def get_minibar_islemler_optimized(oda_id=None, personel_id=None, islem_tipi=Non
             joinedload(MinibarIslem.oda).joinedload(Oda.kat),
             # Personel bilgisini eager load et
             joinedload(MinibarIslem.personel),
-            # Detayları ve ürünleri eager load et
-            selectinload(MinibarIslem.detaylar).joinedload(MinibarIslemDetay.urun).joinedload(Urun.grup)
+            # Detayları ve ürünleri eager load et - subqueryload büyük result set'lerde daha performanslı
+            subqueryload(MinibarIslem.detaylar).joinedload(MinibarIslemDetay.urun).joinedload(Urun.grup)
         )
         
         if oda_id:
@@ -89,6 +94,9 @@ def get_minibar_islemler_optimized(oda_id=None, personel_id=None, islem_tipi=Non
         
         if limit:
             query = query.limit(limit)
+        
+        if offset:
+            query = query.offset(offset)
         
         return query.all()
         
@@ -310,7 +318,7 @@ def get_minibar_durumlari_optimized(kat_id=None, oda_id=None):
             son_islem = MinibarIslem.query.options(
                 joinedload(MinibarIslem.oda).joinedload(Oda.kat),
                 joinedload(MinibarIslem.personel),
-                selectinload(MinibarIslem.detaylar).joinedload(MinibarIslemDetay.urun).joinedload(Urun.grup)
+                subqueryload(MinibarIslem.detaylar).joinedload(MinibarIslemDetay.urun).joinedload(Urun.grup)
             ).filter_by(
                 oda_id=oda_id
             ).order_by(
@@ -320,7 +328,7 @@ def get_minibar_durumlari_optimized(kat_id=None, oda_id=None):
             if son_islem:
                 # Tüm işlemleri getir (eager loading ile)
                 tum_islemler = MinibarIslem.query.options(
-                    selectinload(MinibarIslem.detaylar).joinedload(MinibarIslemDetay.urun)
+                    subqueryload(MinibarIslem.detaylar).joinedload(MinibarIslemDetay.urun)
                 ).filter_by(
                     oda_id=oda_id
                 ).order_by(
@@ -394,4 +402,70 @@ def get_minibar_durumlari_optimized(kat_id=None, oda_id=None):
             'katlar': [],
             'odalar': [],
             'minibar_bilgisi': None
+        }
+
+
+def get_minibar_islemler_paginated(personel_id=None, page=1, per_page=50):
+    """
+    Paginated minibar işlemler with N+1 fix
+    
+    Args:
+        personel_id: Personel ID filtresi
+        page: Sayfa numarası (1-indexed)
+        per_page: Sayfa başına kayıt sayısı (default: 50)
+    
+    Returns:
+        dict: {
+            'items': List[MinibarIslem],
+            'total': int,
+            'page': int,
+            'per_page': int,
+            'total_pages': int,
+            'has_next': bool,
+            'has_prev': bool
+        }
+    """
+    try:
+        # Base query with optimized eager loading
+        query = MinibarIslem.query.options(
+            joinedload(MinibarIslem.oda).joinedload(Oda.kat),
+            joinedload(MinibarIslem.personel),
+            subqueryload(MinibarIslem.detaylar).joinedload(MinibarIslemDetay.urun).joinedload(Urun.grup)
+        )
+        
+        if personel_id:
+            query = query.filter_by(personel_id=personel_id)
+        
+        query = query.order_by(MinibarIslem.islem_tarihi.desc())
+        
+        # Get total count
+        total = query.count()
+        
+        # Calculate pagination
+        offset = (page - 1) * per_page
+        total_pages = (total + per_page - 1) // per_page
+        
+        # Get paginated items
+        items = query.limit(per_page).offset(offset).all()
+        
+        return {
+            'items': items,
+            'total': total,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': total_pages,
+            'has_next': page < total_pages,
+            'has_prev': page > 1
+        }
+        
+    except Exception as e:
+        logger.error(f"Paginated minibar işlem query hatası: {e}")
+        return {
+            'items': [],
+            'total': 0,
+            'page': page,
+            'per_page': per_page,
+            'total_pages': 0,
+            'has_next': False,
+            'has_prev': False
         }
