@@ -867,8 +867,12 @@ def register_dashboard_routes(app):
             MinibarIslem.islem_tarihi >= bugun_baslangic
         ).scalar() or 0
         
-        # Son minibar işlemleri
-        son_islemler = MinibarIslem.query.filter_by(
+        # Son minibar işlemleri (eager loading ile N+1 önleme)
+        from sqlalchemy.orm import joinedload
+        son_islemler = MinibarIslem.query.options(
+            joinedload(MinibarIslem.oda),
+            joinedload(MinibarIslem.detaylar).joinedload(MinibarIslemDetay.urun)
+        ).filter_by(
             personel_id=kullanici_id
         ).order_by(MinibarIslem.islem_tarihi.desc()).limit(10).all()
         

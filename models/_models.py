@@ -463,6 +463,8 @@ class MinibarIslem(db.Model):
     
     # İlişkiler
     detaylar = db.relationship('MinibarIslemDetay', backref='islem', lazy=True, cascade='all, delete-orphan')
+    oda = db.relationship('Oda', backref='minibar_islemleri', lazy=True)
+    personel = db.relationship('Kullanici', backref='minibar_islemleri', lazy=True)
     
     def __repr__(self):
         return f'<MinibarIslem #{self.id} - {self.islem_tipi}>'
@@ -496,6 +498,7 @@ class MinibarIslemDetay(db.Model):
     bedelsiz = db.Column(db.Boolean, default=False)
     
     # İlişkiler
+    urun = db.relationship('Urun', backref='minibar_islem_detaylari', lazy=True)
     zimmet_detay = db.relationship('PersonelZimmetDetay', foreign_keys=[zimmet_detay_id])
     
     def __repr__(self):

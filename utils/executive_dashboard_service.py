@@ -73,25 +73,7 @@ class ExecutiveDashboardService:
             start_date, end_date = get_date_range(period)
             excluded = get_excluded_user_ids()
 
-            # QUERY 1: Master data counts in single query (rarely change, could be cached longer)
-            master_counts = db.session.query(
-                func.count(func.distinct(case(
-                    (and_(Otel.aktif == True), Otel.id), else_=None
-                ))).label('otel'),
-                func.count(func.distinct(case(
-                    (and_(Oda.aktif == True), Oda.id), else_=None
-                ))).label('oda'),
-                func.count(func.distinct(case(
-                    (and_(Urun.aktif == True), Urun.id), else_=None
-                ))).label('urun'),
-                func.count(func.distinct(case(
-                    (and_(Kullanici.aktif == True), Kullanici.id), else_=None
-                ))).label('kullanici')
-            ).select_from(Otel).outerjoin(
-                Oda, Oda.id == Oda.id  # dummy join, we just need counts
-            ).first()
-
-            # Fallback to individual counts if combined query fails
+            # QUERY 1: Master data counts — basit ayrı count'lar (combined query unreliable)
             toplam_otel = Otel.query.filter_by(aktif=True).count()
             toplam_oda = Oda.query.filter_by(aktif=True).count()
             toplam_urun = Urun.query.filter_by(aktif=True).count()
@@ -125,12 +107,12 @@ class ExecutiveDashboardService:
             aktif_kullanici = audit_stats.aktif_kullanici if audit_stats else 0
             toplam_islem = audit_stats.toplam_islem if audit_stats else 0
 
-            # QUERY 3: Görev tamamlanma - subquery → JOIN optimization
+            # QUERY 3: Görev tamamlanma — TEK sorgu ile toplam ve tamamlanan
             gorev_stats = db.session.query(
-                func.count(GunlukGorev.id).label('toplam'),
-                func.count(case(
+                func.count(func.distinct(GunlukGorev.id)).label('toplam'),
+                func.count(func.distinct(case(
                     (GunlukGorev.durum == GorevDurum.COMPLETED, GunlukGorev.id), else_=None
-                )).label('tamamlanan')
+                ))).label('tamamlanan')
             ).join(
                 GorevDetay, GorevDetay.gorev_id == GunlukGorev.id
             ).filter(
@@ -139,30 +121,8 @@ class ExecutiveDashboardService:
                 GorevDetay.misafir_kayit_id.isnot(None)
             ).first()
 
-            # Distinct gorev count (bir görevin birden fazla detayı olabilir)
-            toplam_gorev_q = db.session.query(
-                func.count(func.distinct(GunlukGorev.id))
-            ).join(
-                GorevDetay, GorevDetay.gorev_id == GunlukGorev.id
-            ).filter(
-                GunlukGorev.gorev_tarihi >= start_date.date(),
-                GunlukGorev.gorev_tarihi <= end_date.date(),
-                GorevDetay.misafir_kayit_id.isnot(None)
-            ).scalar() or 0
-
-            tamamlanan_gorev_q = db.session.query(
-                func.count(func.distinct(GunlukGorev.id))
-            ).join(
-                GorevDetay, GorevDetay.gorev_id == GunlukGorev.id
-            ).filter(
-                GunlukGorev.gorev_tarihi >= start_date.date(),
-                GunlukGorev.gorev_tarihi <= end_date.date(),
-                GorevDetay.misafir_kayit_id.isnot(None),
-                GunlukGorev.durum == GorevDurum.COMPLETED
-            ).scalar() or 0
-
-            toplam_gorev = toplam_gorev_q
-            tamamlanan_gorev = tamamlanan_gorev_q
+            toplam_gorev = gorev_stats.toplam if gorev_stats else 0
+            tamamlanan_gorev = gorev_stats.tamamlanan if gorev_stats else 0
             gorev_oran = round((tamamlanan_gorev / toplam_gorev * 100) if toplam_gorev > 0 else 0)
 
             result = {

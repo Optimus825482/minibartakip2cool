@@ -437,8 +437,8 @@ def after_cursor_execute(conn, cursor, statement, parameters, context, executema
     try:
         total_time = time.time() - conn.info['query_start_time'].pop(-1)
         
-        # Sadece yavaş query'leri logla (>500ms) - threshold yükseltildi
-        if total_time > 0.5:
+        # Sadece çok yavaş query'leri logla (>2s) - production overhead azaltma
+        if total_time > 2.0:
             endpoint = None
             user_id = None
             
