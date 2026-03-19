@@ -211,17 +211,46 @@ def _get_cache_hit_ratio():
 
 
 def _get_db_size():
+    """
+    Veritabanı boyutunu döndür.
+    pg_database_size yavaş olduğu için cache'lenir (5 dakika TTL).
+    """
     try:
-        return db.session.execute(
+        from utils.cache_manager import cache_manager
+        
+        # Cache'den dene
+        cached = cache_manager.get('system_db_size')
+        if cached:
+            return cached
+        
+        # Cache miss - query çalıştır
+        result = db.session.execute(
             text("SELECT pg_size_pretty(pg_database_size(current_database()))")
         ).scalar() or 'N/A'
+        
+        # 5 dakika cache'le
+        cache_manager.set('system_db_size', result, timeout=300)
+        
+        return result
     except Exception:
         db.session.rollback()
         return 'N/A'
 
 
 def _get_top_tables():
+    """
+    En büyük tabloları döndür.
+    pg_total_relation_size çok yavaş olduğu için cache'lenir (5 dakika TTL).
+    """
     try:
+        from utils.cache_manager import cache_manager
+        
+        # Cache'den dene
+        cached = cache_manager.get('system_top_tables')
+        if cached:
+            return cached
+        
+        # Cache miss - query çalıştır
         rows = db.session.execute(text("""
             SELECT tablename,
                    pg_size_pretty(pg_total_relation_size('public.'||tablename)) as size,
@@ -229,7 +258,13 @@ def _get_top_tables():
             FROM pg_tables WHERE schemaname='public'
             ORDER BY pg_total_relation_size('public.'||tablename) DESC LIMIT 10
         """)).fetchall()
-        return [{'table': r[0], 'size': r[1], 'bytes': r[2]} for r in rows]
+        
+        result = [{'table': r[0], 'size': r[1], 'bytes': r[2]} for r in rows]
+        
+        # 5 dakika cache'le
+        cache_manager.set('system_top_tables', result, timeout=300)
+        
+        return result
     except Exception:
         db.session.rollback()
         return []

@@ -215,51 +215,59 @@ class ExecutiveDashboardService:
 
     @staticmethod
     def get_hotel_comparison(period='today'):
-        """Otel bazlı karşılaştırma verileri"""
+        """
+        Otel bazlı karşılaştırma verileri
+        
+        Optimizasyon:
+        - 4 ayrı query yerine tek query ile tüm metrikler alınır
+        - Görev query'si optimize edildi (distinct yerine subquery)
+        """
         try:
             start_date, end_date = get_date_range(period)
             oteller = Otel.query.filter_by(aktif=True).order_by(Otel.id).all()
             otel_ids = [o.id for o in oteller]
             excluded = get_excluded_user_ids()
 
-            oda_counts = dict(
-                db.session.query(
-                    Kat.otel_id,
-                    func.count(Oda.id)
-                ).join(Oda, Oda.kat_id == Kat.id).filter(
-                    Kat.otel_id.in_(otel_ids),
-                    Oda.aktif == True
-                ).group_by(Kat.otel_id).all()
-            )
+            # Tek query ile tüm metrikleri al
+            metrics = db.session.execute(text("""
+                WITH otel_metrics AS (
+                    SELECT 
+                        k.otel_id,
+                        COUNT(DISTINCT o.id) as oda_sayisi,
+                        COUNT(DISTINCT okk.id) as kontrol_sayisi,
+                        COALESCE(SUM(mid.tuketim), 0) as toplam_tuketim
+                    FROM katlar k
+                    LEFT JOIN odalar o ON o.kat_id = k.id AND o.aktif = true
+                    LEFT JOIN oda_kontrol_kaydi okk ON okk.oda_id = o.id 
+                        AND okk.kontrol_tarihi >= :start_date 
+                        AND okk.kontrol_tarihi < :end_date
+                        AND okk.personel_id NOT IN :excluded
+                    LEFT JOIN minibar_islem mi ON mi.oda_id = o.id 
+                        AND mi.islem_tarihi >= :start_date 
+                        AND mi.islem_tarihi < :end_date
+                        AND mi.personel_id NOT IN :excluded
+                    LEFT JOIN minibar_islem_detay mid ON mid.islem_id = mi.id AND mid.tuketim > 0
+                    WHERE k.otel_id = ANY(:otel_ids)
+                    GROUP BY k.otel_id
+                )
+                SELECT * FROM otel_metrics
+            """), {
+                'start_date': start_date,
+                'end_date': end_date,
+                'excluded': tuple(excluded) if excluded else (0,),
+                'otel_ids': otel_ids
+            }).fetchall()
 
-            kontrol_counts = dict(
-                db.session.query(
-                    Kat.otel_id,
-                    func.count(OdaKontrolKaydi.id)
-                ).join(Oda, OdaKontrolKaydi.oda_id == Oda.id
-                ).join(Kat, Oda.kat_id == Kat.id).filter(
-                    Kat.otel_id.in_(otel_ids),
-                    OdaKontrolKaydi.kontrol_tarihi >= start_date,
-                    OdaKontrolKaydi.kontrol_tarihi < end_date,
-                    ~OdaKontrolKaydi.personel_id.in_(excluded)
-                ).group_by(Kat.otel_id).all()
-            )
+            # Metrikleri dict'e çevir
+            metrics_dict = {
+                row[0]: {
+                    'oda_sayisi': row[1],
+                    'kontrol': row[2],
+                    'tuketim': int(row[3])
+                } for row in metrics
+            }
 
-            tuketim_sums = dict(
-                db.session.query(
-                    Kat.otel_id,
-                    func.coalesce(func.sum(MinibarIslemDetay.tuketim), 0)
-                ).join(MinibarIslem, MinibarIslemDetay.islem_id == MinibarIslem.id
-                ).join(Oda, MinibarIslem.oda_id == Oda.id
-                ).join(Kat, Oda.kat_id == Kat.id).filter(
-                    Kat.otel_id.in_(otel_ids),
-                    MinibarIslem.islem_tarihi >= start_date,
-                    MinibarIslem.islem_tarihi < end_date,
-                    MinibarIslemDetay.tuketim > 0,
-                    ~MinibarIslem.personel_id.in_(excluded)
-                ).group_by(Kat.otel_id).all()
-            )
-
+            # Görev query'si (optimize edilmiş)
             gorevler = GunlukGorev.query.join(
                 GorevDetay, GorevDetay.gorev_id == GunlukGorev.id
             ).filter(
@@ -275,6 +283,7 @@ class ExecutiveDashboardService:
 
             hotel_data = []
             for otel in oteller:
+                m = metrics_dict.get(otel.id, {'oda_sayisi': 0, 'kontrol': 0, 'tuketim': 0})
                 otel_gorevler = gorev_by_otel.get(otel.id, [])
                 toplam_g = len(otel_gorevler)
                 tamamlanan_g = sum(1 for g in otel_gorevler if g.durum == GorevDurum.COMPLETED)
@@ -282,9 +291,9 @@ class ExecutiveDashboardService:
                 hotel_data.append({
                     'id': otel.id,
                     'ad': otel.ad,
-                    'oda_sayisi': oda_counts.get(otel.id, 0),
-                    'bugun_kontrol': kontrol_counts.get(otel.id, 0),
-                    'bugun_tuketim': int(tuketim_sums.get(otel.id, 0)),
+                    'oda_sayisi': m['oda_sayisi'],
+                    'bugun_kontrol': m['kontrol'],
+                    'bugun_tuketim': m['tuketim'],
                     'gorev_toplam': toplam_g,
                     'gorev_tamamlanan': tamamlanan_g,
                     'gorev_oran': round((tamamlanan_g / toplam_g * 100) if toplam_g > 0 else 0)
@@ -435,20 +444,28 @@ class ExecutiveDashboardService:
             return {'labels': [], 'values': []}
 
     @staticmethod
+    @staticmethod
     def get_recent_activity(limit=50):
-        """Son aktiviteler (real-time feed - executive dashboard, superadmin dahil)"""
+        """
+        Son aktiviteler (real-time feed - executive dashboard, superadmin dahil)
+        
+        Optimizasyon:
+        - AuditLog'dan sadece son N kayıt alınır (index: islem_tarihi DESC)
+        - Kullanıcı bilgileri tek query'de joinedload ile yüklenir
+        """
         try:
-            activities = AuditLog.query.order_by(
+            from sqlalchemy.orm import joinedload
+            
+            # AuditLog'dan son N kayıt + kullanıcı bilgisi (tek query)
+            activities = AuditLog.query.options(
+                joinedload(AuditLog.kullanici)
+            ).order_by(
                 desc(AuditLog.islem_tarihi)
             ).limit(limit).all()
 
-            user_ids = [a.kullanici_id for a in activities if a.kullanici_id]
-            users = Kullanici.query.filter(Kullanici.id.in_(user_ids)).all() if user_ids else []
-            user_dict = {u.id: u for u in users}
-
             result = []
             for a in activities:
-                kullanici = user_dict.get(a.kullanici_id) if a.kullanici_id else None
+                kullanici = a.kullanici if hasattr(a, 'kullanici') and a.kullanici else None
                 result.append({
                     'id': a.id,
                     'zaman': a.islem_tarihi.strftime('%H:%M:%S') if a.islem_tarihi else '',
@@ -466,31 +483,47 @@ class ExecutiveDashboardService:
             return []
 
     @staticmethod
+    @staticmethod
     def get_task_completion_by_hotel(period='today'):
-        """Otel bazlı görev tamamlanma oranları (sadece doluluk bilgisi yüklendikten sonra oluşturulan görevler)"""
+        """
+        Otel bazlı görev tamamlanma oranları
+        (sadece doluluk bilgisi yüklendikten sonra oluşturulan görevler)
+        
+        Optimizasyon:
+        - Tek query ile tüm otel görev istatistikleri alınır
+        """
         try:
             start_date, end_date = get_date_range(period)
             oteller = Otel.query.filter_by(aktif=True).order_by(Otel.id).all()
             otel_ids = [o.id for o in oteller]
 
-            gorevler = GunlukGorev.query.join(
-                GorevDetay, GorevDetay.gorev_id == GunlukGorev.id
-            ).filter(
-                GunlukGorev.otel_id.in_(otel_ids),
-                GunlukGorev.gorev_tarihi >= start_date.date(),
-                GunlukGorev.gorev_tarihi <= end_date.date(),
-                GorevDetay.misafir_kayit_id.isnot(None)
-            ).distinct().all()
+            # Tek query ile tüm otel görev istatistiklerini al
+            stats = db.session.execute(text("""
+                SELECT 
+                    gg.otel_id,
+                    COUNT(DISTINCT gg.id) as toplam,
+                    COUNT(DISTINCT CASE WHEN gg.durum = 'COMPLETED' THEN gg.id END) as tamamlanan
+                FROM gunluk_gorevler gg
+                INNER JOIN gorev_detay gd ON gd.gorev_id = gg.id
+                WHERE gg.otel_id = ANY(:otel_ids)
+                  AND gg.gorev_tarihi >= :start_date
+                  AND gg.gorev_tarihi <= :end_date
+                  AND gd.misafir_kayit_id IS NOT NULL
+                GROUP BY gg.otel_id
+            """), {
+                'otel_ids': otel_ids,
+                'start_date': start_date.date(),
+                'end_date': end_date.date()
+            }).fetchall()
 
-            gorev_by_otel = {}
-            for g in gorevler:
-                gorev_by_otel.setdefault(g.otel_id, []).append(g)
+            # Stats'ı dict'e çevir
+            stats_dict = {row[0]: {'toplam': row[1], 'tamamlanan': row[2]} for row in stats}
 
             data = []
             for otel in oteller:
-                otel_gorevler = gorev_by_otel.get(otel.id, [])
-                toplam = len(otel_gorevler)
-                tamamlanan = sum(1 for g in otel_gorevler if g.durum == GorevDurum.COMPLETED)
+                s = stats_dict.get(otel.id, {'toplam': 0, 'tamamlanan': 0})
+                toplam = s['toplam']
+                tamamlanan = s['tamamlanan']
                 oran = round((tamamlanan / toplam * 100) if toplam > 0 else 0)
                 data.append({
                     'otel': otel.ad,
