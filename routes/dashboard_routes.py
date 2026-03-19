@@ -515,54 +515,64 @@ def register_dashboard_routes(app):
         # Son stok hareketleri
         son_hareketler = StokHareket.query.order_by(StokHareket.islem_tarihi.desc()).limit(10).all()
         
-        # Grafik verileri
-        # Ürün grup bazlı stok durumu
-        gruplar = UrunGrup.query.filter_by(aktif=True).all()
+        # Grafik verileri — Ürün grup bazlı stok durumu — TEK SORGU ile (N×2 → 1)
+        grup_stok_rows = db.session.query(
+            UrunGrup.grup_adi,
+            db.func.sum(
+                db.case(
+                    (StokHareket.hareket_tipi == 'giris', StokHareket.miktar),
+                    else_=0
+                )
+            ).label('giris'),
+            db.func.sum(
+                db.case(
+                    (StokHareket.hareket_tipi == 'cikis', StokHareket.miktar),
+                    else_=0
+                )
+            ).label('cikis')
+        ).join(Urun, Urun.grup_id == UrunGrup.id
+        ).join(StokHareket, StokHareket.urun_id == Urun.id
+        ).filter(
+            UrunGrup.aktif == True,
+            Urun.aktif == True
+        ).group_by(UrunGrup.id, UrunGrup.grup_adi).all()
+        
         grup_labels = []
         grup_stok_miktarlari = []
+        for row in grup_stok_rows:
+            stok = int((row.giris or 0) - (row.cikis or 0))
+            if stok > 0:
+                grup_labels.append(row.grup_adi)
+                grup_stok_miktarlari.append(stok)
         
-        for grup in gruplar:
-            urunler = Urun.query.filter_by(grup_id=grup.id, aktif=True).all()
-            toplam_stok = 0
-            for urun in urunler:
-                # Mevcut stok hesapla
-                giris = db.session.query(db.func.sum(StokHareket.miktar)).filter(
-                    StokHareket.urun_id == urun.id,
-                    StokHareket.hareket_tipi == 'giris'
-                ).scalar() or 0
-                cikis = db.session.query(db.func.sum(StokHareket.miktar)).filter(
-                    StokHareket.urun_id == urun.id,
-                    StokHareket.hareket_tipi == 'cikis'
-                ).scalar() or 0
-                toplam_stok += (giris - cikis)
-            
-            if toplam_stok > 0:  # Sadece stoku olan grupları göster
-                grup_labels.append(grup.grup_adi)
-                grup_stok_miktarlari.append(toplam_stok)
-        
-        # Son 7 günün stok hareket istatistikleri
+        # Son 7 günün stok hareket istatistikleri — TEK SORGU ile (14 → 1)
         bugun = get_kktc_now().date()
+        yedi_gun_once = bugun - timedelta(days=6)
+        
+        stok_7gun = db.session.query(
+            db.func.date(StokHareket.islem_tarihi).label('gun'),
+            StokHareket.hareket_tipi,
+            db.func.coalesce(db.func.sum(StokHareket.miktar), 0).label('toplam')
+        ).filter(
+            db.func.date(StokHareket.islem_tarihi) >= yedi_gun_once
+        ).group_by(
+            db.func.date(StokHareket.islem_tarihi),
+            StokHareket.hareket_tipi
+        ).all()
+        
+        stok_by_day = {}
+        for row in stok_7gun:
+            stok_by_day.setdefault(row.gun, {})[row.hareket_tipi] = float(row.toplam)
+        
         gun_labels = []
         giris_verileri = []
         cikis_verileri = []
-        
-        for i in range(6, -1, -1):  # Son 7 gün
+        for i in range(6, -1, -1):
             tarih = bugun - timedelta(days=i)
             gun_labels.append(tarih.strftime('%d.%m'))
-            
-            # Giriş
-            giris = db.session.query(db.func.sum(StokHareket.miktar)).filter(
-                db.func.date(StokHareket.islem_tarihi) == tarih,
-                StokHareket.hareket_tipi == 'giris'
-            ).scalar() or 0
-            giris_verileri.append(float(giris))
-            
-            # Çıkış
-            cikis = db.session.query(db.func.sum(StokHareket.miktar)).filter(
-                db.func.date(StokHareket.islem_tarihi) == tarih,
-                StokHareket.hareket_tipi == 'cikis'
-            ).scalar() or 0
-            cikis_verileri.append(float(cikis))
+            day_data = stok_by_day.get(tarih, {})
+            giris_verileri.append(day_data.get('giris', 0))
+            cikis_verileri.append(day_data.get('cikis', 0))
         
         # Dashboard bildirimleri (Satın Alma Modülü)
         dashboard_bildirimleri = []
@@ -896,38 +906,37 @@ def register_dashboard_routes(app):
         zimmet_kullanilan = [float(u[2] or 0) for u in zimmet_urunler]
         zimmet_kalan = [float(u[3] or 0) for u in zimmet_urunler]
         
-        # Günlük tüketim trendi (son 7 gün)
+        # Günlük tüketim trendi (son 7 gün) — TEK SORGU ile
+        yedi_gun_baslangic = (get_kktc_now() - timedelta(days=6)).replace(hour=0, minute=0, second=0, microsecond=0)
+        gunluk_tuketim_rows = db.session.query(
+            db.func.date(MinibarIslem.islem_tarihi).label('gun'),
+            db.func.coalesce(db.func.sum(MinibarIslemDetay.eklenen_miktar), 0).label('toplam')
+        ).join(MinibarIslem).filter(
+            MinibarIslem.personel_id == kullanici_id,
+            MinibarIslem.islem_tarihi >= yedi_gun_baslangic
+        ).group_by(db.func.date(MinibarIslem.islem_tarihi)).all()
+        
+        tuketim_by_date = {row.gun: float(row.toplam) for row in gunluk_tuketim_rows}
         gunluk_tuketim = []
         gunluk_labels = []
         for i in range(6, -1, -1):
-            gun = get_kktc_now() - timedelta(days=i)
-            gun_baslangic = gun.replace(hour=0, minute=0, second=0, microsecond=0)
-            gun_bitis = gun_baslangic + timedelta(days=1)
-            
-            tuketim = db.session.query(
-                db.func.sum(MinibarIslemDetay.eklenen_miktar)
-            ).join(MinibarIslem).filter(
-                MinibarIslem.personel_id == kullanici_id,
-                MinibarIslem.islem_tarihi >= gun_baslangic,
-                MinibarIslem.islem_tarihi < gun_bitis
-            ).scalar() or 0
-            
-            gunluk_tuketim.append(float(tuketim))
+            gun = (get_kktc_now() - timedelta(days=i)).date()
             gunluk_labels.append(gun.strftime('%d.%m'))
+            gunluk_tuketim.append(tuketim_by_date.get(gun, 0))
         
-        # Minibar işlem tipi dağılımı
-        islem_ilk_dolum = MinibarIslem.query.filter_by(
-            personel_id=kullanici_id,
-            islem_tipi='ilk_dolum'
-        ).count()
-        islem_yeniden_dolum = MinibarIslem.query.filter_by(
-            personel_id=kullanici_id,
-            islem_tipi='yeniden_dolum'
-        ).count()
-        islem_eksik_tamamlama = MinibarIslem.query.filter_by(
-            personel_id=kullanici_id,
-            islem_tipi='eksik_tamamlama'
-        ).count()
+        # Minibar işlem tipi dağılımı — TEK SORGU ile
+        islem_tipi_counts = dict(
+            db.session.query(
+                MinibarIslem.islem_tipi,
+                db.func.count(MinibarIslem.id)
+            ).filter(
+                MinibarIslem.personel_id == kullanici_id,
+                MinibarIslem.islem_tipi.in_(['ilk_dolum', 'yeniden_dolum', 'eksik_tamamlama'])
+            ).group_by(MinibarIslem.islem_tipi).all()
+        )
+        islem_ilk_dolum = islem_tipi_counts.get('ilk_dolum', 0)
+        islem_yeniden_dolum = islem_tipi_counts.get('yeniden_dolum', 0)
+        islem_eksik_tamamlama = islem_tipi_counts.get('eksik_tamamlama', 0)
         
         return render_template('kat_sorumlusu/dashboard.html',
                              gorev_ozeti=gorev_ozeti,

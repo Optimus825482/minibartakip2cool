@@ -52,11 +52,11 @@ class Config:
     # PostgreSQL Optimized Engine Options - Performance Optimized
     SQLALCHEMY_ENGINE_OPTIONS = {
         # Connection Pool Configuration - OPTIMIZED FOR GUNICORN (4 workers × 4 threads)
-        'pool_size': 8,                     # 8 connections per worker (matches thread count)
-        'max_overflow': 8,                  # Max 16 connections per worker
+        'pool_size': 16,                    # 16 connections per worker (increased from 8)
+        'max_overflow': 16,                 # Max 32 connections per worker (increased from 8)
         'pool_timeout': 30,                 # 30 saniye wait timeout
-        'pool_recycle': 900,                # 15 dakikada bir recycle (cloud-friendly)
-        'pool_pre_ping': True,              # Health check before use
+        'pool_recycle': 3600,               # 1 saatte bir recycle (gereksiz reconnect azaltır)
+        'pool_pre_ping': False,             # Kaldırıldı — her sorgu öncesi ping overhead'i
         
         # Connection Management
         'pool_reset_on_return': 'rollback',  # Reset connections on return

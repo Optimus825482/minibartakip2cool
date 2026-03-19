@@ -433,53 +433,67 @@ def before_cursor_execute(conn, cursor, statement, parameters, context, executem
 
 @event.listens_for(Engine, "after_cursor_execute")
 def after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
-    """Query bittikten sonra logla"""
+    """Query bittikten sonra logla - in-memory buffer ile batch insert"""
     try:
-        # Execution time hesapla
         total_time = time.time() - conn.info['query_start_time'].pop(-1)
         
-        # Sadece yavaş query'leri logla (>100ms) - performans için optimize edildi
-        if total_time > 0.1:  # 100ms üzeri query'leri logla
-            # Flask request context varsa endpoint bilgisini al
+        # Sadece yavaş query'leri logla (>500ms) - threshold yükseltildi
+        if total_time > 0.5:
             endpoint = None
             user_id = None
             
             if has_request_context():
                 endpoint = request.endpoint
-                # Session'dan user_id al (varsa)
                 from flask import session
                 user_id = session.get('user_id')
             
-            # Query'yi connection-level operation ile logla (flush-safe)
-            try:
-                # Raw SQL kullan - session.add() yerine
-                from models import db
-                from sqlalchemy import text
-                import uuid
-                
-                # Yeni connection al (mevcut transaction'dan bağımsız)
-                with db.engine.connect() as log_conn:
-                    log_conn.execute(
-                        text("""
-                            INSERT INTO query_logs (query_text, execution_time, endpoint, user_id, timestamp)
-                            VALUES (:query_text, :execution_time, :endpoint, :user_id, NOW())
-                        """),
-                        {
-                            'query_text': statement[:2000],
-                            'execution_time': total_time,
-                            'endpoint': endpoint,
-                            'user_id': user_id
-                        }
-                    )
-                    log_conn.commit()
-                
-            except Exception as log_error:
-                # Logging hatası ana query'yi etkilememeli
-                logger.debug(f"Query log hatası: {str(log_error)}")
+            # Buffer'a ekle, yeni connection AÇMA
+            _query_log_buffer.append({
+                'query_text': statement[:1000],
+                'execution_time': total_time,
+                'endpoint': endpoint,
+                'user_id': user_id
+            })
+            
+            # Buffer 20 kayıt birikince veya 30 saniye geçince flush et
+            if len(_query_log_buffer) >= 20:
+                _flush_query_log_buffer()
                 
     except Exception as e:
-        # Event listener hatası uygulamayı çökertmemeli
         logger.debug(f"Query event listener hatası: {str(e)}")
+
+
+# In-memory buffer for query logs
+_query_log_buffer = []
+_last_flush_time = time.time()
+
+
+def _flush_query_log_buffer():
+    """Buffer'daki query log'larını toplu olarak DB'ye yaz"""
+    global _query_log_buffer, _last_flush_time
+    if not _query_log_buffer:
+        return
+    
+    logs_to_write = _query_log_buffer[:]
+    _query_log_buffer = []
+    _last_flush_time = time.time()
+    
+    try:
+        from models import db
+        from sqlalchemy import text
+        
+        with db.engine.connect() as log_conn:
+            for log_entry in logs_to_write:
+                log_conn.execute(
+                    text("""
+                        INSERT INTO query_logs (query_text, execution_time, endpoint, user_id, timestamp)
+                        VALUES (:query_text, :execution_time, :endpoint, :user_id, NOW())
+                    """),
+                    log_entry
+                )
+            log_conn.commit()
+    except Exception as e:
+        logger.debug(f"Query log flush hatası: {str(e)}")
 
 
 def setup_query_logging():

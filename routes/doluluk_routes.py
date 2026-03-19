@@ -68,34 +68,40 @@ def gunluk_doluluk():
         # Template için oda listesi oluştur
         from models import Oda, Kat, MisafirKayit
         from sqlalchemy import and_
+        from sqlalchemy.orm import joinedload
         
-        oda_query = Oda.query.filter_by(aktif=True).join(Kat)
+        oda_query = Oda.query.options(joinedload(Oda.kat)).filter_by(aktif=True).join(Kat)
         if secili_otel_id:
             oda_query = oda_query.filter(Kat.otel_id == secili_otel_id)
         
         odalar = oda_query.order_by(Kat.kat_adi, Oda.oda_no).all()
+        oda_ids = [oda.id for oda in odalar]
         
-        # Görev durumlarını al
+        # Görev durumlarını TOPLU al
         from models import GorevDetay, GunlukGorev
         gorev_durumlari = {}
-        gorev_detaylari = GorevDetay.query.join(GunlukGorev).filter(
-            GunlukGorev.gorev_tarihi == secili_tarih
-        ).all()
-        for detay in gorev_detaylari:
-            gorev_durumlari[detay.oda_id] = detay.durum
+        if oda_ids:
+            gorev_detaylari = GorevDetay.query.join(GunlukGorev).filter(
+                GunlukGorev.gorev_tarihi == secili_tarih,
+                GorevDetay.oda_id.in_(oda_ids)
+            ).all()
+            for detay in gorev_detaylari:
+                gorev_durumlari[detay.oda_id] = detay.durum
+        
+        # Misafir kayıtlarını TOPLU al (N+1 yerine tek sorgu)
+        misafir_dict = {}
+        if oda_ids:
+            misafirler = MisafirKayit.query.filter(
+                MisafirKayit.oda_id.in_(oda_ids),
+                MisafirKayit.giris_tarihi <= secili_tarih,
+                MisafirKayit.cikis_tarihi > secili_tarih
+            ).all()
+            for m in misafirler:
+                misafir_dict[m.oda_id] = m
         
         rapor = []
         for oda in odalar:
-            # O odanın o tarihteki misafir bilgisi
-            misafir = MisafirKayit.query.filter(
-                and_(
-                    MisafirKayit.oda_id == oda.id,
-                    MisafirKayit.giris_tarihi <= secili_tarih,
-                    MisafirKayit.cikis_tarihi > secili_tarih
-                )
-            ).first()
-            
-            # Görev durumunu al
+            misafir = misafir_dict.get(oda.id)
             gorev_durumu = gorev_durumlari.get(oda.id, 'pending')
             
             rapor.append({
@@ -297,13 +303,23 @@ def kat_doluluk_detay(kat_id):
                 kontrol_edilen_odalar[dnd_kayit.oda_id] = 'dnd'
         
         # 2. Eski görev sisteminden de DND bilgilerini al (geriye uyumluluk)
+        # DND kontrol kayıtlarını TOPLU al (N+1 yerine)
+        dnd_pending_detay_ids = [
+            detay.id for detay in gorev_detaylari_db
+            if detay.oda_id in oda_ids and detay.durum == 'dnd_pending' and detay.oda_id not in dnd_bilgileri
+        ]
+        dnd_kontrol_map = {}  # gorev_detay_id -> [kontroller]
+        if dnd_pending_detay_ids:
+            tum_dnd_kontroller = DNDKontrol.query.filter(
+                DNDKontrol.gorev_detay_id.in_(dnd_pending_detay_ids)
+            ).order_by(DNDKontrol.kontrol_zamani.desc()).all()
+            for dk in tum_dnd_kontroller:
+                dnd_kontrol_map.setdefault(dk.gorev_detay_id, []).append(dk)
+        
         for detay in gorev_detaylari_db:
             if detay.oda_id in oda_ids and detay.durum == 'dnd_pending':
-                # Eğer bağımsız DND kaydı yoksa, eski sistemden al
                 if detay.oda_id not in dnd_bilgileri:
-                    # DNDKontrol tablosundan bu görev için DND kayıtlarını say
-                    dnd_kayitlari = DNDKontrol.query.filter_by(gorev_detay_id=detay.id).order_by(DNDKontrol.kontrol_zamani.desc()).all()
-                    
+                    dnd_kayitlari = dnd_kontrol_map.get(detay.id, [])
                     if dnd_kayitlari:
                         dnd_bilgileri[detay.oda_id] = {
                             'dnd_sayisi': len(dnd_kayitlari),
@@ -326,19 +342,55 @@ def kat_doluluk_detay(kat_id):
         arrivals_gorevler = []
         departures_gorevler = []
         
+        # ===== TOPLU SORGULAR (N+1 yerine) =====
+        # 1. Misafir kayıtlarını toplu al
+        misafir_dict = {}
+        if oda_ids:
+            misafirler = MisafirKayit.query.filter(
+                MisafirKayit.oda_id.in_(oda_ids),
+                MisafirKayit.giris_tarihi <= secili_tarih,
+                MisafirKayit.cikis_tarihi >= secili_tarih
+            ).all()
+            for m in misafirler:
+                misafir_dict[m.oda_id] = m
+        
+        # 2. Son çıkış tarihlerini toplu al (boş odalar için)
+        son_cikis_dict = {}
+        if oda_ids:
+            son_cikislar = db.session.query(
+                MisafirKayit.oda_id,
+                func.max(MisafirKayit.cikis_tarihi).label('son_cikis')
+            ).filter(
+                MisafirKayit.oda_id.in_(oda_ids),
+                MisafirKayit.cikis_tarihi < secili_tarih
+            ).group_by(MisafirKayit.oda_id).all()
+            for row in son_cikislar:
+                son_cikis_dict[row.oda_id] = row.son_cikis
+        
+        # 3. Son kontrol tarihlerini toplu al (boş odalar için)
+        son_kontrol_dict = {}
+        if oda_ids:
+            son_kontroller = db.session.query(
+                MinibarIslem.oda_id,
+                func.max(MinibarIslem.islem_tarihi).label('son_kontrol')
+            ).filter(
+                MinibarIslem.oda_id.in_(oda_ids)
+            ).group_by(MinibarIslem.oda_id).all()
+            for row in son_kontroller:
+                son_kontrol_dict[row.oda_id] = row.son_kontrol
+        
         for oda in odalar:
             # Bugün için misafir kaydı var mı? (bugün çıkış yapanlar DAHİL)
-            misafir = MisafirKayit.query.filter(
-                MisafirKayit.oda_id == oda.id,
-                MisafirKayit.giris_tarihi <= secili_tarih,
-                MisafirKayit.cikis_tarihi >= secili_tarih  # >= ile bugün çıkış yapanlar da dahil
-            ).first()
+            # TOPLU SORGU ile alındı — dict lookup O(1)
+            misafir = misafir_dict.get(oda.id)
             
             durum = "bos"
             misafir_info = None
             kalan_gun = None
             varis_saati = None
             cikis_saati = None
+            son_cikis_tarihi = None
+            son_kontrol_tarihi = None
             
             # Görev saatlerini al
             if oda.id in gorev_saatleri:
@@ -381,21 +433,9 @@ def kat_doluluk_detay(kat_id):
             else:
                 bos_sayisi += 1
                 
-                # ✅ YENİ: BOŞ ODALAR İÇİN SON ÇIKIŞ TARİHİ VE SON KONTROL TARİHİ
-                # Son çıkış yapan misafiri bul (bugünden önceki en son çıkış)
-                son_misafir = MisafirKayit.query.filter(
-                    MisafirKayit.oda_id == oda.id,
-                    MisafirKayit.cikis_tarihi < secili_tarih
-                ).order_by(MisafirKayit.cikis_tarihi.desc()).first()
-                
-                son_cikis_tarihi = son_misafir.cikis_tarihi if son_misafir else None
-                
-                # Son minibar kontrol tarihini bul (herhangi bir işlem)
-                son_kontrol = MinibarIslem.query.filter(
-                    MinibarIslem.oda_id == oda.id
-                ).order_by(MinibarIslem.islem_tarihi.desc()).first()
-                
-                son_kontrol_tarihi = son_kontrol.islem_tarihi if son_kontrol else None
+                # ✅ TOPLU SORGU ile alındı — dict lookup O(1)
+                son_cikis_tarihi = son_cikis_dict.get(oda.id)
+                son_kontrol_tarihi = son_kontrol_dict.get(oda.id)
             
             # Kontrol durumunu belirle (hem dolu hem boş odalar için)
             kontrol_durumu = kontrol_edilen_odalar.get(oda.id, None)

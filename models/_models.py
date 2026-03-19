@@ -383,6 +383,12 @@ class Urun(db.Model):
 class StokHareket(db.Model):
     """Stok hareketleri tablosu - Depo giriş/çıkış"""
     __tablename__ = 'stok_hareketleri'
+    __table_args__ = (
+        db.Index('idx_stok_hareket_urun_tipi_tarih', 'urun_id', 'hareket_tipi', 'islem_tarihi'),
+        db.Index('idx_stok_hareket_urun', 'urun_id'),
+        db.Index('idx_stok_hareket_tarih', 'islem_tarihi'),
+        db.Index('idx_stok_hareket_yapan', 'islem_yapan_id'),
+    )
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     urun_id = db.Column(db.Integer, db.ForeignKey('urunler.id'), nullable=False)
@@ -465,6 +471,11 @@ class MinibarIslem(db.Model):
 class MinibarIslemDetay(db.Model):
     """Minibar işlem detay tablosu"""
     __tablename__ = 'minibar_islem_detay'
+    __table_args__ = (
+        db.Index('idx_minibar_detay_islem', 'islem_id'),
+        db.Index('idx_minibar_detay_urun', 'urun_id'),
+        db.Index('idx_minibar_detay_zimmet', 'zimmet_detay_id'),
+    )
     
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     islem_id = db.Column(db.Integer, db.ForeignKey('minibar_islemleri.id'), nullable=False)
