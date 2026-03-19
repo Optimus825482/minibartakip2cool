@@ -24,12 +24,23 @@ def get_depo_sorumlusu_oteller(kullanici_id):
     """
     from models import db
     
-    oteller = db.session.query(Otel).join(KullaniciOtel).filter(
-        KullaniciOtel.kullanici_id == kullanici_id,
-        Otel.aktif == True
-    ).order_by(Otel.id).all()
-    
-    return oteller
+    try:
+        oteller = db.session.query(Otel).join(KullaniciOtel).filter(
+            KullaniciOtel.kullanici_id == kullanici_id,
+            Otel.aktif == True
+        ).order_by(Otel.id).all()
+        
+        # Debug log
+        if not oteller:
+            logger.warning(f"Depo sorumlusu {kullanici_id} için otel ataması bulunamadı")
+        else:
+            logger.info(f"Depo sorumlusu {kullanici_id} için {len(oteller)} otel bulundu: {[o.ad for o in oteller]}")
+        
+        return oteller
+    except Exception as e:
+        logger.error(f"Depo sorumlusu otelleri alınırken hata: {e}")
+        db.session.rollback()
+        return []
 
 
 def depo_sorumlusu_otel_erisimi(kullanici_id, otel_id):
