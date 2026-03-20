@@ -1,0 +1,182 @@
+version: "3.8"
+
+# ============================================
+# PRODUCTION Docker Compose - VPS Deploy
+# Nginx reverse proxy arkasında çalışır
+# ============================================
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: minibar_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${DB_USER:-minibar_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-minibar_takip}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=en_US.UTF-8"
+      TZ: Europe/Nicosia
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backups:/backups
+    networks:
+      - minibar_network
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${DB_USER:-minibar_user} -d ${DB_NAME:-minibar_takip}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Production PostgreSQL tuning
+    command: >
+      postgres
+      -c shared_preload_libraries=pg_stat_statements
+      -c pg_stat_statements.track=all
+      -c max_connections=100
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c work_mem=4MB
+      -c min_wal_size=1GB
+      -c max_wal_size=4GB
+      -c log_min_duration_statement=1000
+
+  # Redis - Celery Broker + Cache
+  redis:
+    image: redis:7-alpine
+    container_name: minibar_redis
+    restart: unless-stopped
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - minibar_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Flask Application (Nginx arkasında, sadece localhost'a aç)
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minibar_app
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:5001:5000" # Sadece localhost — Nginx proxy yapacak
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-minibar_user}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-minibar_takip}
+      DB_TYPE: postgresql
+      FLASK_ENV: production
+      SECRET_KEY: ${SECRET_KEY}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      CACHE_ENABLED: "true"
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-3}
+      GUNICORN_THREADS: ${GUNICORN_THREADS:-6}
+      GUNICORN_TIMEOUT: ${GUNICORN_TIMEOUT:-300}
+      ML_ENABLED: ${ML_ENABLED:-true}
+      ML_MIN_DATA_POINTS: 30
+      TZ: Europe/Nicosia
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ./uploads:/app/uploads
+      - ./xls:/app/xls
+      - ./static:/app/static
+      - ./backups:/backups
+      - ml_models:/app/ml_models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - minibar_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
+  # Celery Worker
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minibar_celery_worker
+    restart: unless-stopped
+    command: celery -A celery_app worker --loglevel=info --concurrency=2
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-minibar_user}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-minibar_takip}
+      DB_TYPE: postgresql
+      FLASK_ENV: production
+      SECRET_KEY: ${SECRET_KEY}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      ML_ENABLED: ${ML_ENABLED:-true}
+      ML_MIN_DATA_POINTS: 30
+      TZ: Europe/Nicosia
+      PYTHONUNBUFFERED: 1
+    volumes:
+      - ./uploads:/app/uploads
+      - ./backups:/backups
+      - ml_models:/app/ml_models
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - minibar_network
+
+  # Celery Beat - Zamanlanmış görevler
+  celery-beat:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minibar_celery_beat
+    restart: unless-stopped
+    command: celery -A celery_app beat --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-minibar_user}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-minibar_takip}
+      DB_TYPE: postgresql
+      FLASK_ENV: production
+      SECRET_KEY: ${SECRET_KEY}
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      TZ: Europe/Nicosia
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - minibar_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  ml_models:
+    driver: local
+
+networks:
+  minibar_network:
+    driver: bridge
