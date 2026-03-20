@@ -682,6 +682,42 @@ def register_dashboard_routes(app):
                     doluluk_raporu['doluluk_orani'] = round((doluluk_raporu['dolu_oda'] / doluluk_raporu['toplam_oda']) * 100)
                 else:
                     doluluk_raporu['doluluk_orani'] = 0
+                # ORM objelerini cache-safe dict'lere çevir
+                if doluluk_raporu.get('kat_bazli'):
+                    for kid, kinfo in doluluk_raporu['kat_bazli'].items():
+                        kat_obj = kinfo.get('kat', None)
+                        if hasattr(kat_obj, 'id'):
+                            # SQLAlchemy ORM objesi → dict'e çevir
+                            kinfo['kat'] = {'id': kat_obj.id, 'kat_adi': getattr(kat_obj, 'kat_adi', f'Kat {kid}')}
+                        elif kat_obj is None or isinstance(kat_obj, str):
+                            # None veya string ise fallback dict oluştur
+                            kinfo['kat'] = {'id': kid, 'kat_adi': f'Kat {kid}'}
+                        # Zaten dict ise (cache'den gelmiş) dokunma
+                        if kinfo.get('odalar'):
+                            kinfo['odalar'] = [
+                                {
+                                    'oda': {'id': o['oda'].id, 'oda_no': o['oda'].oda_no} if hasattr(o.get('oda', None), 'id') else o.get('oda'),
+                                    'misafir': None,
+                                    'kalan_gun': o.get('kalan_gun', 0)
+                                } for o in kinfo['odalar']
+                            ]
+                        if kinfo.get('bos_odalar'):
+                            kinfo['bos_odalar'] = [
+                                {'id': o.id, 'oda_no': o.oda_no} if hasattr(o, 'id') else o
+                                for o in kinfo['bos_odalar']
+                            ]
+                # dolu_odalar listesini de serialize et
+                if doluluk_raporu.get('dolu_odalar'):
+                    doluluk_raporu['dolu_odalar'] = [
+                        {
+                            'oda': {'id': o['oda'].id, 'oda_no': o['oda'].oda_no} if hasattr(o.get('oda', None), 'id') else o.get('oda'),
+                            'misafir': None,
+                            'kalan_gun': o.get('kalan_gun', 0)
+                        } for o in doluluk_raporu['dolu_odalar']
+                    ]
+                # tarih objesini string'e çevir
+                if doluluk_raporu.get('tarih') and hasattr(doluluk_raporu['tarih'], 'isoformat'):
+                    doluluk_raporu['tarih'] = doluluk_raporu['tarih'].isoformat()
         except Exception as e:
             print(f"Doluluk raporu hatası: {str(e)}")
         
@@ -721,6 +757,17 @@ def register_dashboard_routes(app):
         ).filter_by(
             personel_id=kullanici_id
         ).order_by(MinibarIslem.islem_tarihi.desc()).limit(10).all()
+        
+        # son_islemler'i cache-safe dict'lere çevir
+        son_islemler = [
+            {
+                'oda': {'oda_no': islem.oda.oda_no} if islem.oda else {'oda_no': '-'},
+                'islem_tipi': islem.islem_tipi,
+                'aciklama': islem.aciklama,
+                'islem_tarihi': islem.islem_tarihi.strftime('%d.%m.%Y %H:%M') if islem.islem_tarihi else '-'
+            }
+            for islem in son_islemler
+        ]
         
         # Grafik verileri - En çok kullanılan 5 ürün (son 7 gün)
         yedi_gun_once = get_kktc_now() - timedelta(days=7)

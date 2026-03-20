@@ -125,12 +125,13 @@ block content %}
         doluluk_orani = ((kat_info.dolu_oda_sayisi / kat_info.toplam_oda_sayisi)
         * 100) | int if kat_info.toplam_oda_sayisi > 0 else 0 %}
         <a
-          href="{{ url_for('doluluk.kat_doluluk_detay', kat_id=kat_info.kat.id) }}"
+          href="{{ url_for('doluluk.kat_doluluk_detay', kat_id=kat_id) }}"
           class="group relative bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-700 dark:to-slate-800 rounded-xl p-4 border-2 border-slate-200 dark:border-slate-600 transition-all duration-200 active:scale-95"
         >
           <div class="text-center mb-3">
             <span class="text-lg font-bold text-slate-900 dark:text-white"
-              >{{ kat_info.kat.kat_adi }}</span
+              >{{ kat_info.kat.kat_adi if kat_info.kat is mapping else
+              kat_info.kat }}</span
             >
           </div>
           <div class="flex items-center justify-center mb-2">
@@ -718,7 +719,8 @@ block content %}
               <td
                 class="px-2 py-3 text-sm text-slate-500 dark:text-slate-400 hide-tablet"
               >
-                📅 {{ islem.islem_tarihi.strftime('%d.%m.%Y %H:%M') }}
+                📅 {{ islem.islem_tarihi if islem.islem_tarihi is string else
+                islem.islem_tarihi.strftime('%d.%m.%Y %H:%M') }}
               </td>
             </tr>
             {% endfor %}
