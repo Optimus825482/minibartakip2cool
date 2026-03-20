@@ -249,7 +249,7 @@ class ExecutiveDashboardService:
                         COALESCE(SUM(mid.tuketim), 0) as toplam_tuketim
                     FROM katlar k
                     LEFT JOIN odalar o ON o.kat_id = k.id AND o.aktif = true
-                    LEFT JOIN oda_kontrol_kaydi okk ON okk.oda_id = o.id 
+                    LEFT JOIN oda_kontrol_kayitlari okk ON okk.oda_id = o.id 
                         AND okk.kontrol_tarihi >= :start_date 
                         AND okk.kontrol_tarihi < :end_date
                         AND okk.personel_id NOT IN :excluded
@@ -526,7 +526,7 @@ class ExecutiveDashboardService:
                 SELECT 
                     gg.otel_id,
                     COUNT(DISTINCT gg.id) as toplam,
-                    COUNT(DISTINCT CASE WHEN gg.durum = 'COMPLETED' THEN gg.id END) as tamamlanan
+                    COUNT(DISTINCT CASE WHEN gg.durum = 'completed' THEN gg.id END) as tamamlanan
                 FROM gunluk_gorevler gg
                 INNER JOIN gorev_detaylari gd ON gd.gorev_id = gg.id
                 WHERE gg.otel_id = ANY(:otel_ids)
